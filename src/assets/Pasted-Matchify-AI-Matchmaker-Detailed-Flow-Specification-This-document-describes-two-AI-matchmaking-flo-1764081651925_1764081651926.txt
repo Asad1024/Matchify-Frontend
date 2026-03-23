@@ -1,0 +1,160 @@
+Matchify AI Matchmaker – Detailed Flow Specification
+This document describes two AI matchmaking flows for Matchify: 1) a TikTok-style fast visual
+flow, and 2) a deeper image-grid based flow. Both are designed to model real human attraction
+patterns while staying configurable and fair.
+1. High-Level Overview
+The AI Matchmaker system in Matchify has two primary onboarding flows: • Flow A –
+TikTok-Style Fast Matching: a rapid, swipe-based visual preference capture flow that feels like
+short-form video apps. • Flow B – Image Grid Selection: a slower, more intentional flow with
+5–10 images per step, ideal for mapping deeper emotional and life-goal compatibility. Both
+flows feed into a shared AI matching engine that calculates compatibility scores using visual
+attraction, energy, lifestyle, values, goals, and dealbreakers.
+2. Flow A – TikTok-Style Fast Matching
+2.1 Goal of Flow A
+Flow A is designed for speed and engagement. The user makes 10–20 quick visual decisions
+by swiping on full-screen cards. From those swipes, AI infers: • Physical attraction preferences
+(face, style, age band) • Energy/vibe preferences (playful, calm, confident, serious) • Lifestyle
+attraction (party vs cozy vs travel vs fitness) • Future direction (family-oriented, ambitious,
+free-spirit, luxury)
+2.2 Screen-by-Screen Flow
+Screen A1 – Intro to AI Matchmaker (TikTok Mode)
+• Heading: “Let us quickly learn what attracts you.”
+• Subtext: “Swipe up for YES, down for NO. Just follow your instinct.”
+• CTA Button: “Start in 20 seconds” which launches the first full-screen card.
+Screen A2 – Visual Attraction Cards (Faces & Looks)
+• UI: Full-screen AI-generated faces representing different styles (classy, cute, sporty, glam,
+minimal, artsy).
+• Interaction: Swipe Up = “I find this attractive”, Swipe Down = “Not my type”.
+• Count: 5–8 cards minimum to start building a strong attraction vector.
+• Data captured per card: style tags, age band, facial energy, grooming level, perceived
+gender/masculinity/femininity.
+Screen A3 – Energy & Personality Vibe Cards
+• UI: Full-screen images or short loops showing different social energies (e.g., laughing in a
+group, calm reading, intense focused work, playful dancing).
+• Interaction: Same swipe logic (Up = YES, Down = NO).
+• Goal: Learn whether user is attracted to calm vs extrovert vs mysterious vs confident
+energies.
+• Data: energy_tags = {calm, extrovert, playful, intense, intellectual}.
+Screen A4 – Lifestyle Attraction Scenes
+• UI: Visual scenes such as travel, gym life, working in a café, family dinner, rooftop parties,
+nature escapes.
+• Interaction: Swipe YES/NO based on what feels attractive as a shared life context.
+• Data: lifestyle_tags = {travel-heavy, homebody, fitness, nightlife, nature, city-life}.
+Screen A5 – Future Intention Scenes
+• UI: Visual representations of life goals: marriage, kids, career-building, digital nomad lifestyle,
+luxury lifestyle, simple & peaceful life.
+• Interaction: Same swipe gestures.
+• Data: future_pref = {family_priority, career_priority, freedom_priority, wealth_priority,
+simplicity_priority}.
+Screen A6 – Quick Sliders (Optional Fine-Tuning)
+• Sliders shown (with defaults depending on gender):
+– Physical Attraction Importance (0–10)
+– Personality & Vibe Importance (0–10)
+– Life Goals & Vision Importance (0–10)
+– Education & Career Importance (0–10)
+• User can adjust if they want; otherwise keep smart defaults.
+Screen A7 – AI Summary (Attraction Snapshot)
+• Example copy: “You fall for: classy + soft energy; You care a lot about shared goals and a
+cozy lifestyle.”
+• Show a simple breakdown: Looks %, Energy %, Lifestyle %, Future %, Personality %.
+• CTA: “See My Matches”.
+Screen A8 – Match Results (Driven by Flow A)
+• Display top 10–20 profiles sorted by overall compatibility score based heavily on attraction
+vector from Flow A. • Each match card shows: – Photo, Name, Age – Match % – 2–3 bullet
+reasons: “Your styles align”, “Similar future goals”, “You’re both drawn to cozy home & travel.”
+2.3 Data Captured in Flow A
+• attraction_style_vector (from face/look cards) • energy_preference_vector (from vibe cards) •
+lifestyle_preference_vector (from lifestyle scenes) • future_orientation_vector (from future
+scenes) • importance_weights (from sliders) • compressed_attraction_profile_id for indexing
+and fast retrieval.
+3. Flow B – Image Grid Selection (5–10 Images)
+3.1 Goal of Flow B
+Flow B is designed for users who want highly accurate and thoughtful matchmaking. It uses
+5–10 image tiles per question to map visual taste, emotional needs, lifestyle alignment, and
+long-term vision. This flow is especially powerful for users (often women) who prioritize life
+goals, worthiness, and stability alongside attraction.
+3.2 Screen-by-Screen Flow
+Screen B1 – Look Style Grid
+• UI: 8–12 image tiles representing different looks: classy, sporty, corporate, soft/feminine,
+artistic, glam/party, traveler, minimal/simple.
+• Instruction: “Tap 2–3 looks you find most attractive.”
+• Data: style_preference_tags[] and their weights based on taps.
+Screen B2 – Energy Grid
+• UI: 6 images showing different energies (calm, confident, mysterious, playful,
+deep/intellectual, adventurous).
+• Instruction: “Which energies attract you most? Tap 2–3.”
+• Data: energy_pref_tags[] and preference weights.
+Screen B3 – Lifestyle Grid
+• UI: 6–10 scenes: modern apartment, cozy home, gym life, startup environment, travel, social
+events, nature retreats, luxury settings.
+• Instruction: “Which lifestyle feels most attractive to build with someone?”
+• Data: lifestyle_pref_tags[] with emphasis on daily life compatibility.
+Screen B4 – Future Vision Grid
+• UI: images representing: marriage, kids, building a business together, long-term travel, luxury
+goals, peaceful minimal life.
+• Instruction: “Which future feels right for you?” (Tap 1–2).
+• Data: future_vision_tags[] mapping long-term compatibility.
+Screen B5 – Emotional Attractiveness Grid
+• UI: icons/illustrations representing traits: ambition, intelligence, humor, loyalty, kindness,
+leadership, fun & carefree, emotional depth, protectiveness.
+• Instruction: “Pick 3 traits that make someone deeply attractive to you.”
+• Data: emotional_attraction_tags[], used heavily in matching for women.
+Screen B6 – Dealbreakers
+• UI: 8–10 icons representing red flags: smoking, heavy drinking, no job, no ambition, doesn’t
+want kids, opposite core belief, very poor communication, extreme party lifestyle, lack of
+stability.
+• Instruction: “Pick up to 3 non-negotiables. We will never show you matches that violate
+these.”
+• Data: dealbreaker_tags[], enforced hard in matching.
+Screen B7 – Gender-Based Weighting Sliders
+• User selects or has already set identity (man/woman/other) and preferred match gender.
+• Sliders shown for importance of: – Physical attraction – Personality & vibe – Values & lifestyle
+– Life goals & vision – Education & career • Defaults differ by gender (e.g., higher looks weight
+for men, higher goals/stability weight for women) but are editable.
+Screen B8 – AI Attraction Blueprint
+• Personalized summary such as: “You fall for: ambitious, emotionally warm partners with a
+cozy, family-centered lifestyle. Looks matter, but your top filters are goals and values.” • Show
+a bar breakdown of the weights. • Optional “Attraction Type Name”, e.g., “Vision Lover”,
+“Stable Romantic”, “Adventure Seeker”.
+Screen B9 – Match Results (Flow B Powered)
+• Shows a curated set of matches that strongly satisfy: – Visual style & energy – Emotional
+attraction tags – Future vision alignment – All dealbreakers obeyed • Each profile includes a
+short “Why you match” explanation.
+3.3 Data Captured in Flow B
+• style_preference_tags[] with scores • energy_pref_tags[] with scores • lifestyle_pref_tags[]
+with scores • future_vision_tags[] with strengths • emotional_attraction_tags[] •
+dealbreaker_tags[] (hard filters) • weights_by_dimension (looks, personality, values, goals,
+career) • blueprint_profile_id for indexing.
+4. Shared AI Matching Logic (For Both Flows)
+Both Flow A (TikTok-style) and Flow B (Grid-style) feed into a shared compatibility engine. The
+core idea: calculate a weighted similarity between each user’s attraction blueprint and each
+potential partner’s profile attributes.
+4.1 Inputs for a Match Pair (User U, Candidate C)
+• U.attraction_style_vector vs C.look_style_tags • U.energy_preference_vector vs
+C.energy_tags • U.lifestyle_preference_vector vs C.lifestyle_tags • U.future_vision_tags vs
+C.future_orientation • U.emotional_attraction_tags vs C.personality/behavioral tags •
+U.dealbreaker_tags vs C.profile_flags (must ALL pass) • U.weights_by_dimension (looks,
+personality, values, goals, career).
+4.2 Compatibility Score Formula (Simplified)
+TotalScore(U,C) = w_looks * similarity( U.attraction_style_vector, C.look_style_tags ) +
+w_energy * similarity( U.energy_preference_vector, C.energy_tags ) + w_lifestyle * similarity(
+U.lifestyle_preference_vector, C.lifestyle_tags ) + w_goals * similarity( U.future_vision_tags,
+C.future_orientation ) + w_personality * similarity( U.emotional_attraction_tags,
+C.personality_tags ) If any dealbreaker in U.dealbreaker_tags is violated by C.profile_flags, the
+match is discarded regardless of score.
+4.3 Mutual Matching & Ranking
+• Matches are ideally mutual: both U→C and C→U scores should be high. • Ranking can be
+done by: – MutualScore = sqrt(Score(U,C) * Score(C,U)) – Or by averaging. • Top N
+candidates are shown first; others are drip-fed over time to keep engagement high.
+5. Integration with Matchify App & Live Events
+• The AI Matchmaker flows can be accessed from the Side Menu → “AI Matchmaker”. • New
+users may be softly nudged to complete at least Flow A during onboarding. • For live events,
+results of Flow A or B are used to: – Group participants at tables with potential chemistry. –
+Prioritize who is shown in Live Swiping mode. – Generate smarter post-event match
+suggestions.
+6. UX Notes & Best Practices
+• Keep the language playful and non-judgmental; avoid harsh words like “low value”. • Always
+emphasize that users control their preferences (sliders editable). • Make visuals diverse and
+inclusive (skin tones, body types, cultures). • In every flow, give the user something back (a fun
+“Attraction Blueprint”) so the process feels rewarding, not like a survey. • Never surface
+dealbreakers directly to other users; these are for matching logic only.
