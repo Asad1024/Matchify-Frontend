@@ -1050,7 +1050,9 @@ export default function FlowB() {
     if (matchmakerLocked && hasBlueprint) {
       return (
         <div className={`${FLOW_BG} flex flex-col items-center justify-center px-6 text-center`}>
-          <img src={MATCHIFY_LOGO_URL} alt="" className="h-32 w-auto object-contain mb-5" />
+          <div className="inline-flex bg-white/95 rounded-2xl px-6 py-3 mb-5 shadow-lg">
+            <img src={MATCHIFY_LOGO_URL} alt="" className="h-14 w-auto object-contain" />
+          </div>
           <h2 className="text-2xl font-bold text-white mb-2">AI Matchmaker completed</h2>
           <p className="text-sm text-white/75 max-w-sm mb-6">
             Your 30-question profile is locked and now powers future matching and Luna coaching.
@@ -1090,7 +1092,9 @@ export default function FlowB() {
             transition={{ duration: 0.5 }}
             className="flex flex-col items-center"
           >
-            <img src={MATCHIFY_LOGO_URL} alt="" className="h-36 sm:h-40 w-auto object-contain mb-4" />
+            <div className="inline-flex bg-white/95 rounded-2xl px-6 py-3 mb-4 shadow-lg">
+              <img src={MATCHIFY_LOGO_URL} alt="" className="h-16 sm:h-20 w-auto object-contain" />
+            </div>
             <div className="w-32 h-1.5 bg-primary/40 rounded-full mx-auto mb-8">
               <motion.div
                 initial={{ width: 0 }}
@@ -1487,7 +1491,9 @@ export default function FlowB() {
           <BackArrow className="w-5 h-5 text-white" />
         </button>
         <div className="flex-1 flex items-center gap-2">
-          <img src={MATCHIFY_LOGO_URL} alt="" className="h-12 w-auto object-contain" />
+          <div className="bg-white/95 rounded-xl px-2.5 py-1 shadow-sm shrink-0">
+            <img src={MATCHIFY_LOGO_URL} alt="" className="h-8 w-auto object-contain" />
+          </div>
           <div className="relative flex-1 min-w-0">
             <Progress value={progress} className="h-2 bg-white/10" />
             <div className="absolute inset-0 h-2 bg-gradient-to-r from-primary/60 via-pink-400/50 to-rose-500/50 rounded-full blur-sm pointer-events-none" />

@@ -127,7 +127,7 @@ function PhoneMockup() {
           </div>
           <div className="flex-1 bg-gradient-to-b from-primary/15 via-white to-rose-50/80 p-3 flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <BrandLogo className="w-9 h-9 rounded-xl object-contain" alt="" />
+              <BrandLogo className="w-9 h-9 rounded-xl object-contain bg-white p-0.5" alt="" />
               <div className="flex-1 space-y-1">
                 <div className="h-2.5 bg-zinc-200 rounded-full w-3/4" />
                 <div className="h-2 bg-zinc-100 rounded-full w-1/2" />
@@ -179,10 +179,13 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
             transition={{ duration: 0.45 }}
             className="flex justify-center md:justify-start mb-8 md:mb-10"
           >
-            <BrandLogo
-              className="h-[4.25rem] sm:h-[5rem] md:h-[5.5rem] w-auto max-w-[min(100%,280px)] object-contain object-left drop-shadow-[0_8px_32px_rgba(0,0,0,0.25)]"
-              alt="Matchify logo"
-            />
+            {/* White pill so the logo always pops on the gradient hero */}
+            <div className="inline-flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
+              <BrandLogo
+                className="h-9 sm:h-11 w-auto max-w-[9rem] sm:max-w-[11rem] object-contain"
+                alt="Matchify"
+              />
+            </div>
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-12 md:gap-8 items-center">
@@ -477,10 +480,12 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
           viewport={{ once: true }}
           className="max-w-lg mx-auto space-y-4"
         >
-          <BrandLogo
-            className="h-14 sm:h-16 w-auto mx-auto object-contain drop-shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
-            alt="Matchify logo"
-          />
+          <div className="inline-flex items-center bg-white/95 rounded-2xl px-5 py-2.5 shadow-md mx-auto">
+            <BrandLogo
+              className="h-10 sm:h-12 w-auto max-w-[10rem] object-contain"
+              alt="Matchify"
+            />
+          </div>
           <h2 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight leading-tight">
             Start free today.
           </h2>
