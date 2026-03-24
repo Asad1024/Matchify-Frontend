@@ -96,7 +96,7 @@ export default function SelfDiscovery() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6 }}
                 >
-                  <div><strong>Commitment:</strong> {currentUser.commitmentIntention || 'Not set'}</div>
+                  <div><strong>Marriage intention:</strong> {currentUser.commitmentIntention || 'Not set'}</div>
                   <div><strong>Love Language:</strong> {currentUser.loveLanguage || 'Not set'}</div>
                   <div><strong>Top Priority:</strong> {currentUser.topPriorities?.[0] || 'Not set'}</div>
                   <div><strong>Readiness Score:</strong> {currentUser.relationshipReadiness?.score || 0}%</div>

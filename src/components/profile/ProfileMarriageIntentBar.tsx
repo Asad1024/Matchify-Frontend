@@ -42,7 +42,7 @@ type ProfileMarriageIntentBarProps = {
 };
 
 /**
- * Muzz-inspired relationship-intent tracker — inclusive copy (not Muslim-only).
+ * Muzz-style marriage-intentions strip (chatting → casual → serious → marriage).
  */
 export function ProfileMarriageIntentBar({
   user,
@@ -55,15 +55,17 @@ export function ProfileMarriageIntentBar({
   const first = user.name.split(" ")[0] || "Member";
   const heading =
     variant === "self"
-      ? "Your relationship intentions"
-      : `${first}'s relationship intentions`;
+      ? "Your marriage intentions"
+      : `${first}'s marriage intentions`;
 
   return (
     <Card className={`border-primary/15 shadow-sm overflow-hidden ${className}`}>
       <CardContent className="p-4 sm:p-5">
         <h2 className="font-display font-semibold text-base sm:text-lg mb-1 text-foreground">{heading}</h2>
         <p className="text-[11px] text-muted-foreground mb-4">
-          Where you are today — update anytime after AI Matchmaker.
+          {variant === "self"
+            ? "Where you are on the path to marriage — update anytime (e.g. after AI Matchmaker)."
+            : `Where they are on the path to marriage — they update this on their profile / AI Matchmaker.`}
         </p>
         <div className="relative flex items-center justify-between mb-2">
           <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-1.5 bg-muted rounded-full" />

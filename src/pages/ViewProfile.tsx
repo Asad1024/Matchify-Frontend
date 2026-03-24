@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import Header from "@/components/common/Header";
@@ -9,10 +9,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  MapPin, Heart, Users, Calendar, CheckCircle, 
-  MessageCircle, ArrowLeft, Share2, MoreVertical,
-  Sparkles, Award, Flag, Ban, Star, X
+import {
+  MapPin,
+  Heart,
+  Users,
+  Calendar,
+  CheckCircle,
+  MessageCircle,
+  ArrowLeft,
+  Share2,
+  MoreVertical,
+  Sparkles,
+  Award,
+  Flag,
+  Ban,
+  X,
+  Crown,
+  Ruler,
+  Baby,
+  Check,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -20,6 +35,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { BlockReportDialog } from "@/components/common/BlockReportDialog";
 import { MatchInsights } from "@/components/matches/MatchInsights";
+import MatchReveal from "@/components/matches/MatchReveal";
 import { MuzzMarriageTimeline } from "@/components/muzz/MuzzMarriageTimeline";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -30,6 +46,7 @@ import {
   setBoosts,
   isGoldMember,
 } from "@/lib/muzzEconomy";
+import { getReligionLabel } from "@/lib/religionOptions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +54,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { buildApiUrl } from "@/services/api";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 type User = {
   id: string;
@@ -54,7 +73,61 @@ type User = {
   values?: string[] | null;
   commitmentIntention?: string | null;
   marriageTimeline?: string | null;
+  religion?: string | null;
+  height?: string | null;
+  heightCm?: number | null;
+  maritalStatus?: string | null;
+  hasChildren?: string | boolean | null;
 };
+
+function hashId(id: string) {
+  let sum = 0;
+  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
+  return sum;
+}
+
+function aboutMeRows(user: User): { label: string; value: string }[] {
+  const h = hashId(user.id || "x");
+  const fallbackH = ["160cm (5' 3\")", "165cm (5' 5\")", "172cm (5' 8\")"][h % 3];
+  const fallbackM = ["Never Married", "Never Married", "Divorced"][h % 3];
+  const fallbackC = ["Has children", "No children", "Has children"][(h >> 2) % 3];
+
+  let childrenLabel: string;
+  if (user.hasChildren === true || user.hasChildren === "yes" || user.hasChildren === "true") {
+    childrenLabel = "Has children";
+  } else if (user.hasChildren === false || user.hasChildren === "no" || user.hasChildren === "false") {
+    childrenLabel = "No children";
+  } else if (typeof user.hasChildren === "string" && user.hasChildren) {
+    childrenLabel = user.hasChildren;
+  } else {
+    childrenLabel = fallbackC;
+  }
+
+  return [
+    {
+      label: "Height",
+      value: user.height || (user.heightCm != null ? `${user.heightCm}cm` : fallbackH),
+    },
+    { label: "Marital status", value: user.maritalStatus || fallbackM },
+    { label: "Children", value: childrenLabel },
+  ];
+}
+
+function faithChipsFor(user: User): string[] {
+  const tags: string[] = [];
+  if (user.religion && user.religion !== "prefer_not_say") {
+    tags.push(getReligionLabel(user.religion));
+  }
+  if (user.values?.length) {
+    tags.push(...user.values.filter(Boolean).slice(0, 4));
+  }
+  if (!tags.length) {
+    const h = hashId(user.id || "x");
+    const pool = ["Values-led", "Family-oriented", "Open-minded", "Community-minded"];
+    tags.push(pool[h % pool.length], pool[(h + 1) % pool.length]);
+  }
+  return Array.from(new Set(tags)).slice(0, 5);
+}
 
 function hashPairScore(a: string, b: string): number {
   const s = `${a}:${b}`;
@@ -75,6 +148,18 @@ export default function ViewProfile() {
   const [blockReportOpen, setBlockReportOpen] = useState(false);
   const [blockReportType, setBlockReportType] = useState<'block' | 'report' | 'both'>('both');
   const [filtersUnlocked, setFiltersUnlocked] = useState(false);
+  const [likeRevealMatch, setLikeRevealMatch] = useState<{
+    id: string;
+    compatibility: number;
+    user: {
+      id: string;
+      name: string;
+      age?: number | null;
+      avatar?: string | null;
+      location?: string | null;
+      bio?: string | null;
+    };
+  } | null>(null);
 
   // Fetch user profile
   const { data: user, isLoading } = useQuery<User>({
@@ -131,6 +216,72 @@ export default function ViewProfile() {
     return hashPairScore(currentUserId, params.id);
   }, [currentUserId, params?.id]);
 
+  const markMatchRevealedMutation = useMutation({
+    mutationFn: async (matchId: string) => {
+      return apiRequest("PATCH", `/api/matches/${matchId}/reveal`, {});
+    },
+    onSuccess: () => {
+      if (currentUserId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/unrevealed-matches`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/matches`] });
+      }
+    },
+  });
+
+  const likeProfileMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUserId || !user?.id) throw new Error("Missing user");
+      const res = await fetch(buildApiUrl("/api/matches"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          user1Id: currentUserId,
+          user2Id: user.id,
+          compatibility: compatibilityScore,
+        }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(err.message || "Could not send like");
+      }
+      return (await res.json()) as { id: string; compatibility: number; existing?: boolean };
+    },
+    onSuccess: (data) => {
+      if (!user) return;
+      setLikeRevealMatch({
+        id: data.id,
+        compatibility: data.compatibility ?? compatibilityScore,
+        user: {
+          id: user.id,
+          name: user.name,
+          age: user.age,
+          avatar: user.avatar,
+          location: user.location,
+          bio: user.bio,
+        },
+      });
+      if (currentUserId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/unrevealed-matches`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/matches`] });
+      }
+    },
+    onError: (e: Error) => {
+      toast({
+        title: "Like didn’t go through",
+        description: e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const closeLikeReveal = () => {
+    if (likeRevealMatch) {
+      markMatchRevealedMutation.mutate(likeRevealMatch.id);
+    }
+    setLikeRevealMatch(null);
+  };
+
   const activityStats = useMemo(() => {
     const base = hashPairScore(user?.id || "x", "activity");
     return {
@@ -142,7 +293,7 @@ export default function ViewProfile() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="min-h-screen bg-[#faf8f5] pb-24">
         <Header 
           showSearch={false} 
           unreadNotifications={3}
@@ -160,7 +311,7 @@ export default function ViewProfile() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="min-h-screen bg-[#faf8f5] pb-24">
         <Header 
           showSearch={false} 
           unreadNotifications={3}
@@ -182,8 +333,12 @@ export default function ViewProfile() {
     );
   }
 
+  const aboutRows = aboutMeRows(user);
+  const faithChips = faithChipsFor(user);
+  const firstName = user.name.split(/\s+/)[0] || user.name;
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-[#faf8f5] pb-28">
       <Header showSearch={false} unreadNotifications={3} onLogout={logout} />
 
       <div className="max-w-4xl mx-auto">
@@ -363,7 +518,7 @@ export default function ViewProfile() {
           )}
         </motion.div>
 
-        {/* Filter reveal (Muzz-style) */}
+        {/* Premium filter reveal — Muzz-style gold banner */}
         {user.id !== currentUserId && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -371,43 +526,75 @@ export default function ViewProfile() {
             transition={{ delay: 0.12 }}
             className="px-3 sm:px-4 mt-4"
           >
-            <Card className="border-primary/15 overflow-hidden">
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-3 mb-3">
+            <div
+              className={`rounded-2xl border shadow-sm overflow-hidden ${
+                filtersUnlocked
+                  ? "bg-white border-stone-200/80"
+                  : "bg-[#f0e8dc] border-amber-200/60"
+              }`}
+            >
+              {filtersUnlocked ? (
+                <div className="px-4 sm:px-5 pt-4 pb-3 flex items-center gap-2 border-b border-stone-100">
+                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
                   <div>
-                    <h3 className="font-display font-semibold text-base text-foreground">Their filters</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {filtersUnlocked
-                        ? "What they’re looking for in Discover."
-                        : "Blur preview · reveal with Gold or 1 boost."}
+                    <p className="font-display font-bold text-stone-900 text-sm">Their filters</p>
+                    <p className="text-[11px] text-stone-500">What they look for in Discover</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="px-4 sm:px-5 pt-5 pb-4 text-center">
+                    <Crown className="w-9 h-9 mx-auto text-amber-600 mb-3 drop-shadow-sm" strokeWidth={1.5} />
+                    <p className="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] text-amber-950/75 uppercase leading-snug">
+                      Reveal {firstName.toUpperCase()}&apos;s filters
+                    </p>
+                    <p className="text-[11px] text-amber-950/55 mt-2 max-w-xs mx-auto">
+                      See if you match what they’re looking for — Gold or 1 boost.
                     </p>
                   </div>
-                  {!filtersUnlocked && (
-                    <Button size="sm" className="shrink-0" onClick={handleRevealFilters}>
-                      Reveal
+                  <div className="px-4 sm:px-5 pb-5">
+                    <Button
+                      className="w-full h-12 sm:h-14 rounded-xl font-bold text-amber-950 bg-gradient-to-b from-amber-300 via-amber-400 to-amber-600 hover:from-amber-200 hover:to-amber-500 border border-amber-300/80 shadow-md shadow-amber-900/10"
+                      onClick={handleRevealFilters}
+                    >
+                      Check if you match their filters
                     </Button>
-                  )}
-                </div>
+                  </div>
+                </>
+              )}
+              <div
+                className={`px-4 sm:px-5 pb-5 ${filtersUnlocked ? "pt-4" : "-mt-1 border-t border-amber-200/40 bg-white/50"}`}
+              >
                 <div
-                  className={`relative rounded-xl border border-dashed border-primary/20 bg-muted/30 p-3 min-h-[72px] ${
-                    !filtersUnlocked ? "select-none" : ""
+                  className={`relative rounded-xl border p-3 min-h-[64px] ${
+                    filtersUnlocked
+                      ? "border-stone-200 bg-stone-50/80 mt-0"
+                      : "border-amber-100/80 bg-white/80 mt-3 select-none"
                   }`}
                 >
                   {!filtersUnlocked && (
-                    <div className="absolute inset-0 z-10 backdrop-blur-sm bg-background/40 flex items-center justify-center rounded-xl">
-                      <span className="text-xs font-semibold text-muted-foreground">Tap Reveal to unlock</span>
+                    <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-[#faf8f5]/70 flex items-center justify-center rounded-xl">
+                      <span className="text-[11px] font-semibold text-amber-950/50">Unlocked after reveal</span>
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
                     {["Faith & values", "Marriage-minded", "Same city", "Age range match"].map((tag) => (
-                      <Badge key={tag} variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className={
+                          filtersUnlocked
+                            ? "bg-white text-stone-800 border-stone-200 font-medium"
+                            : "bg-amber-50 text-amber-950 border-amber-200/80 font-medium"
+                        }
+                      >
                         {tag}
                       </Badge>
                     ))}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </motion.div>
         )}
 
@@ -421,11 +608,12 @@ export default function ViewProfile() {
           >
             <Card>
               <CardContent className="p-4 sm:p-5">
-                <h3 className="font-display font-semibold text-base mb-3 text-foreground">Similarities</h3>
+                <h3 className="font-display font-semibold text-base mb-3 text-foreground">Your similarities</h3>
                 <div className="flex flex-wrap gap-2">
                   {sameCommitment && user.commitmentIntention && (
                     <Badge className="bg-chart-4/15 text-chart-4 border-chart-4/30">
-                      Both: {user.commitmentIntention}
+                      Same marriage intention ·{" "}
+                      {user.commitmentIntention.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                     </Badge>
                   )}
                   {sharedInterests.map((interest) => (
@@ -439,36 +627,99 @@ export default function ViewProfile() {
           </motion.div>
         )}
 
-        {/* Bio */}
-        {user.bio && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="px-4 mt-6"
-          >
-            <Card>
-              <CardContent className="p-4 sm:p-6">
-                <h2 className="font-display font-semibold text-lg mb-3 text-foreground">About</h2>
-                <p className="text-foreground leading-relaxed">{user.bio}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+        {/* About me — Muzz-style fact rows */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18 }}
+          className="px-3 sm:px-4 mt-4"
+        >
+          <Card className="border-stone-200/80 bg-white shadow-sm">
+            <CardContent className="p-4 sm:p-5">
+              <h3 className="font-display font-semibold text-base mb-4 text-foreground">About me</h3>
+              <div className="space-y-3">
+                {aboutRows.map((row, i) => {
+                  const Icon = i === 0 ? Ruler : i === 1 ? Heart : Baby;
+                  return (
+                    <div
+                      key={row.label}
+                      className="flex items-center gap-3 rounded-xl bg-stone-50/90 border border-stone-100 px-3 py-2.5"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-white border border-stone-200 flex items-center justify-center shrink-0 text-stone-600">
+                        <Icon className="w-4 h-4" strokeWidth={2} />
+                      </div>
+                      <div className="min-w-0 flex-1 flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold text-stone-500">{row.label}</span>
+                        <Badge
+                          variant="secondary"
+                          className="font-semibold bg-white text-stone-800 border-stone-200 shadow-sm"
+                        >
+                          {row.value}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Marriage intentions — Muzz-style timeline */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="px-4 mt-6"
+          transition={{ delay: 0.22 }}
+          className="px-3 sm:px-4 mt-4"
         >
           <MuzzMarriageTimeline
-            firstName={user.name.split(/\s+/)[0] || user.name}
+            firstName={firstName}
             commitmentIntention={user.commitmentIntention}
             marriageTimeline={user.marriageTimeline}
           />
         </motion.div>
+
+        {/* My faith / values — Muzz-style tags */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.24 }}
+          className="px-3 sm:px-4 mt-4"
+        >
+          <Card className="border-stone-200/80 bg-white shadow-sm">
+            <CardContent className="p-4 sm:p-5">
+              <h3 className="font-display font-semibold text-base mb-3 text-foreground">My faith & values</h3>
+              <div className="flex flex-wrap gap-2">
+                {faithChips.map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant="secondary"
+                    className="px-3 py-1.5 text-sm font-medium bg-stone-100 text-stone-800 border-stone-200/80 rounded-full"
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Bio */}
+        {user.bio && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.26 }}
+            className="px-4 mt-6"
+          >
+            <Card className="border-stone-200/80 bg-white shadow-sm">
+              <CardContent className="p-4 sm:p-6">
+                <h2 className="font-display font-semibold text-lg mb-3 text-foreground">In their own words</h2>
+                <p className="text-foreground leading-relaxed">{user.bio}</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         {/* Interests */}
         {user.interests && Array.isArray(user.interests) && user.interests.length > 0 && (
@@ -540,39 +791,56 @@ export default function ViewProfile() {
       {/* Floating quick actions (Muzz-style) */}
       {user.id !== currentUserId && (
         <div
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-full bg-white/95 backdrop-blur-md border border-gray-100 shadow-lg px-2 py-2 safe-bottom"
-          style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full bg-white/95 backdrop-blur-md border border-stone-200/90 shadow-xl px-3 py-2.5 safe-bottom"
+          style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.14)" }}
         >
           <Button
             size="icon"
-            variant="ghost"
-            className="rounded-full h-12 w-12 text-gray-500"
+            className="rounded-full h-12 w-12 bg-zinc-700 text-white hover:bg-zinc-800 shadow-md"
             aria-label="Pass"
             onClick={() => {
               toast({ title: "Passed", description: "We’ll show you fewer similar profiles." });
               setLocation("/explore");
             }}
           >
-            <X className="w-6 h-6" />
+            <X className="w-6 h-6 stroke-[2.5]" />
           </Button>
           <Button
             size="icon"
-            variant="ghost"
-            className="rounded-full h-12 w-12 text-amber-500"
-            aria-label="Compliment"
-            onClick={() => toast({ title: "Compliment", description: "Send a compliment from Menu (demo)." })}
+            className="rounded-full h-11 w-11 bg-violet-600 text-white hover:bg-violet-700 shadow-md border border-violet-500/30"
+            aria-label="Instant match"
+            onClick={() => toast({ title: "Instant match", description: "Demo — opens boosts / Gold from Menu." })}
           >
-            <Star className="w-6 h-6 fill-amber-400/20" />
+            <Sparkles className="w-5 h-5" />
           </Button>
           <Button
             size="icon"
-            className="rounded-full h-14 w-14 bg-primary hover:bg-primary/90 shadow-md"
+            className="rounded-full h-[3.75rem] w-[3.75rem] bg-primary hover:bg-primary/92 shadow-lg shadow-primary/35 border-2 border-white"
             aria-label="Like"
-            onClick={() => toast({ title: "Like sent", description: `You liked ${user.name.split(/\s+/)[0] || user.name}.` })}
+            disabled={likeProfileMutation.isPending}
+            onClick={() => {
+              if (!currentUserId) return;
+              likeProfileMutation.mutate();
+            }}
           >
-            <Heart className="w-7 h-7 text-white fill-white" />
+            <Check className="w-8 h-8 text-white stroke-[3]" />
           </Button>
         </div>
+      )}
+
+      {likeRevealMatch && (
+        <MatchReveal
+          match={{
+            id: likeRevealMatch.id,
+            compatibility: likeRevealMatch.compatibility,
+            user: likeRevealMatch.user,
+          }}
+          onClose={closeLikeReveal}
+          onMessage={(matchedUserId) => {
+            closeLikeReveal();
+            setLocation(`/chat?user=${encodeURIComponent(matchedUserId)}`);
+          }}
+        />
       )}
 
       {/* Block/Report Dialog */}

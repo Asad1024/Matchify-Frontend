@@ -18,13 +18,11 @@ import { getFlowBOptionImage } from "@/lib/attractionFlowImages";
 import { getFlowBOptions, getFlowBSectionOptions, isFlowBImageQuestion, isFlowBSectionQuestion } from "@/lib/flowBImages";
 import { getActorImage } from "@/lib/actorImages";
 import { MATCHIFY_LOGO_URL } from "@/lib/matchifyBranding";
+import { FEMALE_FLOW_ORDER, FLOW_B_STEP_COUNT, MALE_FLOW_ORDER } from "@/lib/flowBStepOrder";
 
 /** AI Matchmaker / Flow B screen theme (Matchify pink, not legacy purple). */
 const FLOW_BG =
   "min-h-screen h-[100dvh] bg-gradient-to-br from-zinc-950 via-rose-950/85 to-zinc-950";
-
-/** AI Matchmaker flow: exactly 30 steps per gender (see MALE_/FEMALE_FLOW_ORDER). */
-const FLOW_B_STEP_COUNT = 30;
 
 // Build option with actor-style image by index
 const actorOpt = (i: number, id: string, label: string, description = "") =>
@@ -92,8 +90,498 @@ const LIP_SHAPES = [
 ];
 
 // Base questions structure - will be customized by gender (MESHK-style)
-const BASE_QUESTIONS = [
-  // SECTION 1: PERSONALITY & ATTRACTION (MESHK-style)
+// ── Shared questions — identical for both genders (self-discovery + dealbreakers) ──
+const SHARED_QUESTIONS = [
+  {
+    id: "kidsQ",
+    title: "What about kids?",
+    subtitle: "Pick 1",
+    description: "",
+    type: "text",
+    max: 1,
+    options: [
+      { id: "want", label: "Want" },
+      { id: "maybe", label: "Open" },
+      { id: "no", label: "No" },
+      { id: "have", label: "Have" },
+    ],
+  },
+  {
+    id: "timeline",
+    title: "When are you looking for something serious?",
+    subtitle: "Pick 1",
+    description: "",
+    type: "text",
+    max: 1,
+    options: [
+      { id: "soon", label: "1–2 years" },
+      { id: "medium", label: "3–5 years" },
+      { id: "long", label: "5+ years" },
+      { id: "flexible", label: "Flexible" },
+    ],
+  },
+  {
+    id: "sd_commitment",
+    title: "What are you looking for right now?",
+    subtitle: "Pick 1",
+    description: "",
+    type: "text",
+    max: 1,
+    options: [
+      { id: "hookup", label: "Casual connections" },
+      { id: "casual", label: "Casual dating" },
+      { id: "serious", label: "Serious relationship" },
+      { id: "marriage", label: "Marriage-minded" },
+    ],
+  },
+  {
+    id: "sd_love_language",
+    title: "How do you most feel loved?",
+    subtitle: "Pick 1",
+    description: "",
+    type: "text",
+    max: 1,
+    options: [
+      { id: "words", label: "Words of Affirmation" },
+      { id: "acts", label: "Acts of Service" },
+      { id: "gifts", label: "Receiving Gifts" },
+      { id: "time", label: "Quality Time" },
+      { id: "touch", label: "Physical Touch" },
+    ],
+  },
+  {
+    id: "sd_priorities",
+    title: "Choose your top relationship priorities",
+    subtitle: "Pick 3",
+    description: "",
+    type: "text",
+    max: 3,
+    options: [
+      { id: "faith", label: "Faith & Spirituality" },
+      { id: "family", label: "Family" },
+      { id: "career", label: "Career & Ambition" },
+      { id: "travel", label: "Travel & Adventure" },
+      { id: "health", label: "Health & Fitness" },
+      { id: "growth", label: "Personal Growth" },
+      { id: "loyalty", label: "Loyalty & Trust" },
+      { id: "humor", label: "Fun & Humour" },
+    ],
+  },
+  {
+    id: "sd_ready_healed",
+    title: "I have healed from past relationship wounds",
+    subtitle: "Pick 1",
+    description: "Rate from 1 (not yet) to 5 (absolutely)",
+    type: "text",
+    max: 1,
+    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
+  },
+  {
+    id: "sd_ready_values",
+    title: "I know my own values and deal-breakers",
+    subtitle: "Pick 1",
+    description: "Rate from 1 (not yet) to 5 (absolutely)",
+    type: "text",
+    max: 1,
+    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
+  },
+  {
+    id: "sd_ready_communication",
+    title: "I communicate openly and honestly",
+    subtitle: "Pick 1",
+    description: "Rate from 1 (not yet) to 5 (absolutely)",
+    type: "text",
+    max: 1,
+    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
+  },
+  {
+    id: "sd_ready_available",
+    title: "I'm emotionally available for a new relationship",
+    subtitle: "Pick 1",
+    description: "Rate from 1 (not yet) to 5 (absolutely)",
+    type: "text",
+    max: 1,
+    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
+  },
+  {
+    id: "sd_ready_respect",
+    title: "I respect different perspectives and boundaries",
+    subtitle: "Pick 1",
+    description: "Rate from 1 (not yet) to 5 (absolutely)",
+    type: "text",
+    max: 1,
+    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
+  },
+  {
+    id: "sd_ready_accountability",
+    title: "I take accountability for my actions",
+    subtitle: "Pick 1",
+    description: "Rate from 1 (not yet) to 5 (absolutely)",
+    type: "text",
+    max: 1,
+    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
+  },
+  {
+    id: "sd_relationship_goal",
+    title: "What relationship dynamic feels right for you?",
+    subtitle: "Pick 1",
+    description: "",
+    type: "text",
+    max: 1,
+    options: [
+      { id: "slow", label: "Slow and intentional" },
+      { id: "balanced", label: "Balanced pace" },
+      { id: "fast", label: "Move quickly if it feels right" },
+    ],
+  },
+  {
+    id: "sd_partner_pace",
+    title: "How should your match approach commitment?",
+    subtitle: "Pick 1",
+    description: "",
+    type: "text",
+    max: 1,
+    options: [
+      { id: "careful", label: "Careful and steady" },
+      { id: "confident", label: "Confident and clear" },
+      { id: "flexible", label: "Flexible and adaptive" },
+    ],
+  },
+  {
+    id: "dealbreakers",
+    title: "What are absolute dealbreakers?",
+    subtitle: "Pick up to 3",
+    description: "",
+    type: "dealbreaker",
+    max: 3,
+    options: [
+      { id: "smoking", label: "Smoking" },
+      { id: "drinking", label: "Excessive drinking" },
+      { id: "no-ambition", label: "No ambition" },
+      { id: "dishonesty", label: "Dishonesty" },
+      { id: "jealousy", label: "Jealousy" },
+      { id: "communication", label: "Poor communication" },
+      { id: "disrespect", label: "Disrespect" },
+      { id: "different-values", label: "Different values" },
+    ],
+  },
+  {
+    id: "mustHave",
+    title: "What are your must-haves?",
+    subtitle: "Pick 3",
+    description: "",
+    type: "text",
+    max: 3,
+    options: [
+      { id: "chemistry", label: "Chemistry" },
+      { id: "trust", label: "Trust" },
+      { id: "humor", label: "Humor" },
+      { id: "ambition", label: "Ambition" },
+      { id: "kindness", label: "Kindness" },
+      { id: "attraction", label: "Attraction" },
+      { id: "support", label: "Support" },
+      { id: "goals", label: "Shared goals" },
+    ],
+  },
+];
+
+// ── Male questions (15 unique) — what HE looks for in a woman ───────────────
+const buildMaleQuestions = (): any[] => [
+  {
+    id: "m_her_personality",
+    title: "What personality draws you to a woman?",
+    subtitle: "Pick 2-4",
+    description: "",
+    type: "image",
+    max: 4,
+    options: getFlowBOptions("personality_turn_on", "male"),
+  },
+  {
+    id: "m_her_energy",
+    title: "What energy do you want her to bring?",
+    subtitle: "Pick 2-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: getFlowBOptions("energy_vibe", "male"),
+  },
+  {
+    id: "m_her_physical",
+    title: "What physical type attracts you in a woman?",
+    subtitle: "Pick 1-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: FEMALE_BODY_TYPES,
+  },
+  {
+    id: "m_her_face",
+    title: "What facial features do you love in a woman?",
+    subtitle: "Pick 1-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: FEMALE_FACE_SHAPES,
+  },
+  {
+    id: "m_her_eyes",
+    title: "What eye shapes do you find beautiful?",
+    subtitle: "Pick 1-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: getFlowBOptions("eye_shape_preference", "male"),
+  },
+  {
+    id: "m_her_lips",
+    title: "What lip shapes attract you in a woman?",
+    subtitle: "Pick 1-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: getFlowBOptions("lip_shape_preference", "male"),
+  },
+  {
+    id: "m_her_values",
+    title: "What values must she have?",
+    subtitle: "Pick 3-5",
+    description: "",
+    type: "image",
+    max: 5,
+    options: getFlowBSectionOptions("core_values", "male"),
+  },
+  {
+    id: "m_her_style",
+    title: "What lifestyle do you want her to have?",
+    subtitle: "Pick 2-4",
+    description: "",
+    type: "image",
+    max: 4,
+    options: getFlowBSectionOptions("lifestyle", "male"),
+  },
+  {
+    id: "m_how_connect",
+    title: "How do you want to connect as a couple?",
+    subtitle: "Pick 2-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: getFlowBSectionOptions("communication", "male"),
+  },
+  {
+    id: "m_conflict",
+    title: "How do you handle disagreements?",
+    subtitle: "Pick 1-2",
+    description: "",
+    type: "image",
+    max: 2,
+    options: getFlowBSectionOptions("conflict_style", "male"),
+  },
+  {
+    id: "m_future_vision",
+    title: "What future do you want to build?",
+    subtitle: "Pick 2-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: getFlowBSectionOptions("future", "male"),
+  },
+  {
+    id: "m_his_career",
+    title: "What's your own career approach?",
+    subtitle: "Pick 2-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: getFlowBSectionOptions("career", "male"),
+  },
+  {
+    id: "m_hobbies",
+    title: "What shared hobbies matter most to you?",
+    subtitle: "Pick 3-4",
+    description: "",
+    type: "image",
+    max: 4,
+    options: getFlowBSectionOptions("hobbies", "male"),
+  },
+  {
+    id: "m_social_life",
+    title: "What social life do you prefer as a couple?",
+    subtitle: "Pick 2-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: getFlowBSectionOptions("sociallife", "male"),
+  },
+  {
+    id: "m_food",
+    title: "What's your food vibe together?",
+    subtitle: "Pick 2-3",
+    description: "",
+    type: "image",
+    max: 3,
+    options: getFlowBSectionOptions("food", "male"),
+  },
+  ...SHARED_QUESTIONS,
+];
+
+// ── Female questions (15 unique) — what SHE looks for in a man ─────────────
+const buildFemaleQuestions = (): any[] => {
+  const femaleEnergyOpts = getFlowBOptions("energy_vibe", "female");
+  const providerOptions = [
+    { id: "provider",       image: femaleEnergyOpts[0]?.image ?? "", label: "Traditional provider",  description: "Financial security first" },
+    { id: "equal_partner",  image: femaleEnergyOpts[1]?.image ?? "", label: "Equal partnership",     description: "Both contribute equally" },
+    { id: "emotional_anchor", image: femaleEnergyOpts[2]?.image ?? "", label: "Emotional anchor",    description: "Steady and grounding" },
+    { id: "motivator",      image: femaleEnergyOpts[3]?.image ?? "", label: "Motivator",             description: "Pushes you to grow" },
+    { id: "protector",      image: femaleEnergyOpts[4]?.image ?? "", label: "Protector",             description: "Makes you feel safe" },
+    { id: "flexible",       image: femaleEnergyOpts[5]?.image ?? "", label: "Flexible supporter",    description: "Adapts to your needs" },
+  ];
+  return [
+    {
+      id: "f_his_personality",
+      title: "What personality attracts you in a man?",
+      subtitle: "Pick 2-4",
+      description: "",
+      type: "image",
+      max: 4,
+      options: getFlowBOptions("personality_turn_on", "female"),
+    },
+    {
+      id: "f_his_energy",
+      title: "What energy do you want him to have?",
+      subtitle: "Pick 2-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: femaleEnergyOpts,
+    },
+    {
+      id: "f_his_values",
+      title: "What values are non-negotiable in a man?",
+      subtitle: "Pick 3-5",
+      description: "",
+      type: "image",
+      max: 5,
+      options: getFlowBSectionOptions("core_values", "female"),
+    },
+    {
+      id: "f_how_connect",
+      title: "How do you want to connect as a couple?",
+      subtitle: "Pick 2-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: getFlowBSectionOptions("communication", "female"),
+    },
+    {
+      id: "f_his_career",
+      title: "What career mindset do you want in a man?",
+      subtitle: "Pick 2-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: getFlowBSectionOptions("career", "female"),
+    },
+    {
+      id: "f_future_vision",
+      title: "What future do you want to build together?",
+      subtitle: "Pick 2-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: getFlowBSectionOptions("future", "female"),
+    },
+    {
+      id: "f_conflict",
+      title: "How do you want him to handle conflict?",
+      subtitle: "Pick 1-2",
+      description: "",
+      type: "image",
+      max: 2,
+      options: getFlowBSectionOptions("conflict_style", "female"),
+    },
+    {
+      id: "f_hobbies",
+      title: "What shared interests matter most to you?",
+      subtitle: "Pick 3-4",
+      description: "",
+      type: "image",
+      max: 4,
+      options: getFlowBSectionOptions("hobbies", "female"),
+    },
+    {
+      id: "f_social_life",
+      title: "What's your ideal social life together?",
+      subtitle: "Pick 2-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: getFlowBSectionOptions("sociallife", "female"),
+    },
+    {
+      id: "f_food",
+      title: "What's your food vibe together?",
+      subtitle: "Pick 2-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: getFlowBSectionOptions("food", "female"),
+    },
+    {
+      id: "f_his_physical",
+      title: "What physical type draws you to a man?",
+      subtitle: "Pick 1-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: MALE_BODY_TYPES,
+    },
+    {
+      id: "f_his_face",
+      title: "What facial features attract you in a man?",
+      subtitle: "Pick 1-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: MALE_FACE_SHAPES,
+    },
+    {
+      id: "f_his_eyes",
+      title: "What eye shapes attract you in a man?",
+      subtitle: "Pick 1-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: getFlowBOptions("eye_shape_preference", "female"),
+    },
+    {
+      id: "f_his_lips",
+      title: "What lip shapes do you prefer in a man?",
+      subtitle: "Pick 1-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: getFlowBOptions("lip_shape_preference", "female"),
+    },
+    {
+      id: "f_his_provider",
+      title: "What kind of support do you need from a partner?",
+      subtitle: "Pick 2-3",
+      description: "",
+      type: "image",
+      max: 3,
+      options: providerOptions,
+    },
+    ...SHARED_QUESTIONS,
+  ];
+};
+
+/** Returns the correctly ordered 30-question array for the given gender. */
+const getQuestions = (userGender?: "male" | "female" | null): any[] =>
+  userGender === "female" ? buildFemaleQuestions() : buildMaleQuestions();
+
+// ── FlowB component ───────────────────────────────────────────────────────────
+const _LEGACY_UNUSED = [
   {
     id: "personality_turn_on",
     title: "", // Will be set dynamically based on gender
@@ -504,179 +992,6 @@ const BASE_QUESTIONS = [
     ],
   },
 ];
-
-// Male flow: Visual → Energy → Emotional → Stability
-const MALE_FLOW_ORDER: string[] = [
-  "physical_attraction",
-  "face_shape_preference",
-  "eye_shape_preference",
-  "lip_shape_preference",
-  "energy_vibe",
-  "personality_turn_on",
-  "communication",
-  "lifestyle",
-  "sociallife",
-  "hobbies",
-  "core_values",
-  "conflict_style",
-  "future",
-  "kidsQ",
-  "timeline",
-  "food",
-  "career",
-  "sd_commitment",
-  "sd_love_language",
-  "sd_priorities",
-  "sd_ready_healed",
-  "sd_ready_values",
-  "sd_ready_communication",
-  "sd_ready_available",
-  "sd_ready_respect",
-  "sd_ready_accountability",
-  "sd_relationship_goal",
-  "sd_partner_pace",
-  "dealbreakers",
-  "mustHave",
-];
-
-// Female flow: Emotional safety → Character → Lifestyle → Physical
-const FEMALE_FLOW_ORDER: string[] = [
-  "personality_turn_on",
-  "energy_vibe",
-  "core_values",
-  "communication",
-  "career",
-  "future",
-  "conflict_style",
-  "timeline",
-  "kidsQ",
-  "lifestyle",
-  "hobbies",
-  "sociallife",
-  "food",
-  "sd_commitment",
-  "sd_love_language",
-  "sd_priorities",
-  "sd_ready_healed",
-  "sd_ready_values",
-  "sd_ready_communication",
-  "sd_ready_available",
-  "sd_ready_respect",
-  "sd_ready_accountability",
-  "sd_relationship_goal",
-  "sd_partner_pace",
-  "physical_attraction",
-  "face_shape_preference",
-  "eye_shape_preference",
-  "lip_shape_preference",
-  "dealbreakers",
-  "mustHave",
-];
-
-// Gender-specific titles (override after options are set)
-const FLOW_TITLES: Record<string, { male?: string; female?: string }> = {
-  physical_attraction: { male: "What physical traits attract you?", female: "What physical traits attract you?" },
-  face_shape_preference: { male: "What facial features catch your attention?", female: "What facial features do you like?" },
-  energy_vibe: { male: "What energy do you want her to bring?", female: "What energy resonates with you?" },
-  personality_turn_on: { male: "What personality traits turn you on?", female: "What kind of character attracts you?" },
-  communication: { male: "What communication style works best for you?", female: "How do you prefer to connect?" },
-  lifestyle: { male: "How do you want to spend time together?", female: "How do you want to spend time together?" },
-  sociallife: { male: "What kind of social life do you prefer?", female: "What's your ideal weekend?" },
-  hobbies: { male: "What hobbies excite you?", female: "What interests excite you?" },
-  core_values: { male: "What values matter most to you?", female: "What values are non-negotiable?" },
-  conflict_style: { male: "How do you handle disagreements?", female: "How does he handle conflict?" },
-  future: { male: "What's your future vision?", female: "What future goals matter most?" },
-  career: { female: "What's his career mindset?" },
-  timeline: { male: "When are you looking for something serious?", female: "When is he looking for something serious?" },
-};
-
-// Helper function to get gender-specific image options
-const getGenderSpecificOptions = (options: any[], userGender?: string | null) => {
-  if (userGender === 'male') {
-    // Male users see female images - keep as is
-    return options;
-  } else if (userGender === 'female') {
-    // Female users see male images - adjust labels for character focus
-    return options.map(opt => {
-      // Map style options to character-focused labels for women
-      const labelMap: Record<string, string> = {
-        'classy': 'Confident',
-        'sporty': 'Athletic',
-        'creative': 'Creative',
-        'minimal': 'Simple',
-        'glam': 'Polished',
-        'casual': 'Relaxed',
-        'bohemian': 'Free-Spirited',
-        'edgy': 'Bold',
-      };
-      
-      return {
-        ...opt,
-        label: labelMap[opt.id] || opt.label,
-        // Use male images (same URLs but different context)
-        image: opt.image, // Keep same for now, but could swap to male-specific images
-      };
-    });
-  }
-  return options;
-};
-
-// Helper function to get gender-specific questions (ordered by flow: Male = Visual→Energy→Stability, Female = Emotional→Stability→Lifestyle→Physical)
-const getQuestions = (userGender?: "male" | "female" | null) => {
-  const questions = JSON.parse(JSON.stringify(BASE_QUESTIONS)); // Deep clone
-
-  questions.forEach((q: any) => {
-    if (isFlowBSectionQuestion(q.id)) {
-      q.options = getFlowBSectionOptions(q.id, userGender ?? undefined);
-      return;
-    }
-    if (isFlowBImageQuestion(q.id)) {
-      q.options = getFlowBOptions(q.id, userGender ?? undefined);
-      if (q.id === 'personality_turn_on') {
-        q.title = userGender === 'male' ? "What personality traits turn you on?" : "What kind of character attracts you?";
-      } else if (q.id === 'physical_attraction') {
-        q.title = "What physical traits attract you?";
-      } else if (q.id === 'face_shape_preference') {
-        q.title = userGender === 'male' ? "What facial features catch your attention?" : "What facial features do you like?";
-      } else if (q.id === 'energy_vibe') {
-        q.title = userGender === 'male' ? "What energy do you want her to bring?" : "What energy resonates with you?";
-      }
-      return;
-    }
-
-    if (q.id === 'core_values') {
-      q.title = userGender === 'male' ? "What values matter most to you?" : "What values are non-negotiable?";
-    }
-  });
-
-  const byId: Record<string, any> = {};
-  questions.forEach((q: any) => { byId[q.id] = q; });
-
-  const order = userGender === 'female' ? FEMALE_FLOW_ORDER : MALE_FLOW_ORDER;
-  const ordered = order.map((id) => {
-    const q = byId[id];
-    if (!q) return null;
-    const titles = FLOW_TITLES[id];
-    if (titles && userGender === 'male' && titles.male) q.title = titles.male;
-    if (titles && userGender === 'female' && titles.female) q.title = titles.female;
-    return q;
-  }).filter(Boolean) as any[];
-
-  const trimmed = ordered.slice(0, FLOW_B_STEP_COUNT);
-
-  const staticImagePrefixes = ["/body-types/", "/face-shapes/", "/eye-shapes/", "/lip-shapes/", "/flowB/"];
-  trimmed.forEach((q: any) => {
-    if (q.type !== "image" || !Array.isArray(q.options) || !q.options.length) return;
-    const firstImg = String(q.options[0]?.image || "");
-    if (staticImagePrefixes.some((p) => firstImg.startsWith(p))) return;
-    q.options = q.options.map((opt: any, i: number) => ({
-      ...opt,
-      image: getFlowBOptionImage(i, userGender ?? undefined),
-    }));
-  });
-
-  return trimmed;
-};
 
 export default function FlowB() {
   const [, setLocation] = useLocation();

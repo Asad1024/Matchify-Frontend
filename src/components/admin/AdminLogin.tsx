@@ -147,7 +147,7 @@ export default function AdminLogin() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@matchify.com"
+                placeholder="admin@matchify.local"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -167,6 +167,14 @@ export default function AdminLogin() {
                 disabled={isLoading}
               />
             </div>
+
+            <button
+              type="button"
+              className="w-full text-xs text-muted-foreground bg-muted/50 rounded-lg py-2 px-3 text-left hover:bg-muted transition-colors"
+              onClick={() => { setEmail("admin@matchify.local"); setPassword("Admin123!"); }}
+            >
+              <span className="font-semibold">Demo admin</span> — click to fill credentials
+            </button>
 
             <Button
               type="submit"

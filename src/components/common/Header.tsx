@@ -19,7 +19,7 @@ interface HeaderProps {
   onBack?: () => void;
   /** Extra control shown before notifications (e.g. Muzz-style boost pill) */
   rightAccessory?: ReactNode;
-  /** Small line under title (e.g. Jamaa tagline) */
+  /** Small line under title (e.g. community tagline) */
   subtitle?: string;
 }
 

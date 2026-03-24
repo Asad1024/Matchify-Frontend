@@ -1,92 +1,158 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Heart, Shield, Users, Sparkles, Star, ArrowRight, MessageCircle, Brain } from "lucide-react";
-import { MATCHIFY_LOGO_URL } from "@/lib/matchifyBranding";
+import {
+  Heart,
+  Shield,
+  Sparkles,
+  Star,
+  ArrowRight,
+  MessageCircle,
+  Brain,
+  Compass,
+  Calendar,
+  GraduationCap,
+  Eye,
+  Target,
+  Home,
+  Globe,
+  Handshake,
+  Check,
+} from "lucide-react";
+import { BrandLogo } from "@/components/common/BrandLogo";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const STATS = [
-  { value: "15M+", label: "Members" },
-  { value: "600K+", label: "Successes" },
-  { value: "500+", label: "Daily Couples" },
+  { value: "15M+", label: "Members worldwide" },
+  { value: "600K+", label: "Success stories" },
+  { value: "4.8", label: "Average rating", star: true },
 ];
 
-const FEATURES = [
+const WHY_ROWS = [
   {
     icon: Shield,
-    title: "Safe & Verified",
-    text: "Selfie verification and location checks keep you safe.",
-    color: "bg-primary/10 text-primary",
+    title: "Safe & respectful",
+    line: "Verification-friendly profiles, privacy controls, and community standards built in.",
   },
   {
     icon: Heart,
-    title: "Serious Connections",
-    text: "For those seeking meaningful, lasting relationships.",
-    color: "bg-rose-50 text-rose-500",
+    title: "Serious intentions",
+    line: "For people who want depth — every background, one respectful place to meet.",
   },
   {
     icon: Sparkles,
-    title: "Smart Matching",
-    text: "AI-powered compatibility based on values and goals.",
-    color: "bg-violet-50 text-violet-500",
-  },
-  {
-    icon: Users,
-    title: "Private & Discreet",
-    text: "Hide your photos and use a nickname for privacy.",
-    color: "bg-sky-50 text-sky-500",
-  },
-  {
-    icon: Brain,
-    title: "Luna AI Coach",
-    text: "Your personal relationship coach — available 24/7.",
-    color: "bg-purple-50 text-purple-600",
+    title: "Smarter matching",
+    line: "AI Matchmaker plus Luna coach — not just photos and a bio.",
   },
 ];
 
-const LUNA_HIGHLIGHTS = [
-  { emoji: "💬", text: "Personalised conversation tips" },
-  { emoji: "📅", text: "Date night ideas tailored to you" },
-  { emoji: "❤️‍🩹", text: "Guidance through relationship milestones" },
-  { emoji: "🌟", text: "Celebrates your wins together" },
+const STEPS = [
+  { n: "01", title: "Create your profile", desc: "Share values, lifestyle, and what you’re looking for." },
+  { n: "02", title: "Discover & connect", desc: "Explore, get matched, chat, and join groups when you’re ready." },
+  { n: "03", title: "Meet IRL & grow", desc: "RSVP to events, book coaches, and use Luna for the long run." },
+];
+
+const FEATURE_TILES = [
+  { icon: Compass, label: "Explore & directory", sub: "Filters, boosts, compatibility hints" },
+  { icon: Target, label: "AI Matchmaker", sub: "Blueprint from a guided questionnaire" },
+  { icon: MessageCircle, label: "Chat & icebreakers", sub: "Threads that start from profiles" },
+  { icon: Home, label: "Feed & stories", sub: "Posts and circles around your journey" },
+  { icon: Globe, label: "Community & groups", sub: "Interest spaces beyond one-to-one" },
+  { icon: Calendar, label: "Events & RSVP", sub: "Grid, calendar, swipe — then show up" },
+  { icon: Brain, label: "Luna AI coach", sub: "Tips, journey, optional partner sharing" },
+  { icon: Eye, label: "Empathy Observer", sub: "Practice perspective-taking" },
+  { icon: Handshake, label: "Human coaches", sub: "Book real sessions in-app" },
+  { icon: GraduationCap, label: "Courses", sub: "Structured relationship skills" },
+];
+
+const LUNA_POINTS = [
+  "Conversation & conflict tips tuned to you",
+  "Date ideas and a Journey tab with milestones",
+  "Optional sharing with a partner in your Luna space",
+  "Not a substitute for crisis care — safety-aware by design",
 ];
 
 const TESTIMONIALS = [
   {
     name: "Sara M.",
-    rating: 5,
-    quote: "Finally found someone who shares my values. This app is completely different.",
+    quote: "Intentional matching and events — I wasn’t stuck in endless swipe fatigue.",
     avatar: "SM",
   },
   {
-    name: "Ahmed K.",
-    rating: 5,
-    quote: "Thoughtful matching and real conversations from day one.",
-    avatar: "AK",
+    name: "James T.",
+    quote: "Luna and the courses changed how we argue. Didn’t expect that from a dating app.",
+    avatar: "JT",
   },
   {
-    name: "Fatima R.",
-    rating: 5,
-    quote: "More intentional than other apps. Found the one here.",
-    avatar: "FR",
+    name: "Priya N.",
+    quote: "Finally a place that respects that I want something serious.",
+    avatar: "PN",
   },
 ];
 
-const containerVariants = {
-  hidden: {},
-  show: {
-    transition: {
-      staggerChildren: 0.08,
-    },
+const FAQ_ITEMS = [
+  {
+    q: "Is Matchify only for one religion or culture?",
+    a: "No. Matchify is built for anyone who wants a serious, respectful connection. You can share as much or as little about your background as you like.",
   },
-};
+  {
+    q: "What’s included beyond swiping?",
+    a: "Home feed and stories, community groups, events with RSVP (and optional match questionnaires), chat, AI Matchmaker, Luna relationship coaching, Empathy Observer, human coaches, and courses — plus subscriptions when you want more.",
+  },
+  {
+    q: "How does Luna work?",
+    a: "Luna offers tips, exercises, and chat-style coaching. You can track milestones and recaps, and optionally involve a partner in a shared space. It’s supportive guidance, not therapy or emergency help.",
+  },
+  {
+    q: "Are events moderated?",
+    a: "Community-created events can be reviewed before they go live. Admins also have tools for approvals and safety.",
+  },
+];
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 24 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring" as const, damping: 22, stiffness: 300 },
-  },
-};
+function PhoneMockup() {
+  return (
+    <div className="relative w-[min(100%,280px)] mx-auto md:mx-0">
+      <div
+        className="absolute -inset-4 rounded-[3rem] opacity-40 blur-2xl pointer-events-none"
+        style={{ background: "linear-gradient(145deg, #fff 0%, rgba(255,255,255,0.2) 100%)" }}
+      />
+      <div className="relative rounded-[2.5rem] bg-zinc-900 p-2 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.45)] ring-1 ring-black/40">
+        <div className="rounded-[2rem] overflow-hidden bg-white aspect-[9/19] flex flex-col">
+          <div className="h-7 bg-white flex items-center justify-center shrink-0">
+            <div className="w-16 h-4 rounded-full bg-zinc-900/10" />
+          </div>
+          <div className="flex-1 bg-gradient-to-b from-primary/15 via-white to-rose-50/80 p-3 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <BrandLogo className="w-9 h-9 rounded-xl object-contain" alt="" />
+              <div className="flex-1 space-y-1">
+                <div className="h-2.5 bg-zinc-200 rounded-full w-3/4" />
+                <div className="h-2 bg-zinc-100 rounded-full w-1/2" />
+              </div>
+            </div>
+            <div className="rounded-2xl bg-white shadow-sm border border-zinc-100 p-3 space-y-2 mt-1">
+              <div className="flex gap-2">
+                <div className="w-10 h-10 rounded-full bg-primary/20 shrink-0" />
+                <div className="flex-1 space-y-1.5 pt-0.5">
+                  <div className="h-2 bg-zinc-200 rounded-full w-full" />
+                  <div className="h-2 bg-zinc-100 rounded-full w-4/5" />
+                </div>
+              </div>
+              <div className="h-16 rounded-xl bg-gradient-to-br from-primary/30 to-violet-200/40" />
+            </div>
+            <div className="rounded-2xl bg-white/90 border border-zinc-100 p-2.5 flex gap-2 mt-auto">
+              <div className="flex-1 h-9 rounded-full bg-zinc-100" />
+              <div className="w-9 h-9 rounded-full bg-primary shrink-0" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface SplashScreenProps {
   onGetStarted?: () => void;
@@ -95,247 +161,349 @@ interface SplashScreenProps {
 
 export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProps) {
   return (
-    <div className="min-h-screen bg-white flex flex-col overflow-y-auto">
-      {/* ── Hero ── */}
-      <div className="relative flex flex-col items-center justify-center px-6 pt-14 pb-10 overflow-hidden"
-           style={{ background: "linear-gradient(160deg, hsl(346 96% 62%) 0%, hsl(338 95% 56%) 100%)" }}>
-
-        {/* Decorative rings */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[220, 360, 500, 640].map((size, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full border border-white/10"
-              style={{
-                width: size,
-                height: size,
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-              }}
-            />
-          ))}
+    <div className="min-h-screen bg-white flex flex-col overflow-x-hidden">
+      {/* ═══ HERO — Muzz-style split: headline left, phone right ═══ */}
+      <section
+        className="relative text-white overflow-hidden"
+        style={{ background: "linear-gradient(165deg, hsl(346 96% 58%) 0%, hsl(330 90% 52%) 45%, hsl(280 55% 45%) 100%)" }}
+      >
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 right-0 w-[min(100%,600px)] h-[min(100%,600px)] rounded-full bg-white/[0.07] blur-3xl -translate-y-1/4 translate-x-1/4" />
+          <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-black/10 blur-3xl" />
         </div>
 
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="relative z-10 flex flex-col items-center text-center gap-4 w-full max-w-xs"
-        >
-          {/* Logo only — larger, no wordmark */}
-          <motion.div variants={itemVariants} className="flex justify-center">
-            <img
-              src={MATCHIFY_LOGO_URL}
-              alt=""
-              className="w-[7.5rem] h-[7.5rem] sm:w-[8.5rem] sm:h-[8.5rem] object-contain drop-shadow-2xl"
-              width={136}
-              height={136}
-            />
-          </motion.div>
-
-          {/* Tagline */}
-          <motion.p variants={itemVariants} className="text-white/70 text-sm leading-relaxed max-w-[240px]">
-            Meaningful connections for serious relationships, built on shared values.
-          </motion.p>
-
-          {/* Stats */}
-          <motion.div variants={itemVariants}
-            className="flex gap-5 mt-1 bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 border border-white/20 w-full justify-around"
+        <div className="relative max-w-6xl mx-auto px-5 sm:px-8 pt-8 pb-14 md:pt-10 md:pb-20">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45 }}
+            className="flex justify-center md:justify-start mb-8 md:mb-10"
           >
-            {STATS.map(({ value, label }) => (
-              <div key={label} className="text-center">
-                <p className="text-white font-black text-lg leading-tight font-display">{value}</p>
-                <p className="text-white/65 text-[11px] font-medium">{label}</p>
-              </div>
-            ))}
+            <BrandLogo
+              className="h-[4.25rem] sm:h-[5rem] md:h-[5.5rem] w-auto max-w-[min(100%,280px)] object-contain object-left drop-shadow-[0_8px_32px_rgba(0,0,0,0.25)]"
+              alt="Matchify logo"
+            />
           </motion.div>
 
-          {/* CTA buttons */}
-          <motion.div variants={itemVariants} className="w-full space-y-2.5 mt-1">
-            <Button
-              size="lg"
-              className="w-full h-13 rounded-2xl bg-white text-primary font-bold text-[15px] shadow-xl shadow-black/20 hover:bg-gray-50 active:scale-[0.98] transition-all"
-              onClick={onGetStarted}
-              data-testid="button-get-started"
-            >
-              Get Started — It's Free
-            </Button>
-            {onLogin && (
-              <Button
-                size="lg"
-                variant="ghost"
-                className="w-full h-12 rounded-2xl text-white border border-white/30 font-semibold hover:bg-white/10 active:scale-[0.98]"
-                onClick={onLogin}
-                data-testid="button-login"
-              >
-                I already have an account
-              </Button>
-            )}
-          </motion.div>
-
-          <motion.p variants={itemVariants} className="text-white/45 text-[11px]">
-            No credit card required
-          </motion.p>
-        </motion.div>
-      </div>
-
-      {/* ── Features ── */}
-      <div className="px-5 py-10 bg-gray-50">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-6"
-        >
-          <h2 className="text-xl font-bold text-gray-900">Why people choose Matchify</h2>
-          <p className="text-sm text-gray-500 mt-1">Everything you need to find the one</p>
-        </motion.div>
-
-        <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-          {FEATURES.map(({ icon: Icon, title, text, color }, i) => (
+          <div className="grid md:grid-cols-2 gap-12 md:gap-8 items-center">
             <motion.div
-              key={title}
               initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08, duration: 0.4 }}
-              className={`bg-white rounded-2xl p-4 shadow-sm border border-gray-100 ${i === FEATURES.length - 1 && FEATURES.length % 2 !== 0 ? 'col-span-2' : ''}`}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-center md:text-left order-2 md:order-1"
             >
-              <div className={`w-10 h-10 rounded-xl ${color} flex items-center justify-center mb-3`}>
-                <Icon className="w-5 h-5" />
-              </div>
-              <p className="font-bold text-gray-900 text-sm leading-tight">{title}</p>
-              <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{text}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+              <p className="text-[11px] sm:text-xs font-bold tracking-[0.2em] uppercase text-white/70 mb-4">
+                The relationship app
+              </p>
+              <h1 className="font-display font-black text-[2.125rem] sm:text-4xl md:text-[2.75rem] lg:text-5xl leading-[1.08] tracking-tight">
+                Where serious
+                <br />
+                people meet.
+              </h1>
+              <p className="mt-4 text-sm sm:text-base text-white/85 leading-relaxed max-w-md mx-auto md:mx-0">
+                Matchify brings together matching, chat, community, events, and coaching — so you can go from hello to
+                something real.
+              </p>
 
-      {/* ── Testimonials ── */}
-      <div className="px-5 py-8 bg-white">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-6"
-        >
-          <div className="flex items-center justify-center gap-1 mb-1">
-            {[...Array(5)].map((_, i) => (
-              <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
-            ))}
-          </div>
-          <h2 className="text-xl font-bold text-gray-900">Success stories</h2>
-          <p className="text-sm text-gray-500 mt-1">Over 600,000 couples found their match</p>
-        </motion.div>
-
-        <div className="space-y-3 max-w-sm mx-auto">
-          {TESTIMONIALS.map(({ name, rating, quote, avatar }, i) => (
-            <motion.div
-              key={name}
-              initial={{ opacity: 0, x: -16 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1, duration: 0.4 }}
-              className="flex gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100"
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-black text-primary">{avatar}</span>
+              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+                <Button
+                  size="lg"
+                  className="h-12 sm:h-14 rounded-2xl bg-white text-primary hover:bg-white/95 font-bold text-[15px] px-8 shadow-lg shadow-black/20"
+                  onClick={onGetStarted}
+                  data-testid="button-get-started"
+                >
+                  Get started — free
+                </Button>
+                {onLogin && (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-12 sm:h-14 rounded-2xl border-2 border-white/40 bg-transparent text-white hover:bg-white/10 font-semibold"
+                    onClick={onLogin}
+                    data-testid="button-login"
+                  >
+                    Log in
+                  </Button>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1 mb-1">
-                  {[...Array(rating)].map((_, i) => (
-                    <Star key={i} className="w-3 h-3 text-amber-400 fill-amber-400" />
+
+              <div className="mt-6 flex items-center justify-center md:justify-start gap-2 text-white/80 text-sm">
+                <div className="flex">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star key={i} className="w-4 h-4 fill-amber-300 text-amber-300" />
                   ))}
                 </div>
-                <p className="text-sm text-gray-700 leading-relaxed">"{quote}"</p>
-                <p className="text-xs font-bold text-primary mt-1.5">— {name}</p>
+                <span className="font-semibold text-white">4.8</span>
+                <span className="text-white/60">· Loved for intentional dating</span>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.08 }}
+              className="order-1 md:order-2 flex justify-center md:justify-end"
+            >
+              <PhoneMockup />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ STATS STRIP — full-width bar like Muzz trust row ═══ */}
+      <section className="border-y border-zinc-100 bg-zinc-50/80">
+        <div className="max-w-6xl mx-auto px-5 py-8 sm:py-10">
+          <div className="grid grid-cols-3 gap-4 sm:gap-8 divide-x divide-zinc-200/80">
+            {STATS.map(({ value, label, star }) => (
+              <div key={label} className="text-center px-2 first:pl-0 last:pr-0">
+                <div className="flex items-center justify-center gap-1">
+                  {star && <Star className="w-5 h-5 fill-amber-400 text-amber-400 hidden sm:block" />}
+                  <p className="font-display font-black text-2xl sm:text-3xl md:text-4xl text-zinc-900 tracking-tight">
+                    {value}
+                  </p>
+                </div>
+                <p className="text-[10px] sm:text-xs font-semibold text-zinc-500 uppercase tracking-wide mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ WHY — three bold rows, lots of whitespace ═══ */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-20">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center max-w-2xl mx-auto mb-14 sm:mb-16"
+        >
+          <h2 className="font-display font-black text-3xl sm:text-4xl md:text-[2.5rem] text-zinc-900 tracking-tight leading-tight">
+            Built for something real.
+          </h2>
+          <p className="mt-3 text-zinc-500 text-sm sm:text-base">Not another endless swipe — a full journey in one app.</p>
+        </motion.div>
+
+        <div className="space-y-0 divide-y divide-zinc-100 border-y border-zinc-100">
+          {WHY_ROWS.map(({ icon: Icon, title, line }, i) => (
+            <motion.div
+              key={title}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ delay: i * 0.05 }}
+              className="grid sm:grid-cols-[auto_1fr] gap-6 sm:gap-10 py-10 sm:py-12 items-start"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 mx-auto sm:mx-0">
+                <Icon className="w-7 h-7 text-primary" strokeWidth={2} />
+              </div>
+              <div className="text-center sm:text-left">
+                <h3 className="font-display font-black text-xl sm:text-2xl text-zinc-900 tracking-tight">{title}</h3>
+                <p className="mt-2 text-sm sm:text-base text-zinc-600 leading-relaxed max-w-xl sm:max-w-none mx-auto sm:mx-0">
+                  {line}
+                </p>
               </div>
             </motion.div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* ── Luna Section ── */}
-      <div className="px-5 py-10 bg-gradient-to-br from-purple-50 to-violet-50">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="max-w-sm mx-auto"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg flex-shrink-0">
-              <Brain className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-gray-900">Meet Luna</h2>
-                <span className="text-[10px] font-bold bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full uppercase tracking-wide">AI</span>
-              </div>
-              <p className="text-sm text-gray-500">Your relationship coach, always in your corner</p>
-            </div>
-          </div>
-
-          <div className="space-y-3 mb-5">
-            {LUNA_HIGHLIGHTS.map(({ emoji, text }, i) => (
+      {/* ═══ HOW IT WORKS — numbered steps (Muzz rhythm) ═══ */}
+      <section className="bg-zinc-50 border-y border-zinc-100 py-16 sm:py-20">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+          <h2 className="font-display font-black text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-12 sm:mb-14">
+            How it works
+          </h2>
+          <div className="grid md:grid-cols-3 gap-8 md:gap-6">
+            {STEPS.map(({ n, title, desc }, i) => (
               <motion.div
-                key={text}
-                initial={{ opacity: 0, x: -12 }}
-                whileInView={{ opacity: 1, x: 0 }}
+                key={n}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.08, duration: 0.35 }}
-                className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 shadow-sm border border-purple-100"
+                transition={{ delay: i * 0.08 }}
+                className="relative bg-white rounded-3xl p-8 shadow-sm border border-zinc-100 text-center md:text-left"
               >
-                <span className="text-xl">{emoji}</span>
-                <p className="text-sm font-medium text-gray-700">{text}</p>
+                <span className="font-display font-black text-5xl text-primary/20 leading-none">{n}</span>
+                <h3 className="font-display font-black text-lg sm:text-xl text-zinc-900 mt-4 tracking-tight">{title}</h3>
+                <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{desc}</p>
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
 
-          <div className="bg-white rounded-2xl p-4 border border-purple-200 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <MessageCircle className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-purple-600 uppercase tracking-wide mb-1">Luna says</p>
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  "Every relationship is unique. I'm here to help you navigate yours with confidence and joy."
-                </p>
-              </div>
-            </div>
+      {/* ═══ ALL FEATURES — full-bleed pink band ═══ */}
+      <section
+        className="py-16 sm:py-20 text-white relative overflow-hidden"
+        style={{ background: "linear-gradient(160deg, hsl(346 96% 56%) 0%, hsl(320 85% 48%) 100%)" }}
+      >
+        <div className="absolute inset-0 opacity-[0.08] pointer-events-none bg-[radial-gradient(circle_at_30%_20%,white_1px,transparent_1px)] bg-[length:24px_24px]" />
+        <div className="relative max-w-6xl mx-auto px-5 sm:px-8">
+          <div className="max-w-2xl mb-10 sm:mb-12">
+            <h2 className="font-display font-black text-3xl sm:text-4xl md:text-[2.5rem] leading-tight tracking-tight">
+              Everything in one app.
+            </h2>
+            <p className="mt-3 text-white/80 text-sm sm:text-base leading-relaxed">
+              From first like to first date — and the conversations that keep you growing together.
+            </p>
           </div>
-        </motion.div>
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {FEATURE_TILES.map(({ icon: Icon, label, sub }) => (
+              <div
+                key={label}
+                className="flex gap-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-4 sm:py-5"
+              >
+                <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Icon className="w-5 h-5 text-white" strokeWidth={2} />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-white text-sm sm:text-base leading-snug">{label}</p>
+                  <p className="text-xs sm:text-sm text-white/75 mt-1 leading-relaxed">{sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs sm:text-sm text-white/70">
+            <span className="flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-white" /> Notifications & privacy settings
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-white" /> Subscription tiers when you want more
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-white" /> Admin tools for approvals & safety
+            </span>
+          </div>
+        </div>
+      </section>
 
-      {/* ── Footer CTA ── */}
-      <div className="px-6 py-10 text-center"
-           style={{ background: "linear-gradient(160deg, hsl(346 96% 62%) 0%, hsl(338 95% 56%) 100%)" }}>
+      {/* ═══ LUNA — card block ═══ */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-20">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="space-y-3"
+          className="rounded-[2rem] overflow-hidden shadow-xl border border-violet-100 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 text-white p-8 sm:p-10 md:p-12"
         >
-          <p className="text-white font-black text-2xl font-display leading-tight">
-            Ready to find<br/>your match?
-          </p>
-          <p className="text-white/65 text-sm">Join thousands of singles today</p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+            <div className="max-w-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Brain className="w-8 h-8 opacity-90" />
+                <span className="text-xs font-bold uppercase tracking-widest text-white/70">AI coach</span>
+              </div>
+              <h2 className="font-display font-black text-2xl sm:text-3xl md:text-4xl tracking-tight leading-tight">
+                Meet Luna.
+              </h2>
+              <p className="mt-3 text-white/85 text-sm sm:text-base leading-relaxed">
+                Your in-app relationship coach — exercises, chat-style guidance, milestones, and date ideas. Optional
+                partner space when you both use Matchify.
+              </p>
+            </div>
+            <ul className="space-y-3 md:min-w-[280px]">
+              {LUNA_POINTS.map((pt) => (
+                <li key={pt} className="flex gap-3 text-sm text-white/90">
+                  <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="w-3 h-3" />
+                  </span>
+                  {pt}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* ═══ STORIES ═══ */}
+      <section className="bg-zinc-50 border-t border-zinc-100 py-16 sm:py-20">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+          <h2 className="font-display font-black text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-3">
+            Real stories
+          </h2>
+          <p className="text-center text-zinc-500 text-sm mb-12">From members who wanted more than a casual chat</p>
+          <div className="grid md:grid-cols-3 gap-6">
+            {TESTIMONIALS.map(({ name, quote, avatar }, i) => (
+              <motion.div
+                key={name}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.06 }}
+                className="bg-white rounded-3xl p-6 sm:p-8 border border-zinc-100 shadow-sm"
+              >
+                <div className="flex gap-1 mb-4">
+                  {[1, 2, 3, 4, 5].map((j) => (
+                    <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                  ))}
+                </div>
+                <p className="text-zinc-800 text-sm sm:text-base leading-relaxed font-medium">&ldquo;{quote}&rdquo;</p>
+                <div className="mt-6 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center font-black text-primary text-xs">
+                    {avatar}
+                  </div>
+                  <span className="font-bold text-zinc-900 text-sm">{name}</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ FAQ — Muzz-style accordion ═══ */}
+      <section className="max-w-2xl mx-auto px-5 sm:px-8 py-16 sm:py-20">
+        <h2 className="font-display font-black text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-2">
+          Questions
+        </h2>
+        <p className="text-center text-zinc-500 text-sm mb-8">Quick answers before you join</p>
+        <Accordion type="single" collapsible className="w-full">
+          {FAQ_ITEMS.map(({ q, a }, i) => (
+            <AccordionItem key={q} value={`item-${i}`} className="border-zinc-200">
+              <AccordionTrigger className="text-left font-bold text-zinc-900 text-sm sm:text-base hover:no-underline py-5">
+                {q}
+              </AccordionTrigger>
+              <AccordionContent className="text-zinc-600 text-sm leading-relaxed pb-5">{a}</AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </section>
+
+      {/* ═══ FOOTER CTA ═══ */}
+      <section
+        className="mt-auto py-16 sm:py-20 px-5 text-center"
+        style={{ background: "linear-gradient(165deg, hsl(346 96% 58%) 0%, hsl(330 90% 48%) 100%)" }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="max-w-lg mx-auto space-y-4"
+        >
+          <BrandLogo
+            className="h-14 sm:h-16 w-auto mx-auto object-contain drop-shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
+            alt="Matchify logo"
+          />
+          <h2 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight leading-tight">
+            Start free today.
+          </h2>
+          <p className="text-white/75 text-sm sm:text-base">No credit card to create your account.</p>
           <Button
             size="lg"
-            className="rounded-2xl bg-white text-primary font-bold px-10 shadow-xl shadow-black/20 hover:bg-gray-50 active:scale-[0.98] transition-all"
+            className="h-14 rounded-2xl bg-white text-primary font-bold text-base px-10 shadow-xl hover:bg-zinc-50"
             onClick={onGetStarted}
           >
-            Create Free Account
-            <ArrowRight className="w-4 h-4 ml-1.5" />
+            Create free account
+            <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
+          {onLogin && (
+            <button
+              type="button"
+              onClick={onLogin}
+              className="block w-full text-center text-white/80 text-sm font-semibold underline-offset-4 hover:underline mt-2"
+            >
+              Already on Matchify? Log in
+            </button>
+          )}
         </motion.div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -98,7 +98,17 @@ export default function Home() {
       <div className="min-h-screen bg-gray-50 pb-24">
       <Header
         showSearch={true}
-        onSearch={(query) => console.log('Search:', query)}
+        onSearch={(query) => {
+          const q = query.trim();
+          if (q) {
+            try {
+              sessionStorage.setItem("matchify_explore_search", q);
+            } catch {
+              /* ignore */
+            }
+            setLocation("/explore");
+          }
+        }}
         onNotifications={() => setLocation('/notifications')}
         onCreate={() => setCreatePostOpen(true)}
         onSettings={() => setLocation('/profile')}

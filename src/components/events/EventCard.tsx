@@ -1,8 +1,21 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Users, Clock } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Heart, Coffee, Music, Utensils, Dumbbell } from "lucide-react";
 import { motion } from "framer-motion";
+
+const EVENT_THEMES = [
+  { gradient: "from-rose-400 via-pink-500 to-red-400", icon: Heart },
+  { gradient: "from-amber-400 via-orange-400 to-yellow-500", icon: Coffee },
+  { gradient: "from-violet-500 via-purple-500 to-indigo-400", icon: Music },
+  { gradient: "from-emerald-400 via-green-500 to-teal-400", icon: Utensils },
+  { gradient: "from-blue-400 via-cyan-500 to-sky-400", icon: Dumbbell },
+];
+
+function getEventTheme(id: string) {
+  const idx = id.charCodeAt(0) % EVENT_THEMES.length;
+  return EVENT_THEMES[idx];
+}
 
 interface EventCardProps {
   id: string;
@@ -39,6 +52,9 @@ export default function EventCard({
   onRSVP,
   onClick
 }: EventCardProps) {
+  const theme = getEventTheme(id);
+  const ThemeIcon = theme.icon;
+
   return (
     <motion.div
       whileHover={{ y: -4 }}
@@ -49,15 +65,18 @@ export default function EventCard({
         onClick={() => onClick?.(id)}
         data-testid={`card-event-${id}`}
       >
-        <div className="relative h-52 bg-gradient-to-br from-primary/20 to-chart-3/20">
+        <div className="relative h-52">
           {image ? (
             <img src={image} alt={title} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/30 to-chart-3/30">
-              <Calendar className="w-20 h-20 text-primary/60" />
+            <div className={`w-full h-full bg-gradient-to-br ${theme.gradient} flex items-center justify-center`}>
+              <div className="absolute inset-0 opacity-10"
+                style={{ backgroundImage: "radial-gradient(circle, white 1.5px, transparent 1.5px)", backgroundSize: "24px 24px" }}
+              />
+              <ThemeIcon className="w-20 h-20 text-white/80" strokeWidth={1} />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           <Badge className="absolute top-4 left-4 bg-background/90 backdrop-blur-md border-primary/20 shadow-lg">
             {type === 'online' ? '🌐 Online' : '📍 In Person'}
           </Badge>

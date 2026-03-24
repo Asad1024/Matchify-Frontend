@@ -221,6 +221,15 @@ function AppContent() {
             <Route path="/empathy-observer" component={EmpathyObserver} />
             <Route path="/relationship-coaching" component={RelationshipCoaching} />
             <Route path="/settings" component={Settings} />
+            <Route path="/login">
+              <Redirect to="/" />
+            </Route>
+            <Route path="/signup">
+              <Redirect to="/" />
+            </Route>
+            <Route path="/reset-password">
+              <Redirect to="/" />
+            </Route>
             <Route path="/admin/analytics" component={AdminAnalytics} />
             <Route path="/admin/users" component={AdminUsers} />
             <Route path="/admin/matches" component={AdminMatches} />

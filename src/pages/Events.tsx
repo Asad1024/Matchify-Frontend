@@ -434,7 +434,7 @@ export default function Events() {
             <div className="flex-1">
               <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">Upcoming Events</h1>
               <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-                Discover halal-friendly events, RSVP quickly, and track your plan.
+                Discover inclusive events, RSVP quickly, and track your plan.
               </p>
               <Button
                 variant="ghost"
@@ -454,6 +454,15 @@ export default function Events() {
               Create Event
             </Button>
             </div>
+
+            <Button
+              onClick={() => setLocation("/events/create")}
+              className="w-full sm:hidden mt-3 rounded-xl font-bold"
+              size="sm"
+            >
+              <CalendarDays className="w-4 h-4 mr-2" />
+              Create an event
+            </Button>
 
             <div className="flex gap-2 mt-2 sm:mt-0">
               <Button

@@ -42,7 +42,7 @@ const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
     items: [
       { icon: HeartHandshake, label: "Marriage", path: "/" },
       { icon: Compass, label: "Explore", path: "/explore" },
-      { icon: Globe, label: "Jamaa", path: "/community" },
+      { icon: Globe, label: "Community", path: "/community" },
       { icon: Users, label: "Directory", path: "/directory" },
       { icon: Sparkles, label: "AI Matchmaker", path: "/ai-matchmaker", highlight: true },
       { icon: Calendar, label: "Events", path: "/events" },

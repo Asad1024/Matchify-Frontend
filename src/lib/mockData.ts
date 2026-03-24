@@ -110,7 +110,7 @@ const mockUsers = [
       emotionalIntelligence: 85
     },
     gender: "female",
-    religion: "islam",
+    religion: "christianity",
     meetPreference: "same_faith",
     education: "Master's Degree",
     career: "Graphic Designer",
@@ -342,11 +342,37 @@ const mockGroups = [
     tags: ["Community", "Faith", "Support"],
     image: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&h=400&fit=crop",
     memberCount: 412,
-    religionFocus: "islam" as const,
+    religionFocus: "all" as const,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
 ];
+
+/** In-memory group memberships for mock / offline flows (mirrors GroupMembership rows). */
+const mockGroupMemberships: Array<{
+  id: string;
+  userId: string;
+  groupId: string;
+  createdAt: string;
+}> = [];
+
+export const addMockGroupMembership = (userId: string, groupId: string) => {
+  const existing = mockGroupMemberships.find((m) => m.userId === userId && m.groupId === groupId);
+  if (existing) return existing;
+  const row = {
+    id: generateId(),
+    userId,
+    groupId,
+    createdAt: new Date().toISOString(),
+  };
+  mockGroupMemberships.push(row);
+  return row;
+};
+
+export const removeMockGroupMembership = (userId: string, groupId: string) => {
+  const i = mockGroupMemberships.findIndex((m) => m.userId === userId && m.groupId === groupId);
+  if (i !== -1) mockGroupMemberships.splice(i, 1);
+};
 
 // Mock Events
 const mockEvents = [
@@ -428,7 +454,7 @@ const mockCoaches = [
   {
     id: "c0a1b2c3-d4e5-4000-a100-000000000001",
     name: "Amina Rahman",
-    specialty: "Pre-marriage & nikah readiness",
+    specialty: "Pre-marriage readiness",
     bio: "Helps couples align on values, family expectations, and communication before marriage — practical tools and faith-sensitive framing.",
     rating: 5,
     reviewCount: 48,
@@ -584,8 +610,25 @@ export const getMockData = (endpoint: string): any => {
   if (endpoint.includes('/api/users/') && endpoint.includes('/unrevealed-matches')) {
     return [];
   }
-  if (endpoint.includes('/api/users/') && endpoint.includes('/memberships')) {
+  if (
+    endpoint.includes('/api/users/') &&
+    endpoint.includes('/matches') &&
+    !endpoint.includes('/unrevealed-matches') &&
+    !endpoint.includes('/ai-matches')
+  ) {
     return [];
+  }
+  if (endpoint.includes('/api/users/') && endpoint.includes('/memberships')) {
+    let userId = '';
+    try {
+      const path = endpoint.includes('://') ? new URL(endpoint).pathname : endpoint;
+      const m = path.match(/\/api\/users\/([^/]+)\/memberships/);
+      userId = m?.[1] || '';
+    } catch {
+      userId = endpoint.split('/api/users/')[1]?.split('/')[0] || '';
+    }
+    if (!userId || userId === 'search') return [];
+    return mockGroupMemberships.filter((row) => row.userId === userId);
   }
   if (endpoint.includes('/api/users/') && endpoint.includes('/rsvps')) {
     return [];
@@ -601,6 +644,9 @@ export const getMockData = (endpoint: string): any => {
     !endpoint.includes('/enrollments') &&
     !endpoint.includes('/notifications') &&
     !endpoint.includes('/conversations') &&
+    !endpoint.includes('/conversation-summaries') &&
+    !endpoint.includes('/chat-unread-count') &&
+    !endpoint.includes('/matches') &&
     !endpoint.includes('/search')
   ) {
     const userId = endpoint.split('/api/users/')[1]?.split('?')[0]?.split('/')[0];
@@ -643,6 +689,34 @@ export const getMockData = (endpoint: string): any => {
     if (userId) {
       return mockNotifications.filter(n => n.userId === userId);
     }
+  }
+  if (endpoint.includes('/api/users/') && endpoint.includes('/chat-unread-count')) {
+    const sum = mockConversations.reduce((a, c) => a + (Number((c as { unreadCount?: number }).unreadCount) || 0), 0);
+    return { count: sum };
+  }
+  if (endpoint.includes('/api/users/') && endpoint.includes('/conversation-summaries')) {
+    const userId = endpoint.split('/api/users/')[1]?.split('/conversation-summaries')[0];
+    const rows = mockConversations.filter(
+      (c) => c.participant1Id === userId || c.participant2Id === userId,
+    );
+    return rows.map((c) => {
+      const last = (c as { lastMessage?: string }).lastMessage;
+      const at = (c as { lastMessageAt?: string }).lastMessageAt;
+      return {
+        ...c,
+        lastMessage: last
+          ? {
+              id: 'mock-msg',
+              conversationId: c.id,
+              senderId: c.participant2Id,
+              content: last,
+              read: false,
+              createdAt: at || new Date().toISOString(),
+            }
+          : null,
+        unreadCount: (c as { unreadCount?: number }).unreadCount ?? 0,
+      };
+    });
   }
   if (endpoint.includes('/api/notifications/')) {
     const userId = endpoint.split('/api/notifications/')[1];

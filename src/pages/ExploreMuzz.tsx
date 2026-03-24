@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { MuzzEconomyPill } from "@/components/muzz/MuzzEconomyPill";
 import { getExploreHistory, pushExploreHistory } from "@/lib/muzzEconomy";
+import { getExploreMode } from "@/lib/exploreMode";
 import { useToast } from "@/hooks/use-toast";
 
 type PublicUser = {
@@ -37,6 +38,14 @@ const TAG_POOL = [
   "2 weeks ago",
 ];
 
+function sortKeyForId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
 function tagsForUser(id: string): string[] {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
@@ -52,6 +61,27 @@ export default function ExploreMuzz() {
   const { userId } = useCurrentUser();
   const { toast } = useToast();
   const [tab, setTab] = useState<"foryou" | "events" | "history">("foryou");
+  const [exploreMode, setExploreMode] = useState<"marriage" | "social">(() => getExploreMode());
+  const [headerSearch, setHeaderSearch] = useState("");
+
+  useEffect(() => {
+    const sync = () => setExploreMode(getExploreMode());
+    window.addEventListener("matchify-explore-mode", sync);
+    window.addEventListener("storage", sync);
+    try {
+      const q = sessionStorage.getItem("matchify_explore_search");
+      if (q) {
+        setHeaderSearch(q);
+        sessionStorage.removeItem("matchify_explore_search");
+      }
+    } catch {
+      /* ignore */
+    }
+    return () => {
+      window.removeEventListener("matchify-explore-mode", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
 
   const { data: users = [] } = useQuery<PublicUser[]>({
     queryKey: ["/api/users"],
@@ -59,8 +89,23 @@ export default function ExploreMuzz() {
 
   const likesYou = useMemo(() => {
     const list = Array.isArray(users) ? users : [];
-    return list.filter((u) => u.id !== userId).slice(0, 12);
-  }, [users, userId]);
+    const others = list.filter((u) => u.id !== userId);
+    const q = headerSearch.trim().toLowerCase();
+    const filtered = q
+      ? others.filter(
+          (u) =>
+            (u.name || "").toLowerCase().includes(q) ||
+            (u.username || "").toLowerCase().includes(q) ||
+            (u.location || "").toLowerCase().includes(q),
+        )
+      : others;
+    const sorted = [...filtered].sort((a, b) => {
+      const ka = sortKeyForId(a.id);
+      const kb = sortKeyForId(b.id);
+      return exploreMode === "marriage" ? ka - kb : kb - ka;
+    });
+    return sorted.slice(0, 12);
+  }, [users, userId, exploreMode, headerSearch]);
 
   const history = getExploreHistory();
 
@@ -78,6 +123,34 @@ export default function ExploreMuzz() {
       />
 
       <div className="max-w-lg mx-auto px-3 pt-1">
+        <div className="rounded-xl border border-stone-200/80 bg-stone-50 px-3 py-2.5 text-[11px] text-stone-600 leading-snug mb-2">
+          <span className="font-bold text-stone-800">
+            {exploreMode === "marriage" ? "Marriage mode" : "Social mode"}
+          </span>
+          {" · "}
+          {exploreMode === "marriage"
+            ? "Ordering tuned for serious dating. "
+            : "Ordering favors friends & light connection. "}
+          <button
+            type="button"
+            className="font-bold text-primary underline-offset-2 hover:underline"
+            onClick={() => setLocation("/menu")}
+          >
+            Change in Menu
+          </button>
+          {headerSearch ? (
+            <span className="block mt-1 text-stone-500">
+              Filter: “{headerSearch}”
+              <button
+                type="button"
+                className="ml-2 font-semibold text-primary"
+                onClick={() => setHeaderSearch("")}
+              >
+                Clear
+              </button>
+            </span>
+          ) : null}
+        </div>
         <div className="flex items-center justify-between py-2">
           <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setLocation("/directory")}>
             <SlidersHorizontal className="w-5 h-5" />

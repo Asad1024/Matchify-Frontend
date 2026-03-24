@@ -7,9 +7,6 @@ import Header from "@/components/common/Header";
 import PageWrapper from "@/components/common/PageWrapper";
 import BottomNav from "@/components/common/BottomNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Send, Search, MoreVertical, Phone, Video, Check, CheckCheck, Mic, ArrowLeft, Sparkles } from "lucide-react";
 import { useCurrentUser } from "@/contexts/UserContext";
@@ -19,13 +16,24 @@ import { useToast } from "@/hooks/use-toast";
 import { VoiceNoteRecorder } from "@/components/chat/VoiceNoteRecorder";
 import { Icebreakers } from "@/components/chat/Icebreakers";
 import { AutoDeleteTimer } from "@/components/chat/AutoDeleteTimer";
-import { EmptyState } from "@/components/common/EmptyState";
 
 type Conversation = {
   id: string;
   participant1Id: string;
   participant2Id: string;
   lastMessageAt: Date | null;
+};
+
+type ConversationSummary = Conversation & {
+  lastMessage: {
+    id: string;
+    conversationId: string;
+    senderId: string;
+    content: string;
+    read: boolean | null;
+    createdAt: Date | string | null;
+  } | null;
+  unreadCount: number;
 };
 
 type Message = {
@@ -64,9 +72,9 @@ export default function Chat() {
   const { logout } = useAuth();
   const { toast } = useToast();
 
-  // Fetch conversations
-  const { data: conversations = [] } = useQuery<Conversation[]>({
-    queryKey: [`/api/users/${userId}/conversations`],
+  // Inbox with last message preview + unread counts
+  const { data: conversationSummaries = [] } = useQuery<ConversationSummary[]>({
+    queryKey: [`/api/users/${userId}/conversation-summaries`],
     enabled: !!userId,
   });
 
@@ -85,9 +93,10 @@ export default function Chat() {
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!selectedChat || !userId) return;
-      const response = await fetch(`/api/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(buildApiUrl("/api/messages"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           conversationId: selectedChat,
           senderId: userId,
@@ -100,6 +109,8 @@ export default function Chat() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/messages', selectedChat] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/conversations`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/conversation-summaries`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "chat-unread-count"] });
       setMessage('');
     },
     onError: () => {
@@ -112,7 +123,7 @@ export default function Chat() {
   });
 
   // Ensure arrays are safe (must be declared before use)
-  const safeConversations = Array.isArray(conversations) ? conversations : [];
+  const safeConversations = Array.isArray(conversationSummaries) ? conversationSummaries : [];
   const safeUsers = Array.isArray(users) ? users : [];
   const safeMessages = Array.isArray(messages) ? messages : [];
 
@@ -123,6 +134,21 @@ export default function Chat() {
   };
 
   // Get other participant's info
+  const formatMsgTime = (d: Date | string | null | undefined) => {
+    if (!d) return "";
+    const date = typeof d === "string" ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return "";
+    const now = new Date();
+    const sameDay =
+      date.getDate() === now.getDate() &&
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear();
+    if (sameDay) {
+      return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+    return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  };
+
   const getOtherUser = (conv: Conversation) => {
     if (!conv || !userId) return undefined;
     const otherId = conv.participant1Id === userId ? conv.participant2Id : conv.participant1Id;
@@ -160,6 +186,12 @@ export default function Chat() {
         await queryClient.invalidateQueries({
           queryKey: [`/api/users/${userId}/conversations`],
         });
+        await queryClient.invalidateQueries({
+          queryKey: [`/api/users/${userId}/conversation-summaries`],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ["/api/users", userId, "chat-unread-count"],
+        });
         handoffDoneKey.current = key;
         setSelectedChat(conv.id);
         setLocation("/chat");
@@ -176,13 +208,8 @@ export default function Chat() {
     })();
   }, [userId, queryUserId, setLocation, toast]);
 
-  // Auto-select first conversation when not opening from query
-  useEffect(() => {
-    if (queryUserId) return;
-    if (!selectedChat && safeConversations.length > 0 && safeConversations[0]?.id) {
-      setSelectedChat(safeConversations[0].id);
-    }
-  }, [safeConversations, selectedChat, queryUserId]);
+  // Do NOT auto-open the first thread when selectedChat is null — that prevented
+  // "Back" from ever showing the inbox (effect kept re-selecting the first conv).
 
   // Filter conversations by search
   const filteredConversations = safeConversations.filter(conv => {
@@ -196,7 +223,7 @@ export default function Chat() {
 
   return (
     <PageWrapper>
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className={`min-h-screen bg-gray-50 ${selectedChat ? "pb-0" : "pb-24"}`}>
       {!selectedChat && (
         <Header
           showSearch={false}
@@ -205,7 +232,11 @@ export default function Chat() {
         />
       )}
 
-      <div className="max-w-lg mx-auto h-[calc(100vh-56px)] flex flex-col">
+      <div
+        className={`max-w-lg mx-auto flex flex-col ${
+          selectedChat ? "h-[100dvh] min-h-0" : "h-[calc(100vh-56px)] min-h-0"
+        }`}
+      >
         {/* Conversations List */}
         {!selectedChat ? (
           <div className="flex flex-col flex-1 overflow-hidden bg-white">
@@ -227,17 +258,53 @@ export default function Chat() {
               {!userId ? (
                 <div className="p-4 text-center text-gray-400 text-sm">Loading...</div>
               ) : filteredConversations.length === 0 ? (
-                <div className="p-8">
-                  <EmptyState
-                    useMascot={true}
-                    mascotType="default"
-                    title={searchQuery ? 'No conversations found' : 'No messages yet'}
-                    description={searchQuery ? 'Try a different search term' : 'Start matching with people to begin conversations!'}
-                  />
+                <div className="flex flex-col items-center justify-center py-16 px-6 text-center gap-4">
+                  {searchQuery ? (
+                    <>
+                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                        <Search className="w-7 h-7 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground">No conversations found</p>
+                        <p className="text-sm text-muted-foreground mt-1">Try a different search term</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-pink-100 flex items-center justify-center">
+                          <span className="text-3xl">💬</span>
+                        </div>
+                        <div className="absolute -top-1 -right-1 w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-md">
+                          <span className="text-sm">✨</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="font-bold text-lg text-foreground">Your inbox is empty</p>
+                        <p className="text-sm text-muted-foreground mt-1.5 max-w-[220px] leading-relaxed">
+                          Match with someone you like and start a conversation — every great story begins with a message.
+                        </p>
+                      </div>
+                      <button
+                        className="mt-1 bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-md shadow-primary/30 hover:bg-primary/90 transition-colors"
+                        onClick={() => setLocation('/explore')}
+                      >
+                        Explore matches
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
                 filteredConversations.map((conv) => {
                   const otherUser = getOtherUser(conv);
+                  const summary = conv as ConversationSummary;
+                  const last = summary.lastMessage;
+                  const preview =
+                    last?.content?.slice(0, 80) ||
+                    (conv.lastMessageAt ? "Open to continue the chat" : "Say hello 👋");
+                  const ts = last?.createdAt ?? conv.lastMessageAt;
+                  const unread = summary.unreadCount ?? 0;
+                  const isFromMe = last && userId && last.senderId === userId;
                   return (
                     <button
                       key={conv.id}
@@ -252,7 +319,11 @@ export default function Chat() {
                             {otherUser?.name.slice(0, 2).toUpperCase() || '??'}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white" />
+                        {unread > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
+                            {unread > 9 ? "9+" : unread}
+                          </span>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-0.5">
@@ -260,10 +331,16 @@ export default function Chat() {
                             {otherUser?.name || 'Unknown User'}
                           </p>
                           <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                            {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}
+                            {formatMsgTime(ts)}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-400 truncate">Tap to view messages</p>
+                        <p
+                          className={`text-xs truncate ${
+                            unread > 0 ? "text-gray-800 font-semibold" : "text-gray-500"
+                          }`}
+                        >
+                          {isFromMe ? `You: ${preview}` : preview}
+                        </p>
                       </div>
                     </button>
                   );
@@ -275,10 +352,17 @@ export default function Chat() {
           /* Chat Area */
           <div className="flex flex-col flex-1 overflow-hidden bg-white">
             {/* Chat Header */}
-            <div className="px-4 py-3 bg-white border-b border-gray-100 flex items-center gap-3">
+            <div className="px-4 py-3 bg-white border-b border-gray-100 flex items-center gap-3 safe-top shrink-0">
               <button
-                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
-                onClick={() => setSelectedChat(null)}
+                type="button"
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors touch-manipulation"
+                aria-label="Back to inbox"
+                onClick={() => {
+                  setSelectedChat(null);
+                  if (queryUserId) {
+                    setLocation("/chat");
+                  }
+                }}
               >
                 <ArrowLeft className="w-5 h-5 text-gray-700" />
               </button>

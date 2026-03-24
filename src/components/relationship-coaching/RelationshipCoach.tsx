@@ -520,8 +520,23 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
+            {/* No space yet - prompt to add partner */}
+            {!activeSpace && (
+              <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Heart className="w-7 h-7 text-primary" />
+                </div>
+                <p className="text-sm font-semibold text-foreground">Add a partner to start chatting</p>
+                <p className="text-xs text-muted-foreground max-w-[220px]">
+                  Select a match above and click <strong>Add To Luna</strong> to begin your AI coaching session.
+                </p>
+                <Button size="sm" variant="outline" className="rounded-full text-xs" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                  Go to partner setup ↑
+                </Button>
+              </div>
+            )}
             {/* Chat history */}
-            <div className="min-h-[200px] max-h-72 overflow-y-auto space-y-3 bg-muted/30 rounded-xl p-3">
+            {activeSpace && <div className="min-h-[200px] max-h-72 overflow-y-auto space-y-3 bg-muted/30 rounded-xl p-3">
               {messages.length === 0 ? (
                 <div className="text-center py-8 text-xs text-muted-foreground">
                   <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -553,10 +568,10 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Input */}
-            <div className="flex gap-2">
+            {activeSpace && <div className="flex gap-2">
               <Textarea
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
@@ -577,12 +592,12 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                   if (!question.trim() || !activeSpace) return;
                   sendMessage.mutate(question.trim());
                 }}
-                disabled={!question.trim() || sendMessage.isPending || !activeSpace}
+                disabled={!question.trim() || sendMessage.isPending}
                 className="rounded-xl self-end"
               >
                 <Send className="w-4 h-4" />
               </Button>
-            </div>
+            </div>}
 
             {activeSpace && suggestions.length > 0 && (
               <div className="pt-1">

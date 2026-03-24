@@ -1,6 +1,7 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
 import { Clock, BarChart } from "lucide-react";
 
@@ -12,6 +13,8 @@ interface CourseCardProps {
   level: 'beginner' | 'intermediate' | 'advanced';
   image?: string;
   enrolled?: boolean;
+  /** 0–100 when enrolled; grows slightly by days since enrollment (demo) */
+  progressPercent?: number;
   onEnroll?: (id: string) => void;
   onClick?: (id: string) => void;
 }
@@ -24,6 +27,7 @@ export default function CourseCard({
   level,
   image,
   enrolled = false,
+  progressPercent,
   onEnroll,
   onClick
 }: CourseCardProps) {
@@ -66,6 +70,15 @@ export default function CourseCard({
             {level.charAt(0).toUpperCase() + level.slice(1)}
           </Badge>
         </div>
+        {enrolled && typeof progressPercent === "number" && (
+          <div className="space-y-1.5 pt-1">
+            <div className="flex justify-between text-xs text-muted-foreground font-medium">
+              <span>Your progress</span>
+              <span>{Math.round(progressPercent)}%</span>
+            </div>
+            <Progress value={Math.min(100, Math.max(0, progressPercent))} className="h-2" />
+          </div>
+        )}
       </CardContent>
       <CardFooter className="p-4 pt-0">
         <Button

@@ -144,7 +144,7 @@ export default function Directory() {
     if (profile.verified) { baseScore += 5; reasons.push("Verified"); }
     if (currentUser?.commitmentIntention && profile.commitmentIntention) {
       const compatible = { 'marriage': ['marriage', 'serious'], 'serious': ['serious', 'marriage', 'casual'], 'casual': ['casual', 'serious'] };
-      if (compatible[currentUser.commitmentIntention as keyof typeof compatible]?.includes(profile.commitmentIntention)) { baseScore += 15; reasons.push("Aligned relationship goals"); }
+      if (compatible[currentUser.commitmentIntention as keyof typeof compatible]?.includes(profile.commitmentIntention)) { baseScore += 15; reasons.push("Aligned marriage intentions"); }
     }
     return { score: Math.min(Math.max(baseScore, 0), 100), reasons: reasons.length > 0 ? reasons : ["Potential match"] };
   };

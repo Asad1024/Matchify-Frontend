@@ -16,6 +16,20 @@ import { Heart } from "lucide-react";
 import type { Group } from "@shared/schema";
 import { getReligionLabel } from "@/lib/religionOptions";
 
+function apiErrorMessage(err: unknown): string {
+  if (!(err instanceof Error)) return "Something went wrong. Try again.";
+  const raw = err.message;
+  const m = raw.match(/^\d+:\s*([\s\S]+)$/);
+  const payload = m?.[1] ?? raw;
+  try {
+    const j = JSON.parse(payload) as { message?: string };
+    if (j?.message && typeof j.message === "string") return j.message;
+  } catch {
+    /* not JSON */
+  }
+  return payload.length > 160 ? `${payload.slice(0, 157)}…` : payload;
+}
+
 type GroupRow = Group & { memberCount?: number; religionFocus?: string | null };
 
 function groupMatchesDiscovery(
@@ -111,7 +125,7 @@ export default function Community() {
   const [activeTab, setActiveTab] = useState<typeof FEED_TABS[number]>('feed');
   const [feedFilter, setFeedFilter] = useState<string>('for_you');
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all');
-  const [activePage, setActivePage] = useState('jamaa');
+  const [activePage, setActivePage] = useState('community');
   const [createPostOpen, setCreatePostOpen] = useState(false);
   const [groupsDiscoverMode, setGroupsDiscoverMode] = useState<"for_you" | "all">("for_you");
   const [, setLocation] = useLocation();
@@ -153,6 +167,92 @@ export default function Community() {
     enabled: !!currentUserId,
   });
 
+  const joinMutation = useMutation({
+    mutationFn: async ({ groupId }: { groupId: string }) => {
+      const uid = currentUserId;
+      if (!uid) {
+        throw new Error("You're not signed in. Try logging in again.");
+      }
+      const res = await apiRequest("POST", "/api/memberships", { userId: uid, groupId });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+      return res;
+    },
+    onSuccess: () => {
+      if (!currentUserId) return;
+      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users', currentUserId, 'memberships'] });
+      toast({ title: "Joined!", description: "You've joined the group" });
+    },
+    onError: (err) => {
+      toast({
+        variant: "destructive",
+        title: "Could not join",
+        description: apiErrorMessage(err),
+      });
+    },
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: async ({ groupId }: { groupId: string }) => {
+      const uid = currentUserId;
+      if (!uid) {
+        throw new Error("You're not signed in. Try logging in again.");
+      }
+      const res = await apiRequest("DELETE", `/api/memberships/${uid}/${groupId}`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+      return res;
+    },
+    onSuccess: () => {
+      if (!currentUserId) return;
+      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users', currentUserId, 'memberships'] });
+      toast({ title: "Left group", description: "You've left the group" });
+    },
+    onError: (err) => {
+      toast({
+        variant: "destructive",
+        title: "Could not leave",
+        description: apiErrorMessage(err),
+      });
+    },
+  });
+
+  const membershipIds = useMemo(() => {
+    if (!Array.isArray(memberships)) return new Set<string>();
+    const ids = memberships
+      .map((m: { groupId?: string }) => m.groupId)
+      .filter((gid): gid is string => typeof gid === "string" && gid.length > 0);
+    return new Set(ids);
+  }, [memberships]);
+
+  const sortedPosts = useMemo(
+    () => sortPosts(Array.isArray(posts) ? posts : [], feedFilter).map(enrichPostWithMeta),
+    [posts, feedFilter]
+  );
+
+  const selectedGroup = useMemo(() => {
+    if (selectedGroupId === "all") return null;
+    const list = Array.isArray(groups) ? groups : [];
+    return list.find((g) => g.id === selectedGroupId) || null;
+  }, [groups, selectedGroupId]);
+
+  const groupPosts = useMemo(() => {
+    if (!selectedGroup) return [];
+    return sortedPosts.filter((p: Post & { groupId?: string }) => p.groupId === selectedGroup.id);
+  }, [sortedPosts, selectedGroup]);
+
+  const handlePostLike = () => {
+    const next = likedCount + 1;
+    setLikedCount(next);
+    localStorage.setItem(ONBOARDING_KEY, String(next));
+  };
+
   if (!currentUserId) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -161,53 +261,11 @@ export default function Community() {
     );
   }
 
-  const joinMutation = useMutation({
-    mutationFn: async ({ groupId }: { groupId: string }) => {
-      return apiRequest('POST', '/api/memberships', { userId: currentUserId, groupId });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users', currentUserId, 'memberships'] });
-      toast({ title: "Joined!", description: "You've joined the group" });
-    },
-  });
-
-  const leaveMutation = useMutation({
-    mutationFn: async ({ groupId }: { groupId: string }) => {
-      return apiRequest('DELETE', `/api/memberships/${currentUserId}/${groupId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users', currentUserId, 'memberships'] });
-      toast({ title: "Left group", description: "You've left the group" });
-    },
-  });
-
-  const membershipIds = new Set(
-    Array.isArray(memberships)
-      ? memberships.map((m: any) => m.groupId || m.id)
-      : []
-  );
-
-  const sortedPosts = sortPosts(Array.isArray(posts) ? posts : [], feedFilter).map(enrichPostWithMeta);
-  const selectedGroup = selectedGroupId === 'all'
-    ? null
-    : groups.find((g) => g.id === selectedGroupId) || null;
-  const groupPosts = selectedGroup
-    ? sortedPosts.filter((p: any) => p.groupId === selectedGroup.id)
-    : [];
-
-  const handlePostLike = () => {
-    const next = likedCount + 1;
-    setLikedCount(next);
-    localStorage.setItem(ONBOARDING_KEY, String(next));
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <Header
         showSearch={true}
-        title="Jamaa"
+        title="Community"
         subtitle="Community feed & groups"
         onNotifications={() => setLocation("/notifications")}
         onCreate={() => setCreatePostOpen(true)}

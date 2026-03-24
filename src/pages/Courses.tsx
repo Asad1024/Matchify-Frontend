@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
@@ -29,6 +29,17 @@ type Enrollment = {
   userId: string;
   courseId: string;
   enrolledAt: Date | null;
+  createdAt?: string | null;
+};
+
+const progressFromEnrollment = (en: Enrollment | undefined): number => {
+  if (!en) return 20;
+  const raw = en.createdAt ?? (en.enrolledAt as unknown as string | null);
+  if (!raw) return 22;
+  const t = new Date(raw).getTime();
+  if (Number.isNaN(t)) return 22;
+  const days = (Date.now() - t) / 86400000;
+  return Math.min(95, Math.round(18 + days * 12));
 };
 
 export default function Courses() {
@@ -41,24 +52,12 @@ export default function Courses() {
   // Fetch courses
   const { data: courses = [], isLoading: coursesLoading } = useQuery<Course[]>({
     queryKey: ['/api/courses'],
-    queryFn: async () => {
-      const url = buildApiUrl('/api/courses');
-      const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch courses');
-      return res.json();
-    },
   });
 
   // Fetch user's enrollments
   const { data: enrollments = [] } = useQuery<Enrollment[]>({
     queryKey: ['/api/enrollments', userId],
     enabled: !!userId,
-    queryFn: async () => {
-      const url = buildApiUrl(`/api/enrollments?userId=${userId}`);
-      const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch enrollments');
-      return res.json();
-    },
   });
 
   // Enroll mutation
@@ -95,6 +94,12 @@ export default function Courses() {
   const isEnrolled = (courseId: string) => {
     return enrollments.some(e => e.courseId === courseId);
   };
+
+  const enrollmentByCourse = useMemo(() => {
+    const m = new Map<string, Enrollment>();
+    enrollments.forEach((e) => m.set(e.courseId, e));
+    return m;
+  }, [enrollments]);
 
   // Format courses with enrollment status
   const coursesWithStatus = courses.map(course => ({
@@ -136,12 +141,15 @@ export default function Courses() {
               <CourseCard
                 key={course.id}
                 {...course}
+                progressPercent={
+                  course.enrolled ? progressFromEnrollment(enrollmentByCourse.get(course.id)) : undefined
+                }
                 onEnroll={(id) => {
                   if (!isEnrolled(id)) {
                     enrollMutation.mutate(id);
                   }
                 }}
-                onClick={(id) => console.log('Course clicked:', id)}
+                onClick={() => {}}
               />
             ))}
           </div>

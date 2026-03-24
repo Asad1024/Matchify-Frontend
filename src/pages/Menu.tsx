@@ -28,13 +28,14 @@ import {
   setGoldMember,
 } from "@/lib/muzzEconomy";
 import { MuzzEconomyPill } from "@/components/muzz/MuzzEconomyPill";
+import { getExploreMode, setExploreModePersisted } from "@/lib/exploreMode";
 
 export default function Menu() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
   const { toast } = useToast();
-  const [mode, setMode] = useState<"marriage" | "social">("marriage");
+  const [mode, setMode] = useState<"marriage" | "social">(() => getExploreMode());
   const [boosts, setBoostsState] = useState(getBoosts);
   const [compliments, setComplimentsState] = useState(getCompliments);
   const gold = isGoldMember();
@@ -68,7 +69,14 @@ export default function Menu() {
         <div className="flex border-b border-gray-200 bg-white rounded-t-2xl overflow-hidden">
           <button
             type="button"
-            onClick={() => setMode("marriage")}
+            onClick={() => {
+              setMode("marriage");
+              setExploreModePersisted("marriage");
+              toast({
+                title: "Marriage mode",
+                description: "Explore shows people sorted for serious dating.",
+              });
+            }}
             className={`flex-1 py-3 text-sm font-bold relative ${
               mode === "marriage" ? "text-gray-900" : "text-gray-400"
             }`}
@@ -80,7 +88,14 @@ export default function Menu() {
           </button>
           <button
             type="button"
-            onClick={() => setMode("social")}
+            onClick={() => {
+              setMode("social");
+              setExploreModePersisted("social");
+              toast({
+                title: "Social mode",
+                description: "Explore prioritizes friends & community-first connections.",
+              });
+            }}
             className={`flex-1 py-3 text-sm font-bold relative ${
               mode === "social" ? "text-gray-900" : "text-gray-400"
             }`}

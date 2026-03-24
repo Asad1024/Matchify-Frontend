@@ -1,23 +1,32 @@
 import { HeartHandshake, Compass, Globe, MessageCircle, UserCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { useCurrentUser } from "@/contexts/UserContext";
 
 interface BottomNavProps {
   active: string;
   onNavigate?: (page: string) => void;
 }
 
-/** Muzz-style 5-tab bar: Marriage · Explore · Jamaa · Chat · Menu */
+/** 5-tab bar: Marriage · Explore · Community · Chat · Menu */
 const NAV_ITEMS = [
   { id: "marriage", icon: HeartHandshake, label: "Marriage", path: "/" },
   { id: "explore", icon: Compass, label: "Explore", path: "/explore" },
-  { id: "jamaa", icon: Globe, label: "Jamaa", path: "/community", center: true },
+  { id: "community", icon: Globe, label: "Community", path: "/community", center: true },
   { id: "chat", icon: MessageCircle, label: "Chat", path: "/chat" },
   { id: "menu", icon: UserCircle, label: "Menu", path: "/menu" },
 ];
 
 export default function BottomNav({ active, onNavigate }: BottomNavProps) {
   const [, setLocation] = useLocation();
+  const { userId } = useCurrentUser();
+
+  const { data: unreadPayload } = useQuery<{ count: number }>({
+    queryKey: ["/api/users", userId, "chat-unread-count"],
+    enabled: !!userId,
+  });
+  const chatUnread = Math.min(99, Math.max(0, unreadPayload?.count ?? 0));
 
   const handleNav = (item: { id: string; path: string }) => {
     setLocation(item.path);
@@ -76,25 +85,29 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
                 transition={{ type: "spring", stiffness: 500, damping: 22 }}
                 className="relative"
               >
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.div
+                      layoutId="nav-active-bg"
+                      initial={{ opacity: 0, scale: 0.7 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.7 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      className="absolute inset-[-6px] rounded-2xl bg-primary/10"
+                    />
+                  )}
+                </AnimatePresence>
                 <Icon
-                  className={`w-[22px] h-[22px] transition-colors duration-200 ${
+                  className={`w-[22px] h-[22px] transition-colors duration-200 relative z-10 ${
                     isActive ? "text-primary" : "text-gray-400"
                   }`}
                   strokeWidth={isActive ? 2.5 : 1.8}
                 />
-
-                <AnimatePresence>
-                  {isActive && (
-                    <motion.span
-                      layoutId={`dot-${item.id}`}
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 28 }}
-                      className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full"
-                    />
-                  )}
-                </AnimatePresence>
+                {item.id === "chat" && chatUnread > 0 && (
+                  <span className="absolute -top-1 -right-1 z-20 min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[9px] font-bold flex items-center justify-center border border-white shadow-sm">
+                    {chatUnread > 9 ? "9+" : chatUnread}
+                  </span>
+                )}
               </motion.div>
 
               <span

@@ -23,6 +23,11 @@ export default defineConfig(async () => {
 
   return {
     plugins,
+    /** Vitest (run `npm test`) — AI Matchmaker Flow B step counts, etc. */
+    test: {
+      environment: "node",
+      include: ["src/**/*.test.ts"],
+    },
     base: "/",
     optimizeDeps: {
       force: true, // Force re-optimization of dependencies

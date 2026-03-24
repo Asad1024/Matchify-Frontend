@@ -3,7 +3,13 @@
  */
 
 import { nanoid } from "nanoid";
-import { createMockUser, getMockData, setCurrentUserId } from "@/lib/mockData";
+import {
+  addMockGroupMembership,
+  createMockUser,
+  getMockData,
+  removeMockGroupMembership,
+  setCurrentUserId,
+} from "@/lib/mockData";
 
 // Get API base URL - use environment variable if set, otherwise relative URLs (for Vite proxy)
 function getApiBaseUrl(): string {
@@ -183,6 +189,40 @@ export async function apiRequest(
     if (method === 'GET') {
       const mockData = getMockData(url);
       return new Response(JSON.stringify(mockData), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    // Offline / no backend: group join & leave (Community)
+    if (method === 'POST' && (url === '/api/memberships' || url.endsWith('/api/memberships'))) {
+      const body = data as { userId?: string; groupId?: string };
+      const uid = body.userId;
+      const gid = body.groupId;
+      if (!uid || !gid) {
+        return new Response(JSON.stringify({ message: 'Missing fields' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      const groups = getMockData('/api/groups') as Array<{ id: string }>;
+      if (!groups.some((g) => g.id === gid)) {
+        return new Response(JSON.stringify({ message: 'Group not found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      const row = addMockGroupMembership(uid, gid);
+      return new Response(JSON.stringify(row), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (method === 'DELETE' && /^\/api\/memberships\/[^/]+\/[^/]+$/.test(url)) {
+      const parts = url.split('/api/memberships/')[1]?.split('/');
+      const uid = parts?.[0];
+      const gid = parts?.[1];
+      if (uid && gid) removeMockGroupMembership(uid, gid);
+      return new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });

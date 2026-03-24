@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
@@ -36,6 +36,7 @@ export default function Coaches() {
   const { logout } = useAuth();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [specialtyFilter, setSpecialtyFilter] = useState<string>("all");
   const [selectedCoach, setSelectedCoach] = useState<{ id: string; name: string; pricePerSession: number } | null>(null);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
 
@@ -53,8 +54,18 @@ export default function Coaches() {
     },
   });
 
-  // Filter coaches based on search
-  const filteredCoaches = coaches.filter(coach => {
+  const specialtyOptions = useMemo(() => {
+    const set = new Set<string>();
+    coaches.forEach((c) => {
+      const s = c.specialty?.trim();
+      if (s) set.add(s);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [coaches]);
+
+  // Filter coaches by specialty pill + search
+  const filteredCoaches = coaches.filter((coach) => {
+    if (specialtyFilter !== "all" && coach.specialty !== specialtyFilter) return false;
     if (!search) return true;
     const searchLower = search.toLowerCase();
     return (
@@ -115,6 +126,38 @@ export default function Coaches() {
               className="pl-10"
             />
           </div>
+
+          {specialtyOptions.length > 0 && (
+            <div className="mt-4 flex gap-2 flex-wrap items-center">
+              <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">Specialty</span>
+              <button
+                type="button"
+                onClick={() => setSpecialtyFilter("all")}
+                className={`rounded-full px-3 py-1 text-xs font-semibold border transition-colors ${
+                  specialtyFilter === "all"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+                }`}
+              >
+                All
+              </button>
+              {specialtyOptions.map((spec) => (
+                <button
+                  key={spec}
+                  type="button"
+                  onClick={() => setSpecialtyFilter(spec)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold border transition-colors max-w-[200px] truncate ${
+                    specialtyFilter === spec
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+                  }`}
+                  title={spec}
+                >
+                  {spec}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {coachesLoading ? (

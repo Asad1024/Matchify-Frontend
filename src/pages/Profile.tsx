@@ -62,7 +62,9 @@ export default function Profile() {
     enabled: !!userId,
   });
 
-  const { data: partner } = useQuery<User>({
+  const { data: partner } = useQuery<
+    User & { commitmentIntention?: string | null; marriageTimeline?: string | null }
+  >({
     queryKey: [`/api/users/${user?.partnerId}`],
     enabled: !!user?.partnerId,
   });
@@ -86,22 +88,26 @@ export default function Profile() {
     enabled: !!userId,
   });
 
-  const { data: events = [] } = useQuery<any[]>({
-    queryKey: ['/api/events'],
-    enabled: !!userId,
-  });
-
   const { data: memberships = [] } = useQuery<any[]>({
     queryKey: ['/api/users', userId, 'memberships'],
     enabled: !!userId,
   });
 
-  const matchCount = Array.isArray(posts)
+  const { data: matches = [] } = useQuery<any[]>({
+    queryKey: [`/api/users/${userId}/matches`],
+    enabled: !!userId,
+  });
+
+  const { data: rsvps = [] } = useQuery<any[]>({
+    queryKey: ['/api/users', userId, 'rsvps'],
+    enabled: !!userId,
+  });
+
+  const postCount = Array.isArray(posts)
     ? posts.filter((p: any) => (p.userId || p.authorId) === userId).length
     : 0;
-  const eventCount = Array.isArray(events)
-    ? events.filter((e: any) => e.createdBy === userId || e.userId === userId).length
-    : 0;
+  const connectionCount = Array.isArray(matches) ? matches.length : 0;
+  const eventsJoinedCount = Array.isArray(rsvps) ? rsvps.length : 0;
   const groupCount = Array.isArray(memberships) ? memberships.length : 0;
 
   if (!userId || isLoading) {
@@ -138,22 +144,15 @@ export default function Profile() {
         {/* Cover photo + Avatar hero */}
         <div className="relative">
           {/* Cover photo */}
-          <div className="h-44 bg-gradient-to-br from-primary to-primary/70 relative">
-            <div className="absolute inset-0 opacity-20">
-              {[...Array(4)].map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute rounded-full border-2 border-white"
-                  style={{
-                    width: `${(i + 1) * 120}px`,
-                    height: `${(i + 1) * 120}px`,
-                    bottom: '-30%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                  }}
-                />
-              ))}
-            </div>
+          <div className="h-44 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #f43f5e 0%, #ec4899 40%, #a855f7 70%, #6366f1 100%)" }}>
+            {/* Dot grid texture */}
+            <div className="absolute inset-0 opacity-15"
+              style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "20px 20px" }}
+            />
+            {/* Decorative orbs */}
+            <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white/10 blur-xl" />
+            <div className="absolute top-1/2 right-12 w-16 h-16 rounded-full bg-white/15" />
           </div>
 
           {/* Avatar overlapping cover */}
@@ -220,18 +219,23 @@ export default function Profile() {
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-0 mt-4 pt-4 border-t border-gray-100">
             <div className="text-center">
-              <p className="text-xl font-black text-gray-900">{matchCount}</p>
-              <p className="text-xs text-gray-400 font-medium mt-0.5">Posts</p>
+              <p className="text-xl font-black text-gray-900">{connectionCount}</p>
+              <p className="text-xs text-gray-400 font-medium mt-0.5">Connections</p>
             </div>
             <div className="text-center border-x border-gray-100">
-              <p className="text-xl font-black text-gray-900">{eventCount}</p>
-              <p className="text-xs text-gray-400 font-medium mt-0.5">Events</p>
+              <p className="text-xl font-black text-gray-900">{postCount}</p>
+              <p className="text-xs text-gray-400 font-medium mt-0.5">Posts</p>
             </div>
             <div className="text-center">
               <p className="text-xl font-black text-gray-900">{groupCount}</p>
               <p className="text-xs text-gray-400 font-medium mt-0.5">Groups</p>
             </div>
           </div>
+          <p className="text-[11px] text-gray-400 mt-2 text-center">
+            {eventsJoinedCount > 0
+              ? `${eventsJoinedCount} event${eventsJoinedCount === 1 ? "" : "s"} RSVP’d — keep exploring!`
+              : "RSVP to events from the Events tab to see them here."}
+          </p>
         </div>
 
         {/* Faith & discovery (inclusive — Muzz-style clarity, all backgrounds) */}
@@ -258,8 +262,8 @@ export default function Profile() {
           </p>
         </div>
 
-        {/* Relationship intentions — Muzz-style intent bar */}
-        <div className="px-4 mt-3">
+        {/* Marriage intentions — you + linked partner (same path as Muzz “both sides”) */}
+        <div className="px-4 mt-3 space-y-3">
           <ProfileMarriageIntentBar
             user={{
               name: user.name,
@@ -268,6 +272,28 @@ export default function Profile() {
             }}
             variant="self"
           />
+          {user.partnerId && partner && (
+            <ProfileMarriageIntentBar
+              user={{
+                name: partner.name,
+                commitmentIntention: partner.commitmentIntention,
+                marriageTimeline: partner.marriageTimeline ?? null,
+              }}
+              variant="other"
+            />
+          )}
+          {user.partnerId && !partner && (
+            <div className="rounded-xl border border-dashed border-primary/20 bg-primary/5 px-4 py-3 text-center">
+              <p className="text-xs text-muted-foreground">Loading your partner’s intentions…</p>
+            </div>
+          )}
+          {!user.partnerId && (
+            <p className="text-[11px] text-muted-foreground text-center leading-relaxed px-1">
+              <span className="font-semibold text-foreground">Partner’s part:</span> link them under{" "}
+              <span className="font-semibold">Relationship coaching</span> below — then their marriage
+              intentions show here next to yours.
+            </p>
+          )}
         </div>
 
         {/* About */}
@@ -305,8 +331,9 @@ export default function Profile() {
                   <p className="text-sm font-bold text-gray-900">AI Matchmaker finished</p>
                   <p className="text-xs text-gray-500">Your 30-question answers are saved.</p>
                   {user.commitmentIntention && (
-                    <p className="text-xs text-gray-500 capitalize">
-                      Marriage intention: {user.commitmentIntention.replace(/_/g, " ")}
+                    <p className="text-xs text-gray-500">
+                      Marriage intention:{" "}
+                      {user.commitmentIntention.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                     </p>
                   )}
                 </div>
