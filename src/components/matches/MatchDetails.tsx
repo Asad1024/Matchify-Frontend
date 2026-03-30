@@ -22,7 +22,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  futureTogether: "bg-rose-500",
+  futureTogether: "bg-primary",
   lifestyleTravel: "bg-sky-500",
   fitness: "bg-primary",
   foodCompatibility: "bg-amber-500",

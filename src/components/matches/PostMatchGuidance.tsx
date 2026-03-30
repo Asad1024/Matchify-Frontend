@@ -237,7 +237,7 @@ export default function PostMatchGuidance({ match, onDateScheduled, onMessageSen
       </Card>
 
       {/* Compatibility Insights */}
-      <Card className="bg-gradient-to-br from-primary/10 to-pink-500/10">
+      <Card className="bg-gradient-to-br from-primary/10 to-red-950/10">
         <CardContent className="p-6">
           <h3 className="font-semibold mb-3">Why You Match</h3>
           <div className="space-y-2 text-sm">

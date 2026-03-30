@@ -1,4 +1,6 @@
-/** Luna API requires the logged-in user id (matches backend `X-Matchify-User-Id`). */
+/** Luna API requires caller id header; JWT is also sent when present. */
+
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 
 export const getStoredUserId = (): string | null => {
   try {
@@ -12,15 +14,13 @@ export const getStoredUserId = (): string | null => {
 };
 
 export const lunaHeaders = (): HeadersInit => {
-  const id = getStoredUserId();
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (id) h["X-Matchify-User-Id"] = id;
-  return h;
+  return { ...getAuthHeaders(true) };
 };
 
 export const lunaFetch = (input: string, init?: RequestInit): Promise<Response> => {
-  const headers = new Headers(init?.headers);
-  const id = getStoredUserId();
-  if (id) headers.set("X-Matchify-User-Id", id);
-  return fetch(input, { ...init, headers });
+  const jsonBody = typeof init?.body === "string";
+  const headers = new Headers({ ...getAuthHeaders(jsonBody) });
+  const merged = new Headers(init?.headers);
+  merged.forEach((v, k) => headers.set(k, v));
+  return fetch(buildApiUrl(input), { ...init, headers, credentials: "include" });
 };

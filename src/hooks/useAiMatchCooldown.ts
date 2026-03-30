@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AI_MATCH_COOLDOWN_MS, STORAGE_LAST_AI_MATCH_AT } from "@/lib/matchifyBranding";
+import { AI_MATCH_COOLDOWN_MS } from "@/lib/matchifyBranding";
 
 function parseServerMs(iso: string | null | undefined): number {
   if (!iso || typeof iso !== "string") return 0;
@@ -7,29 +7,17 @@ function parseServerMs(iso: string | null | undefined): number {
   return Number.isFinite(t) ? t : 0;
 }
 
-function getLocalClaimedMs(): number {
-  const raw = localStorage.getItem(STORAGE_LAST_AI_MATCH_AT);
-  if (!raw) return 0;
-  const last = parseInt(raw, 10);
-  return Number.isFinite(last) ? last : 0;
-}
-
-/** Latest claim time: max(server ISO, localStorage) so clearing localStorage alone cannot reset cooldown. */
-function getEffectiveLastClaimedMs(serverLastClaimedAt?: string | null): number {
-  return Math.max(parseServerMs(serverLastClaimedAt), getLocalClaimedMs());
-}
-
+/** Cooldown from server `lastAiMatchClaimedAt` only — consistent across browsers/devices. */
 export function getMsUntilNextAiMatch(serverLastClaimedAt?: string | null): number {
-  const lastClaimed = getEffectiveLastClaimedMs(serverLastClaimedAt);
+  const lastClaimed = parseServerMs(serverLastClaimedAt);
   if (!lastClaimed) return 0;
   const elapsed = Date.now() - lastClaimed;
   return Math.max(0, AI_MATCH_COOLDOWN_MS - elapsed);
 }
 
-/** Persist 48h pacing: local (instant) + server profile (cross-device). */
+/** Persist cooldown on server (profile `lastAiMatchClaimedAt`). */
 export async function recordAiMatchClaimed(userId: string): Promise<void> {
   const now = Date.now();
-  localStorage.setItem(STORAGE_LAST_AI_MATCH_AT, String(now));
   try {
     const res = await fetch(`/api/users/${userId}`, {
       method: "PATCH",
@@ -42,7 +30,7 @@ export async function recordAiMatchClaimed(userId: string): Promise<void> {
       await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
     }
   } catch {
-    // Offline / mock: localStorage still applies
+    /* offline */
   }
 }
 

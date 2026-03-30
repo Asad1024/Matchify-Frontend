@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
@@ -20,12 +20,15 @@ import {
   LogOut,
   AlertTriangle,
   UserX,
-  Ban
+  Ban,
+  KeyRound,
 } from "lucide-react";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { apiRequestJson } from "@/services/api";
+import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +45,19 @@ type User = {
   id: string;
   name: string;
   email: string;
+  privacy?: {
+    profileVisible?: boolean;
+    showOnlineStatus?: boolean;
+    allowMessagesFrom?: "everyone" | "matches" | "none";
+    showLocation?: boolean;
+  };
+  notificationSettings?: {
+    newMatches?: boolean;
+    messages?: boolean;
+    events?: boolean;
+    groups?: boolean;
+    marketing?: boolean;
+  };
 };
 
 export default function Settings() {
@@ -65,6 +81,30 @@ export default function Settings() {
     marketing: false,
   });
 
+  const { data: me } = useQuery<User>({
+    queryKey: [`/api/users/${userId}`],
+    enabled: !!userId,
+  });
+
+  useEffect(() => {
+    if (!me) return;
+    const priv = me.privacy;
+    if (priv && typeof priv === "object") {
+      setPrivacySettings((prev) => ({
+        ...prev,
+        ...priv,
+        allowMessagesFrom: priv.allowMessagesFrom ?? prev.allowMessagesFrom,
+      }));
+    }
+    const notif = me.notificationSettings;
+    if (notif && typeof notif === "object") {
+      setNotificationSettings((prev) => ({
+        ...prev,
+        ...notif,
+      }));
+    }
+  }, [me]);
+
   // Fetch blocked users
   const { data: blockedUsers = [] } = useQuery<User[]>({
     queryKey: [`/api/users/${userId}/blocked`],
@@ -77,6 +117,7 @@ export default function Settings() {
       return apiRequest('PATCH', `/api/users/${userId}/privacy`, settings);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
       toast({
         title: "Privacy settings updated",
         description: "Your privacy preferences have been saved",
@@ -90,6 +131,7 @@ export default function Settings() {
       return apiRequest('PATCH', `/api/users/${userId}/notifications`, settings);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
       toast({
         title: "Notification settings updated",
         description: "Your notification preferences have been saved",
@@ -131,6 +173,19 @@ export default function Settings() {
     });
   };
 
+  const unblockMutation = useMutation({
+    mutationFn: (blockedId: string) =>
+      apiRequest("DELETE", `/api/users/${userId}/blocks/${encodeURIComponent(blockedId)}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/blocked`] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "social-summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "social-feed-lists"] });
+      toast({ title: "User unblocked" });
+    },
+    onError: () => toast({ title: "Couldn’t unblock", variant: "destructive" }),
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <Header
@@ -140,6 +195,20 @@ export default function Settings() {
       />
 
       <div className="max-w-lg mx-auto space-y-2 mt-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Feed preferences</CardTitle>
+            <CardDescription>
+              Followers, following, muted authors, and blocked accounts — all reversible here. Saved posts live on your
+              profile under the Saved tab.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button type="button" className="w-full font-semibold" variant="secondary" onClick={() => setLocation("/settings/social")}>
+              Manage feed preferences
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Privacy Settings */}
         <Card>
@@ -221,6 +290,20 @@ export default function Settings() {
                 <option value="none">No one</option>
               </select>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Security */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-primary" />
+              <CardTitle>Security</CardTitle>
+            </div>
+            <CardDescription>Update the password for your account</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {userId ? <ChangePasswordForm userId={userId} /> : null}
           </CardContent>
         </Card>
 
@@ -332,13 +415,8 @@ export default function Settings() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        // Unblock user
-                        toast({
-                          title: "User unblocked",
-                          description: `${user.name} has been unblocked`,
-                        });
-                      }}
+                      disabled={unblockMutation.isPending}
+                      onClick={() => unblockMutation.mutate(user.id)}
                     >
                       Unblock
                     </Button>
@@ -368,6 +446,17 @@ export default function Settings() {
             >
               <Download className="w-4 h-4 mr-2" />
               Export My Data
+            </Button>
+
+            <Separator />
+
+            <Button
+              variant="outline"
+              className="w-full justify-start border-red-200/90 font-semibold text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={() => logout()}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Log out
             </Button>
 
             <Separator />

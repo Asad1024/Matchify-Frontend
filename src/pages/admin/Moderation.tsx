@@ -1,45 +1,66 @@
-import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 
-type Report = {
+type ReportRow = {
   id: string;
-  reporter: string;
-  reported: string;
+  reporterId: string;
+  reportedId: string;
   reason: string;
-  status: 'pending' | 'resolved' | 'dismissed';
+  status: "pending" | "resolved" | "dismissed";
+  createdAt?: string;
 };
 
-const INITIAL_REPORTS: Report[] = [
-  { id: '1', reporter: 'User #101', reported: 'User #205', reason: 'Fake profile', status: 'pending' },
-  { id: '2', reporter: 'User #309', reported: 'User #142', reason: 'Inappropriate content', status: 'resolved' },
-  { id: '3', reporter: 'User #87', reported: 'User #315', reason: 'Harassment', status: 'pending' },
-  { id: '4', reporter: 'User #220', reported: 'User #180', reason: 'Spam', status: 'pending' },
-  { id: '5', reporter: 'User #445', reported: 'User #390', reason: 'Scam/fraud', status: 'dismissed' },
-];
-
 export default function Moderation() {
-  const [reports, setReports] = useState<Report[]>(INITIAL_REPORTS);
+  const qc = useQueryClient();
 
-  const resolve = (id: string) => setReports(r => r.map(x => x.id === id ? { ...x, status: 'resolved' } : x));
-  const dismiss = (id: string) => setReports(r => r.map(x => x.id === id ? { ...x, status: 'dismissed' } : x));
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["/api/admin/reports", 1],
+    queryFn: async () => {
+      const url = buildApiUrl("/api/admin/reports?page=1&limit=100");
+      const res = await fetch(url, { credentials: "include", headers: getAuthHeaders(false) });
+      if (!res.ok) throw new Error("Failed to load reports");
+      return res.json() as Promise<{ items: ReportRow[] }>;
+    },
+  });
 
-  const pending = reports.filter(r => r.status === 'pending').length;
-  const resolved = reports.filter(r => r.status === 'resolved').length;
-  const dismissed = reports.filter(r => r.status === 'dismissed').length;
+  const reports = data?.items ?? [];
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const res = await fetch(buildApiUrl(`/api/admin/reports/${id}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(true),
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Update failed");
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/reports"] }),
+  });
+
+  const pending = reports.filter((r) => r.status === "pending").length;
+  const resolved = reports.filter((r) => r.status === "resolved").length;
+  const dismissed = reports.filter((r) => r.status === "dismissed").length;
 
   return (
     <AdminLayout>
       <div className="p-4 sm:p-6 space-y-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Moderation</h1>
-          <p className="text-muted-foreground text-sm">Review and action user reports</p>
+          <p className="text-muted-foreground text-sm">Review and action user reports (stored in the database)</p>
         </div>
 
-        {/* Stats grid */}
+        {isError && (
+          <p className="text-sm text-destructive">Could not load reports. Sign in as admin and ensure the API is running.</p>
+        )}
+        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
@@ -70,7 +91,6 @@ export default function Moderation() {
           </Card>
         </div>
 
-        {/* Reports table */}
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -84,15 +104,23 @@ export default function Moderation() {
                 </tr>
               </thead>
               <tbody>
-                {reports.map(r => (
+                {reports.map((r) => (
                   <tr key={r.id} className="border-b last:border-0">
-                    <td className="p-3 whitespace-nowrap">{r.reporter}</td>
-                    <td className="p-3 whitespace-nowrap">{r.reported}</td>
-                    <td className="p-3">{r.reason}</td>
+                    <td className="p-3 whitespace-nowrap font-mono text-xs">{r.reporterId.slice(0, 8)}…</td>
+                    <td className="p-3 whitespace-nowrap font-mono text-xs">{r.reportedId.slice(0, 8)}…</td>
+                    <td className="p-3 max-w-xs truncate" title={r.reason}>
+                      {r.reason}
+                    </td>
                     <td className="p-3">
-                      {r.status === 'pending' && <Badge className="bg-amber-100 text-amber-600 border-0">Pending</Badge>}
-                      {r.status === 'resolved' && <Badge className="bg-primary/10 text-primary border-0">Resolved</Badge>}
-                      {r.status === 'dismissed' && <Badge className="bg-gray-100 text-gray-600 border-0">Dismissed</Badge>}
+                      {r.status === "pending" && (
+                        <Badge className="bg-amber-100 text-amber-600 border-0">Pending</Badge>
+                      )}
+                      {r.status === "resolved" && (
+                        <Badge className="bg-primary/10 text-primary border-0">Resolved</Badge>
+                      )}
+                      {r.status === "dismissed" && (
+                        <Badge className="bg-gray-100 text-gray-600 border-0">Dismissed</Badge>
+                      )}
                     </td>
                     <td className="p-3">
                       <div className="flex gap-2">
@@ -100,8 +128,8 @@ export default function Moderation() {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs"
-                          disabled={r.status !== 'pending'}
-                          onClick={() => resolve(r.id)}
+                          disabled={r.status !== "pending" || updateMutation.isPending}
+                          onClick={() => updateMutation.mutate({ id: r.id, status: "resolved" })}
                         >
                           Resolve
                         </Button>
@@ -109,8 +137,8 @@ export default function Moderation() {
                           size="sm"
                           variant="ghost"
                           className="h-7 text-xs"
-                          disabled={r.status !== 'pending'}
-                          onClick={() => dismiss(r.id)}
+                          disabled={r.status !== "pending" || updateMutation.isPending}
+                          onClick={() => updateMutation.mutate({ id: r.id, status: "dismissed" })}
                         >
                           Dismiss
                         </Button>
@@ -120,6 +148,9 @@ export default function Moderation() {
                 ))}
               </tbody>
             </table>
+            {!isLoading && reports.length === 0 && (
+              <p className="p-6 text-center text-muted-foreground text-sm">No reports yet.</p>
+            )}
           </div>
         </Card>
       </div>

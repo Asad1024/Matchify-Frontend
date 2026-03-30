@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { FileCode2, Calendar, ListChecks, ArrowRight } from "lucide-react";
+import { FileCode2, Calendar, ListChecks, ArrowRight, ClipboardList } from "lucide-react";
 
 export default function Questions() {
   const [, setLocation] = useLocation();
@@ -65,19 +65,24 @@ export default function Questions() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <h4 className="font-medium mb-1">Where to edit</h4>
+              <h4 className="font-medium mb-1">Admin: edit questionnaire in the app</h4>
               <p className="text-sm text-muted-foreground mb-2">
-                All onboarding flow content is defined in one file. Edit the following to change styles, chapters, and options:
+                Add, edit, deactivate, or reorder onboarding questions (labels, types, options, chapters). Demo mode stores
+                changes in memory until refresh.
               </p>
-              <code className="text-xs bg-muted px-2 py-1 rounded block w-fit mb-2">
-                frontend-repo/src/components/auth/OnboardingWizard.tsx
+              <Button variant="default" size="sm" onClick={() => setLocation("/admin/onboarding-questionnaire")}>
+                <ClipboardList className="mr-2 h-4 w-4" />
+                Open onboarding questionnaire
+              </Button>
+            </div>
+            <div>
+              <h4 className="font-medium mb-1">Code defaults</h4>
+              <p className="text-sm text-muted-foreground mb-1">
+                Default question set and chapter copy live in:
+              </p>
+              <code className="text-xs bg-muted px-2 py-1 rounded block w-fit">
+                src/lib/onboardingQuestionnaire.ts
               </code>
-              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-                <li><strong>JOURNEY_STYLES</strong> — Fast & Fun, Deep & Thoughtful, Conversational</li>
-                <li><strong>getChaptersForStyle()</strong> — Chapters and questions for each style</li>
-                <li><strong>RELATIONSHIP_GOALS</strong>, <strong>VALUES</strong>, <strong>LIFESTYLE</strong>, <strong>INTERESTS</strong></li>
-                <li><strong>EDUCATION_LEVELS</strong>, <strong>INCOME_RANGES</strong>, <strong>ZODIAC_SIGNS</strong></li>
-              </ul>
             </div>
             <div>
               <h4 className="font-medium mb-1">Journey structure (read-only)</h4>

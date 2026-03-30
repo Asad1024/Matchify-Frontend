@@ -57,6 +57,7 @@ export const insertUserSchema = z.object({
 export const insertPostSchema = z.object({
   userId: z.string().uuid(),
   content: z.string().min(1),
+  groupId: z.string().uuid().optional().nullable(),
 });
 
 export const insertStorySchema = z.object({

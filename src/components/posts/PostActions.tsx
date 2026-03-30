@@ -29,7 +29,7 @@ export function PostActions({
       <motion.div whileTap={{ scale: 0.9 }}>
         <Button
           variant="ghost"
-          className={`gap-1.5 h-9 px-3 hover-elevate transition-colors ${isLiked ? "text-rose-500" : ""}`}
+          className={`gap-1.5 h-9 px-3 hover-elevate transition-colors ${isLiked ? "text-primary" : ""}`}
           onClick={onLike}
         >
           <motion.div animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }} transition={{ duration: 0.3 }}>

@@ -49,7 +49,7 @@ export function AIInsights({ match, userName }: AIInsightsProps) {
       key: 'communication' as const,
       title: 'Communication',
       icon: Info,
-      color: 'bg-pink-500/20 text-pink-400',
+      color: 'bg-primary/20 text-primary',
     },
     {
       key: 'values' as const,

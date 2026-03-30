@@ -1,7 +1,8 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, CheckCircle, Heart, MessageCircle, Sparkles } from "lucide-react";
+import { MapPin, CheckCircle, Heart, MessageCircle, Sparkles, User } from "lucide-react";
+import { OnlineIndicator } from "@/components/profile/OnlineIndicator";
 import { motion } from "framer-motion";
 
 interface ProfileCardProps {
@@ -29,6 +30,8 @@ interface ProfileCardProps {
   onMessage?: (id: string) => void;
   onViewProfile?: (id: string) => void;
   onClick?: (id: string) => void;
+  profileBanner?: string | null;
+  showOnlineDot?: boolean;
 }
 
 export default function ProfileCard({
@@ -52,21 +55,47 @@ export default function ProfileCard({
   onMessage,
   onViewProfile,
   onClick,
+  profileBanner,
+  showOnlineDot,
 }: ProfileCardProps) {
   const isPremium = membershipTier === 'premium' || membershipTier === 'elite';
   const photoSrc = image || avatar;
   const displayTags = tags || interests || [];
 
+  const handleCardClick = () => {
+    if (onClick) onClick(id);
+    else onViewProfile?.(id);
+  };
+
   return (
     <motion.div
       whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      role={onClick || onViewProfile ? "button" : undefined}
+      tabIndex={onClick || onViewProfile ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
       className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden cursor-pointer"
-      onClick={() => onClick?.(id)}
+      onClick={handleCardClick}
       data-testid={`profile-card-${id}`}
     >
       {/* Cover / Avatar area */}
-      <div className="relative h-32 bg-gradient-to-br from-primary/20 via-primary/10 to-purple-100">
+      <div
+        className="relative h-32 bg-gradient-to-br from-primary/20 via-primary/10 to-purple-100"
+        style={
+          profileBanner?.trim()
+            ? {
+                backgroundImage: `url(${profileBanner})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
+            : undefined
+        }
+      >
         {compatibility !== undefined && (
           <div className="absolute top-3 right-3 bg-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow">
             <Sparkles className="w-3 h-3 inline mr-0.5" />
@@ -83,12 +112,17 @@ export default function ProfileCard({
       <div className="px-4 pb-4">
         {/* Avatar */}
         <div className="-mt-8 mb-3">
-          <Avatar className="w-16 h-16 border-3 border-white shadow-md">
-            <AvatarImage src={photoSrc || undefined} alt={name} />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">
-              {name.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative inline-block">
+            <Avatar className="h-16 w-16 border-3 border-white shadow-md">
+              <AvatarImage src={photoSrc || undefined} alt={name} />
+              <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">
+                {name.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            {showOnlineDot ? (
+              <OnlineIndicator className="absolute bottom-0 right-0 z-10" />
+            ) : null}
+          </div>
         </div>
 
         {/* Name & info */}
@@ -110,10 +144,10 @@ export default function ProfileCard({
           <p className="text-xs text-gray-600 line-clamp-2 mb-3 leading-relaxed">{bio}</p>
         )}
 
-        {/* Interests */}
-        {interests && interests.length > 0 && (
+        {/* Interests / tags */}
+        {displayTags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
-            {interests.slice(0, 4).map((interest) => (
+            {displayTags.slice(0, 4).map((interest) => (
               <Badge
                 key={interest}
                 variant="secondary"
@@ -122,39 +156,58 @@ export default function ProfileCard({
                 {interest}
               </Badge>
             ))}
-            {interests.length > 4 && (
+            {displayTags.length > 4 && (
               <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 border-0">
-                +{interests.length - 4}
+                +{displayTags.length - 4}
               </Badge>
             )}
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 h-8 text-xs rounded-full border-rose-200 text-rose-500 hover:bg-rose-50"
-            onClick={(e) => {
-              e.stopPropagation();
-              onLike?.(id);
-            }}
-          >
-            <Heart className="w-3.5 h-3.5 mr-1.5" />
-            Like
-          </Button>
-          <Button
-            size="sm"
-            className="flex-1 h-8 text-xs rounded-full"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMessage?.(id);
-            }}
-          >
-            <MessageCircle className="w-3.5 h-3.5 mr-1.5" />
-            Message
-          </Button>
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="flex-1 h-8 text-xs rounded-full border-primary/25 text-primary hover:bg-primary/5"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLike?.(id);
+              }}
+            >
+              <Heart className="w-3.5 h-3.5 mr-1.5" />
+              Like
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="flex-1 h-8 text-xs rounded-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMessage?.(id);
+              }}
+            >
+              <MessageCircle className="w-3.5 h-3.5 mr-1.5" />
+              Message
+            </Button>
+          </div>
+          {onViewProfile ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-8 w-full text-xs rounded-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewProfile(id);
+              }}
+            >
+              <User className="w-3.5 h-3.5 mr-1.5" />
+              View profile
+            </Button>
+          ) : null}
         </div>
       </div>
     </motion.div>

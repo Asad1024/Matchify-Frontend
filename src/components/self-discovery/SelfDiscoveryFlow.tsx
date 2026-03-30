@@ -312,7 +312,7 @@ export default function SelfDiscoveryFlow({ userId, onComplete }: SelfDiscoveryF
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Love Language</span>
-                    <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 capitalize">
+                    <Badge className="bg-primary/20 text-primary border-primary/30 capitalize">
                       {LOVE_LANGUAGE_OPTIONS.find(l => l.value === loveLanguage)?.emoji} {loveLanguage}
                     </Badge>
                   </div>

@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* MUZZ DESIGN SYSTEM — matches muzz.com */
+/* Matchify — red wine / burgundy design system */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -14,7 +14,7 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* Muzz clean white backgrounds */
+  /* Light surfaces */
   --background: 0 0% 100%;
   --foreground: 220 15% 10%;
   --border: 220 13% 91%;
@@ -26,44 +26,44 @@
   --sidebar: 0 0% 98%;
   --sidebar-foreground: 220 15% 12%;
   --sidebar-border: 220 13% 91%;
-  --sidebar-primary: 346 96% 62%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 346 60% 95%;
-  --sidebar-accent-foreground: 346 80% 30%;
-  --sidebar-ring: 346 96% 62%;
+  --sidebar-primary: 349 52% 38%;
+  --sidebar-primary-foreground: 40 33% 98%;
+  --sidebar-accent: 350 32% 94%;
+  --sidebar-accent-foreground: 349 45% 28%;
+  --sidebar-ring: 349 52% 38%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 220 15% 10%;
   --popover-border: 220 13% 91%;
 
-  /* Matchify signature pink — hsl(346,96%,62%) */
-  --primary: 346 96% 62%;
-  --primary-foreground: 0 0% 100%;
+  /* Merlot / red wine — primary brand */
+  --primary: 349 52% 38%;
+  --primary-foreground: 40 33% 98%;
 
-  --secondary: 346 60% 95%;
-  --secondary-foreground: 346 80% 35%;
+  --secondary: 350 32% 94%;
+  --secondary-foreground: 349 45% 30%;
 
   --muted: 220 14% 96%;
   --muted-foreground: 220 10% 46%;
 
-  --accent: 346 60% 95%;
-  --accent-foreground: 346 80% 35%;
+  --accent: 350 28% 92%;
+  --accent-foreground: 349 48% 32%;
 
   --destructive: 0 84% 55%;
   --destructive-foreground: 0 0% 98%;
 
   --input: 220 13% 88%;
-  --ring: 346 96% 62%;
+  --ring: 349 52% 38%;
 
-  /* Chart colors — green family */
-  --chart-1: 346 96% 62%;
-  --chart-2: 346 85% 56%;
-  --chart-3: 38 92% 50%;
-  --chart-4: 217 91% 50%;
-  --chart-5: 0 84% 50%;
+  /* Chart colors — wine, blush, gold accents */
+  --chart-1: 349 52% 38%;
+  --chart-2: 348 42% 48%;
+  --chart-3: 28 58% 46%;
+  --chart-4: 268 28% 42%;
+  --chart-5: 12 52% 46%;
 
-  --success: 346 96% 62%;
-  --success-foreground: 0 0% 100%;
+  --success: 142 45% 40%;
+  --success-foreground: 0 0% 98%;
 
   /* Muzz typography — Plus Jakarta Sans (matches Muzz app feel) */
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -123,9 +123,9 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 220 16% 8%;
-  --foreground: 220 10% 95%;
-  --border: 220 12% 18%;
+  --background: 350 18% 9%;
+  --foreground: 35 25% 94%;
+  --border: 350 12% 20%;
 
   --card: 220 14% 12%;
   --card-foreground: 220 10% 95%;
@@ -134,42 +134,42 @@
   --sidebar: 220 14% 10%;
   --sidebar-foreground: 220 10% 92%;
   --sidebar-border: 220 12% 16%;
-  --sidebar-primary: 346 96% 62%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 346 15% 18%;
-  --sidebar-accent-foreground: 346 80% 85%;
-  --sidebar-ring: 346 96% 62%;
+  --sidebar-primary: 348 48% 55%;
+  --sidebar-primary-foreground: 350 25% 8%;
+  --sidebar-accent: 350 18% 18%;
+  --sidebar-accent-foreground: 350 35% 88%;
+  --sidebar-ring: 348 48% 55%;
 
   --popover: 220 14% 14%;
   --popover-foreground: 220 10% 92%;
   --popover-border: 220 12% 22%;
 
-  --primary: 346 96% 62%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 348 48% 55%;
+  --primary-foreground: 350 25% 8%;
 
-  --secondary: 220 12% 20%;
-  --secondary-foreground: 346 60% 80%;
+  --secondary: 350 14% 20%;
+  --secondary-foreground: 350 30% 88%;
 
   --muted: 220 12% 18%;
   --muted-foreground: 220 8% 58%;
 
-  --accent: 346 20% 20%;
-  --accent-foreground: 346 60% 80%;
+  --accent: 350 16% 22%;
+  --accent-foreground: 350 35% 88%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
 
   --input: 220 12% 24%;
-  --ring: 346 96% 62%;
+  --ring: 348 48% 55%;
 
-  --chart-1: 346 96% 62%;
-  --chart-2: 346 85% 56%;
-  --chart-3: 217 91% 65%;
-  --chart-4: 38 92% 60%;
-  --chart-5: 0 84% 65%;
+  --chart-1: 348 48% 55%;
+  --chart-2: 348 40% 48%;
+  --chart-3: 32 55% 55%;
+  --chart-4: 268 35% 58%;
+  --chart-5: 15 55% 55%;
 
-  --success: 346 96% 62%;
-  --success-foreground: 0 0% 100%;
+  --success: 142 40% 48%;
+  --success-foreground: 350 25% 8%;
 
   --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.15);
   --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.20);

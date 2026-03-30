@@ -1,3 +1,5 @@
+import { buildApiUrl, getAuthHeaders } from "./api";
+
 export interface AttractionBlueprint {
   flowType: 'flow-a' | 'flow-b';
   stylePreferences?: string[];
@@ -73,11 +75,10 @@ export const saveAttractionBlueprint = async (
   userId: string,
   blueprint: AttractionBlueprint
 ): Promise<void> => {
-  const response = await fetch(`/api/users/${userId}/attraction-blueprint`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+  const response = await fetch(buildApiUrl(`/api/users/${userId}/attraction-blueprint`), {
+    method: "POST",
+    headers: getAuthHeaders(true),
+    credentials: "include",
     body: JSON.stringify(blueprint),
   });
   
@@ -93,13 +94,161 @@ export const saveAttractionBlueprint = async (
   }
 };
 
-export const getAIMatches = async (userId: string): Promise<AIMatch[]> => {
-  const response = await fetch(`/api/users/${userId}/ai-matches`);
-  
-  if (!response.ok) {
-    throw new Error('Failed to get AI matches');
-  }
-  
-  return response.json();
+export type AiRankingSource = "openai" | "fallback";
+
+export type AIMatchesResponse = {
+  rankingSource: AiRankingSource;
+  matches: AIMatch[];
 };
+
+export type GetAIMatchesOptions = {
+  /** 1–8; default 8 (Discover sorting / insights). */
+  limit?: number;
+  /** Omit people already shown as curated picks (requires auth). */
+  excludeShown?: boolean;
+};
+
+export const getAIMatches = async (
+  userId: string,
+  opts?: GetAIMatchesOptions,
+): Promise<AIMatchesResponse> => {
+  const params = new URLSearchParams();
+  if (opts?.limit != null && opts.limit >= 1) {
+    params.set("limit", String(Math.min(8, Math.floor(opts.limit))));
+  }
+  if (opts?.excludeShown) params.set("excludeShown", "1");
+  const q = params.toString();
+  const path = `/api/users/${userId}/ai-matches${q ? `?${q}` : ""}`;
+  const response = await fetch(buildApiUrl(path), {
+    credentials: "include",
+    headers: getAuthHeaders(false),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to get AI matches");
+  }
+
+  const data: unknown = await response.json();
+  if (Array.isArray(data)) {
+    return { rankingSource: "fallback", matches: data as AIMatch[] };
+  }
+  const obj = data as { rankingSource?: string; matches?: AIMatch[] };
+  const rankingSource: AiRankingSource =
+    obj.rankingSource === "openai" ? "openai" : "fallback";
+  return {
+    rankingSource,
+    matches: Array.isArray(obj.matches) ? obj.matches : [],
+  };
+};
+
+/** Unlock the 30-question flow so the user can change answers and save a new blueprint. */
+export async function reopenAIMatchmakerSession(userId: string): Promise<void> {
+  const response = await fetch(buildApiUrl(`/api/users/${userId}/ai-matchmaker/reopen`), {
+    method: "POST",
+    headers: getAuthHeaders(true),
+    credentials: "include",
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    let message = "Could not reopen AI Matchmaker";
+    try {
+      const j = (await response.json()) as { message?: string };
+      if (j?.message) message = j.message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+  const { queryClient } = await import("@/lib/queryClient");
+  await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+}
+
+/** Temporary testing helper: clear saved questionnaire answers so user can submit again. */
+export async function resetAIMatchmakerSubmission(userId: string): Promise<void> {
+  const response = await fetch(buildApiUrl(`/api/users/${userId}/ai-matchmaker/submission`), {
+    method: "DELETE",
+    headers: getAuthHeaders(true),
+    credentials: "include",
+  });
+  if (!response.ok) {
+    let message = "Could not reset AI Matchmaker submission";
+    try {
+      const j = (await response.json()) as { message?: string };
+      if (j?.message) message = j.message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+  const { queryClient } = await import("@/lib/queryClient");
+  await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+}
+
+export type ClaimNextCuratedResult = {
+  rankingSource: AiRankingSource;
+  match: AIMatch | null;
+};
+
+/** Server assigns one pick per cooldown, updates profile, and creates an in-app notification when a match exists. */
+export async function claimNextCuratedMatch(userId: string): Promise<ClaimNextCuratedResult> {
+  const response = await fetch(buildApiUrl(`/api/users/${userId}/curated-match/claim-next`), {
+    method: "POST",
+    headers: getAuthHeaders(true),
+    credentials: "include",
+    body: JSON.stringify({}),
+  });
+
+  if (response.status === 409) {
+    const err = new Error("CuratedMatchCooldown") as Error & { status: number; msLeft?: number };
+    err.status = 409;
+    try {
+      const j = (await response.json()) as { msLeft?: number };
+      if (typeof j.msLeft === "number") err.msLeft = j.msLeft;
+    } catch {
+      /* ignore */
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    let message = "Could not claim curated match";
+    try {
+      const j = (await response.json()) as { message?: string };
+      if (j?.message) message = j.message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ClaimNextCuratedResult;
+  const { queryClient } = await import("@/lib/queryClient");
+  await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+  return data;
+}
+
+/** Remember a curated pick so the next `excludeShown` request can surface someone new. */
+export async function ackCuratedMatchShown(
+  userId: string,
+  shownUserId: string,
+): Promise<void> {
+  const response = await fetch(buildApiUrl(`/api/users/${userId}/curated-match-shown`), {
+    method: "POST",
+    headers: getAuthHeaders(true),
+    credentials: "include",
+    body: JSON.stringify({ shownUserId }),
+  });
+  if (!response.ok) {
+    let message = "Failed to record curated match";
+    try {
+      const j = (await response.json()) as { message?: string };
+      if (j?.message) message = j.message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+  const { queryClient } = await import("@/lib/queryClient");
+  await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+}
 

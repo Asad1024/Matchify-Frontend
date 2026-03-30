@@ -16,9 +16,40 @@ export const MATCHIFY_LOGO_URL =
 /** Used if primary `src` fails (e.g. missing `public/logo.png`). */
 export const MATCHIFY_LOGO_FALLBACK = MATCHIFY_LOGO_DEFAULT;
 
-export const MATCHIFY_PINK_HEX = "#f94272";
+/** Primary accent (merlot / wine) — align with `--primary` in `index.css`. */
+export const MATCHIFY_PINK_HEX = "#8B2942";
 
-/** AI Matchmaker: one curated match every this many hours (Time Left / demo product logic). */
-export const AI_MATCH_COOLDOWN_MS = 48 * 60 * 60 * 1000;
+/**
+ * AI Matchmaker + Directory boost shared cooldown (ms).
+ * - Default: 2 hours. Override with `VITE_AI_MATCH_COOLDOWN_MS` in `.env.local` (e.g. `300000` for 5 min while testing).
+ */
+function readAiMatchCooldownMs(): number {
+  const raw =
+    typeof import.meta !== "undefined"
+      ? (import.meta.env.VITE_AI_MATCH_COOLDOWN_MS as string | undefined)?.trim()
+      : undefined;
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 2 * 60 * 60 * 1000;
+}
 
-export const STORAGE_LAST_AI_MATCH_AT = "matchify_last_ai_match_at";
+export const AI_MATCH_COOLDOWN_MS = readAiMatchCooldownMs();
+
+/** Short phrase for UI, derived from {@link AI_MATCH_COOLDOWN_MS}. */
+export function getAiMatchCooldownLabel(): string {
+  const ms = AI_MATCH_COOLDOWN_MS;
+  if (ms < 60 * 1000) {
+    const s = Math.max(1, Math.round(ms / 1000));
+    return `${s} second${s === 1 ? "" : "s"}`;
+  }
+  const mins = Math.round(ms / (60 * 1000));
+  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"}`;
+  const hoursExact = ms / (60 * 60 * 1000);
+  if (Number.isInteger(hoursExact) && hoursExact >= 1 && hoursExact <= 168) {
+    return `${hoursExact} hour${hoursExact === 1 ? "" : "s"}`;
+  }
+  const days = Math.round(ms / (24 * 60 * 60 * 1000));
+  return `${days} day${days === 1 ? "" : "s"}`;
+}

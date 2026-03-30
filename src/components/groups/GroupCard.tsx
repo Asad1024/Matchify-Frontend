@@ -1,6 +1,7 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Users } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -66,8 +67,11 @@ export default function GroupCard(props: GroupCardProps) {
       whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
-      <Card 
-        className="overflow-hidden hover-elevate cursor-pointer transition-all shadow-md hover:shadow-xl"
+      <Card
+        className={cn(
+          "overflow-hidden transition-all shadow-md",
+          onClick && "cursor-pointer hover-elevate hover:shadow-xl",
+        )}
         onClick={() => onClick?.(id)}
         data-testid={`card-group-${id}`}
       >
@@ -118,7 +122,7 @@ export default function GroupCard(props: GroupCardProps) {
                 onView(id);
               }}
             >
-              View
+              Open group
             </Button>
           </motion.div>
         )}

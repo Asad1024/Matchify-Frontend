@@ -103,8 +103,8 @@ export default function AddPartnerDialog({ open, onOpenChange }: AddPartnerDialo
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 bg-rose-100 rounded-2xl flex items-center justify-center">
-              <Heart className="w-5 h-5 text-rose-500 fill-rose-200" />
+            <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center">
+              <Heart className="w-5 h-5 text-primary fill-primary/20" />
             </div>
             <DialogTitle className="text-lg font-bold">Add Partner</DialogTitle>
           </div>
@@ -162,7 +162,7 @@ export default function AddPartnerDialog({ open, onOpenChange }: AddPartnerDialo
           <Button
             onClick={handleAddPartner}
             disabled={!foundUser || addPartnerMutation.isPending}
-            className="bg-rose-500 hover:bg-rose-600 text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {addPartnerMutation.isPending ? (
               <>

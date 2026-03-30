@@ -14,6 +14,8 @@ export default function ResetPassword() {
   const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [requestEmail, setRequestEmail] = useState("");
+  const [requestSent, setRequestSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -26,6 +28,37 @@ export default function ResetPassword() {
       setToken(urlToken);
     }
   }, []);
+
+  const handleRequestLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!requestEmail.trim()) {
+      setError("Enter your email");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await fetch(buildApiUrl("/api/auth/request-password-reset"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: requestEmail.trim().toLowerCase() }),
+        credentials: "include",
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((j as { message?: string }).message || "Request failed");
+      setRequestSent(true);
+      toast({
+        title: "Check server logs",
+        description:
+          "If the account exists, a reset link was printed in the API console (email delivery not configured).",
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Request failed";
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,7 +156,30 @@ export default function ResetPassword() {
             Enter your new password
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          {!token && (
+            <form onSubmit={handleRequestLink} className="space-y-3 p-4 rounded-xl border bg-muted/30">
+              <p className="text-sm font-medium">Request a reset link</p>
+              <p className="text-xs text-muted-foreground">
+                We&apos;ll log the link in the API server console until email is configured.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="req-email">Email</Label>
+                <Input
+                  id="req-email"
+                  type="email"
+                  value={requestEmail}
+                  onChange={(e) => setRequestEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  disabled={isLoading || requestSent}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading || requestSent}>
+                {requestSent ? "Request recorded" : "Send reset link"}
+              </Button>
+            </form>
+          )}
+
           <form onSubmit={handleReset} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -136,7 +192,7 @@ export default function ResetPassword() {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  No reset token found. Please use the link from your email.
+                  Or open the reset link from the server log if you already requested one.
                 </AlertDescription>
               </Alert>
             )}

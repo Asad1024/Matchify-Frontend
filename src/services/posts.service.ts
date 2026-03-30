@@ -5,6 +5,10 @@ export interface CreatePostData {
   userId: string;
   content: string;
   images?: string[];
+  /** Single image URL (server also accepts this alongside `images`). */
+  image?: string | null;
+  /** When set, post is scoped to this community group (API requires membership). */
+  groupId?: string | null;
 }
 
 export const postsService = {

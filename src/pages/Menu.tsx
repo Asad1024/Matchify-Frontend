@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
 import BottomNav from "@/components/common/BottomNav";
@@ -15,6 +15,7 @@ import {
   Bookmark,
   Crown,
   Sparkles,
+  CheckCircle,
 } from "lucide-react";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,15 +28,20 @@ import {
   isGoldMember,
   setGoldMember,
 } from "@/lib/muzzEconomy";
+import { SOCIAL_PROFILE_TAB_KEY } from "@/lib/settingsSocialNav";
 import { MuzzEconomyPill } from "@/components/muzz/MuzzEconomyPill";
-import { getExploreMode, setExploreModePersisted } from "@/lib/exploreMode";
+import { setExploreModePersisted } from "@/lib/exploreMode";
 
 export default function Menu() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
   const { toast } = useToast();
-  const [mode, setMode] = useState<"marriage" | "social">(() => getExploreMode());
+  const [mode, setMode] = useState<"marriage" | "social">("marriage");
+
+  useEffect(() => {
+    if (location === "/menu") setMode("marriage");
+  }, [location]);
   const [boosts, setBoostsState] = useState(getBoosts);
   const [compliments, setComplimentsState] = useState(getCompliments);
   const gold = isGoldMember();
@@ -44,6 +50,7 @@ export default function Menu() {
     name?: string;
     username?: string;
     avatar?: string | null;
+    verified?: boolean | null;
   }>({
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
@@ -60,7 +67,6 @@ export default function Menu() {
         unreadNotifications={0}
         onNotifications={() => setLocation("/notifications")}
         onCreate={() => setLocation("/")}
-        onSettings={() => setLocation("/settings")}
         onLogout={logout}
         rightAccessory={<MuzzEconomyPill onClick={() => setLocation("/subscriptions")} />}
       />
@@ -111,7 +117,30 @@ export default function Menu() {
         <div className="bg-white rounded-b-2xl shadow-sm border border-t-0 border-gray-100 px-4 pb-6">
           {mode === "marriage" && (
             <>
-              <div className="grid grid-cols-2 gap-3 pt-4">
+              <div className="flex flex-col items-center text-center pt-6 pb-2">
+                <Avatar className="w-28 h-28 border-4 border-teal-200 sm:w-32 sm:h-32">
+                  <AvatarImage src={me?.avatar || undefined} />
+                  <AvatarFallback className="bg-amber-100 text-3xl">😊</AvatarFallback>
+                </Avatar>
+                <div className="flex items-center justify-center gap-1.5 mt-3 flex-wrap">
+                  <p className="font-bold text-lg">{displayName}</p>
+                  {me?.verified ? (
+                    <CheckCircle
+                      className="w-5 h-5 text-sky-500 shrink-0"
+                      aria-label="Verified"
+                    />
+                  ) : null}
+                </div>
+                <Button
+                  variant="ghost"
+                  className="text-primary font-semibold h-auto py-1 mt-1"
+                  onClick={() => setLocation("/profile?marriage=1")}
+                >
+                  View profile
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
                 <Card className="border-gray-100 shadow-none bg-gray-50/80">
                   <CardContent className="p-3">
                     <p className="text-xs font-bold text-gray-800">{boosts} Profile Boosts</p>
@@ -163,7 +192,7 @@ export default function Menu() {
                 <MenuRow
                   icon={<Pencil className="w-5 h-5 text-gray-600" />}
                   label="Edit Profile"
-                  onClick={() => setLocation("/profile")}
+                  onClick={() => setLocation("/profile?marriage=1&tab=edit")}
                 />
                 <MenuRow
                   icon={<SlidersHorizontal className="w-5 h-5 text-gray-600" />}
@@ -210,7 +239,11 @@ export default function Menu() {
                 </Avatar>
                 <p className="font-bold text-lg mt-3">{displayName}</p>
                 <p className="text-sm text-gray-500">{handle}</p>
-                <Button variant="ghost" className="text-primary font-semibold h-auto py-1" onClick={() => setLocation("/profile")}>
+                <Button
+                  variant="ghost"
+                  className="text-primary font-semibold h-auto py-1"
+                  onClick={() => setLocation("/profile/social")}
+                >
                   View profile
                 </Button>
               </div>
@@ -219,12 +252,19 @@ export default function Menu() {
                   icon={<Pencil className="w-5 h-5 text-gray-600" />}
                   label="Edit Profile"
                   dot
-                  onClick={() => setLocation("/profile")}
+                  onClick={() => setLocation("/profile/social/edit")}
                 />
                 <MenuRow
                   icon={<Bookmark className="w-5 h-5 text-gray-600" />}
                   label="Saved Posts"
-                  onClick={() => toast({ title: "Saved", description: "Bookmarks coming soon." })}
+                  onClick={() => {
+                    try {
+                      sessionStorage.setItem(SOCIAL_PROFILE_TAB_KEY, "saved");
+                    } catch {
+                      /* ignore */
+                    }
+                    setLocation("/profile/social");
+                  }}
                 />
                 <MenuRow
                   icon={<Settings className="w-5 h-5 text-gray-600" />}

@@ -113,6 +113,11 @@ export default defineConfig(async () => {
             });
           },
         },
+        '/uploads': {
+          target: process.env.VITE_API_URL || 'http://localhost:5000',
+          changeOrigin: true,
+          secure: false,
+        },
       },
       fs: {
         strict: true,

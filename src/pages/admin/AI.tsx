@@ -1,14 +1,58 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Sparkles, TrendingUp, Users } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
+
+type AiStats = {
+  usersWithBlueprint: number;
+  totalUsers: number;
+  lunaReplies: number;
+  aiMatchesMadeEstimate: number;
+  questionnairesCompletedEstimate: number;
+  avgCompatibilityEstimate: number;
+};
 
 export default function AI() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["/api/admin/ai-stats"],
+    queryFn: async () => {
+      const res = await fetch(buildApiUrl("/api/admin/ai-stats"), {
+        credentials: "include",
+        headers: getAuthHeaders(false),
+      });
+      if (!res.ok) throw new Error("Failed to load AI stats");
+      return res.json() as Promise<AiStats>;
+    },
+    refetchInterval: 60_000,
+  });
+
   const stats = [
-    { label: 'AI Matches Made', value: '1,247', icon: Sparkles, change: '+128 this week' },
-    { label: 'Questionnaires Completed', value: '3,891', icon: Brain, change: '+342 this week' },
-    { label: 'Avg. Compatibility Score', value: '78%', icon: TrendingUp, change: '+2% vs last month' },
-    { label: 'Users with Blueprint', value: '2,104', icon: Users, change: '+89 this week' },
+    {
+      label: "AI-style matches (DB pairs)",
+      value: data ? String(data.aiMatchesMadeEstimate) : "—",
+      icon: Sparkles,
+      change: "From match records",
+    },
+    {
+      label: "Questionnaires / blueprints",
+      value: data ? String(data.questionnairesCompletedEstimate) : "—",
+      icon: Brain,
+      change: "Users with attraction blueprint",
+    },
+    {
+      label: "Avg. compatibility (estimate)",
+      value: data ? `${data.avgCompatibilityEstimate}%` : "—",
+      icon: TrendingUp,
+      change: "Heuristic from blueprint adoption",
+    },
+    {
+      label: "Users with blueprint",
+      value: data ? String(data.usersWithBlueprint) : "—",
+      icon: Users,
+      change: data ? `of ${data.totalUsers} users` : "",
+    },
   ];
 
   return (
@@ -17,13 +61,19 @@ export default function AI() {
         <div className="flex items-center gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">AI Matchmaker</h1>
-            <p className="text-muted-foreground text-sm">AI matchmaking performance and insights</p>
+            <p className="text-muted-foreground text-sm">Live metrics from the database + Luna usage</p>
           </div>
-          <Badge className="bg-amber-100 text-amber-700 border-0 ml-auto">Demo data</Badge>
+          <Badge className="bg-emerald-100 text-emerald-800 border-0 ml-auto">
+            {isLoading ? "Loading…" : isError ? "API error" : "Live data"}
+          </Badge>
         </div>
 
+        {isError && (
+          <p className="text-sm text-destructive">Could not load /api/admin/ai-stats (admin session required).</p>
+        )}
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {stats.map(s => {
+          {stats.map((s) => {
             const Icon = s.icon;
             return (
               <Card key={s.label}>
@@ -43,26 +93,16 @@ export default function AI() {
         </div>
 
         <Card>
-          <CardHeader><CardTitle className="text-sm">Match Quality Distribution</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-sm">Luna coach</CardTitle>
+          </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[
-                { label: 'High compatibility (85%+)', pct: 32, color: 'bg-primary' },
-                { label: 'Good compatibility (70-85%)', pct: 45, color: 'bg-primary' },
-                { label: 'Moderate compatibility (50-70%)', pct: 18, color: 'bg-amber-500' },
-                { label: 'Low compatibility (<50%)', pct: 5, color: 'bg-red-400' },
-              ].map(item => (
-                <div key={item.label}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span>{item.label}</span>
-                    <span className="font-medium">{item.pct}%</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.pct}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Luna replies stored:{" "}
+              <span className="font-semibold text-foreground">{data?.lunaReplies ?? "—"}</span>
+              . User-facing copy uses OpenAI when <code className="text-xs bg-muted px-1 rounded">OPENAI_API_KEY</code>{" "}
+              is set on the server.
+            </p>
           </CardContent>
         </Card>
       </div>

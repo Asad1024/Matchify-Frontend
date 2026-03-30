@@ -44,13 +44,17 @@ export function StorySkeleton() {
 
 export function EventSkeleton() {
   return (
-    <div className="space-y-3">
-      <Skeleton className="h-48 w-full rounded-lg" />
-      <Skeleton className="h-5 w-3/4" />
-      <Skeleton className="h-4 w-full" />
-      <div className="flex gap-2">
-        <Skeleton className="h-6 w-20" />
-        <Skeleton className="h-6 w-24" />
+    <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-gray-100/80 bg-white shadow-sm">
+      <Skeleton className="h-44 w-full rounded-none sm:h-48" />
+      <div className="space-y-3 p-4 sm:p-5">
+        <Skeleton className="h-5 w-4/5" />
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-11/12" />
+        <div className="space-y-2 pt-1">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+        <Skeleton className="mt-2 h-11 w-full rounded-full" />
       </div>
     </div>
   );

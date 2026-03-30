@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,45 @@ export default function EmpathyObserver({ userId }: EmpathyObserverProps) {
   const [reflectionText, setReflectionText] = useState("");
   const [activePrompt, setActivePrompt] = useState(0);
   const [reflectionSaved, setReflectionSaved] = useState(false);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    if (!showInsight || !activeScenario) {
+      setAiInsight(null);
+      return;
+    }
+    let cancelled = false;
+    const reflection = `User selected feelings: ${selectedEmotions.join(", ") || "(none)"}.\nGuiding question: ${activeScenario.question}`;
+    setAiLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(buildApiUrl("/api/empathy/insight"), {
+          method: "POST",
+          headers: getAuthHeaders(true),
+          credentials: "include",
+          body: JSON.stringify({
+            scenarioTitle: activeScenario.title,
+            reflection,
+          }),
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const j = (await res.json()) as { insight?: string };
+          setAiInsight(j.insight || null);
+        } else {
+          setAiInsight(null);
+        }
+      } catch {
+        if (!cancelled) setAiInsight(null);
+      } finally {
+        if (!cancelled) setAiLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showInsight, activeScenario?.id, selectedEmotions, activeScenario?.question, activeScenario?.title]);
 
   const toggleEmotion = (emotion: string) => {
     setSelectedEmotions((prev) =>
@@ -229,6 +269,7 @@ export default function EmpathyObserver({ userId }: EmpathyObserverProps) {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
+                    className="space-y-3"
                   >
                     <Card className="border-amber-200 bg-amber-50/50">
                       <CardContent className="p-4">
@@ -241,6 +282,17 @@ export default function EmpathyObserver({ userId }: EmpathyObserverProps) {
                         </div>
                       </CardContent>
                     </Card>
+                    {aiLoading && (
+                      <p className="text-xs text-center text-muted-foreground">Getting an AI coach perspective…</p>
+                    )}
+                    {aiInsight && (
+                      <Card className="border-violet-200 bg-violet-50/40">
+                        <CardContent className="p-4">
+                          <p className="text-xs font-bold text-violet-700 mb-1">AI coach perspective</p>
+                          <p className="text-sm text-violet-900/90 leading-relaxed whitespace-pre-wrap">{aiInsight}</p>
+                        </CardContent>
+                      </Card>
+                    )}
                   </motion.div>
                 )}
               </motion.div>

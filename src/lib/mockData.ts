@@ -1,5 +1,12 @@
 // Mock data service - provides dummy data when backend is unavailable
-import { nanoid } from 'nanoid';
+import { nanoid } from "nanoid";
+import {
+  getDefaultOnboardingQuestionnaireItems,
+  type OnboardingQuestionnaireItem,
+} from "./onboardingQuestionnaire";
+
+/** Admin-edited onboarding questionnaire (demo / offline API). */
+let mockOnboardingQuestionnaireOverride: OnboardingQuestionnaireItem[] | null = null;
 
 // Generate UUID-like IDs
 const generateId = () => nanoid();
@@ -25,6 +32,14 @@ const mockUsers = [
     // Self-discovery data
     selfDiscoveryCompleted: true,
     commitmentIntention: "serious",
+    marriageTimeline: "1_2yr",
+    marriageApproach: "values_first",
+    wantsChildren: "open",
+    nationality: "American",
+    ethnicity: "white_european",
+    languages: ["English", "Arabic"],
+    smoking: "never",
+    drinksAlcohol: "socially",
     loveLanguage: "time",
     topPriorities: ["Shared Values", "Emotional Intelligence", "Communication Skills", "Adventurous", "Loyalty"],
     dealbreakers: ["Smoking", "Unfaithfulness", "Poor Communication", "Dishonesty"],
@@ -79,6 +94,14 @@ const mockUsers = [
     // Self-discovery data
     selfDiscoveryCompleted: true,
     commitmentIntention: "marriage",
+    marriageTimeline: "within_6mo",
+    marriageApproach: "family_community",
+    wantsChildren: "yes",
+    nationality: "Chinese",
+    ethnicity: "asian",
+    languages: ["English", "Mandarin"],
+    smoking: "never",
+    drinksAlcohol: "never",
     loveLanguage: "acts",
     topPriorities: ["Kindness", "Shared Values", "Emotional Intelligence", "Family-Oriented", "Communication Skills"],
     dealbreakers: ["Excessive Drinking", "Unfaithfulness", "Anger Issues", "Controlling Behavior", "Dishonesty"],
@@ -133,6 +156,9 @@ const mockUsers = [
     // Self-discovery data
     selfDiscoveryCompleted: true,
     commitmentIntention: "serious",
+    marriageTimeline: "unsure",
+    marriageApproach: "actively_searching",
+    wantsChildren: "yes",
     loveLanguage: "touch",
     topPriorities: ["Physical Attraction", "Health & Fitness", "Adventurous", "Confidence", "Independence"],
     dealbreakers: ["Smoking", "Drug Use", "Lack of Ambition", "Laziness"],
@@ -232,117 +258,274 @@ const mockStories = [
   },
 ];
 
-// Mock Posts
+/**
+ * Fixed IDs — must match `matchify-app-style1-backend/src/seedGroups.ts` (SEED_GROUP_DEFS).
+ * Do not use random ids here or posts will not resolve group names.
+ */
+const _MOCK_GROUP_IDS = [
+  "10000001-0000-4000-8000-000000000001",
+  "10000001-0000-4000-8000-000000000002",
+  "10000001-0000-4000-8000-000000000003",
+  "10000001-0000-4000-8000-000000000004",
+  "10000001-0000-4000-8000-000000000005",
+  "10000001-0000-4000-8000-000000000006",
+] as const;
+
+// Mock Posts — use top-level `image` / `imageUrl` for **post media** (not only author avatar).
 const mockPosts = [
   {
     id: generateId(),
     userId: mockUsers[1].id,
-    content: "Had an amazing time at last night's event! Met so many inspiring people and can't wait for the next one. 🎉",
-    likesCount: 12,
-    commentsCount: 3,
+    groupId: _MOCK_GROUP_IDS[0],
+    content:
+      "New here — excited to learn from everyone in Matchify Welcome Circle. What’s one intentional habit that changed your dating life?",
+    likes: 0,
+    comments: 0,
+    likesCount: 0,
+    commentsCount: 0,
+    image: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=900&h=560&fit=crop",
     author: {
       name: mockUsers[1].name,
       image: mockUsers[1].avatar,
       verified: mockUsers[1].verified,
     },
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    createdAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
     id: generateId(),
     userId: mockUsers[2].id,
-    content: "Who else is excited for the upcoming speed dating event? First time trying this and feeling a mix of nerves and excitement!",
+    groupId: _MOCK_GROUP_IDS[2],
+    content:
+      "Who else gets nervous before a first date? Trying to stay curious instead of perfect — Intentional Dating Lab has been such a good reminder.",
+    likes: 8,
     likesCount: 8,
     commentsCount: 5,
+    image: "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=900&h=560&fit=crop",
     author: {
       name: mockUsers[2].name,
       image: mockUsers[2].avatar,
       verified: mockUsers[2].verified,
     },
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    firstComment: {
+      id: generateId(),
+      userId: mockUsers[0].id,
+      content: "This is so relatable — thanks for sharing!",
+      createdAt: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
+      user: { name: mockUsers[0].name, avatar: mockUsers[0].avatar },
+    },
+    createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
     id: generateId(),
     userId: mockUsers[0].id,
-    content: "Just finished an incredible workshop on building meaningful connections. The insights were game-changing! 💡",
-    likesCount: 15,
-    commentsCount: 7,
+    groupId: _MOCK_GROUP_IDS[1],
+    content:
+      "Workshop takeaway: marriage prep isn’t about rushing — it’s about clarity. Grateful for Meaningful Marriage Prep tonight. 💡",
+    likes: 0,
+    comments: 0,
+    likesCount: 0,
+    commentsCount: 0,
+    image: "https://images.unsplash.com/photo-1544531586-fde5298cdd40?w=900&h=560&fit=crop",
     author: {
       name: mockUsers[0].name,
       image: mockUsers[0].avatar,
       verified: mockUsers[0].verified,
     },
-    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    userId: mockUsers[1].id,
+    groupId: _MOCK_GROUP_IDS[3],
+    content:
+      "Faith & Values Lounge question: how do you gently bring up non‑negotiables without sounding like an interview? Still learning.",
+    likes: 3,
+    likesCount: 3,
+    comments: 0,
+    commentsCount: 0,
+    author: {
+      name: mockUsers[1].name,
+      image: mockUsers[1].avatar,
+      verified: mockUsers[1].verified,
+    },
+    createdAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    userId: mockUsers[2].id,
+    groupId: _MOCK_GROUP_IDS[4],
+    content:
+      "Small win: journaled after a tough chat with a match. Wellness & Growth Together is reminding me that repair matters more than being right.",
+    likes: 2,
+    likesCount: 2,
+    comments: 0,
+    commentsCount: 0,
+    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=900&h=560&fit=crop",
+    author: {
+      name: mockUsers[2].name,
+      image: mockUsers[2].avatar,
+      verified: mockUsers[2].verified,
+    },
+    createdAt: new Date(Date.now() - 28 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    userId: mockUsers[0].id,
+    groupId: _MOCK_GROUP_IDS[5],
+    content:
+      "Grateful for thoughtful replies in Interfaith Respect Table last week. Respectful disagreement + curiosity = actually energizing.",
+    likes: 5,
+    likesCount: 5,
+    comments: 1,
+    commentsCount: 1,
+    author: {
+      name: mockUsers[0].name,
+      image: mockUsers[0].avatar,
+      verified: mockUsers[0].verified,
+    },
+    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    userId: mockUsers[1].id,
+    content: "Tip: refresh your profile photos this week — small updates make a big difference in quality matches. ✨",
+    likes: 3,
+    likesCount: 3,
+    comments: 0,
+    commentsCount: 0,
+    author: {
+      name: mockUsers[1].name,
+      image: mockUsers[1].avatar,
+      verified: mockUsers[1].verified,
+    },
+    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date().toISOString(),
   },
 ];
 
-// Mock Groups
+/** Default comment threads for mock posts (offline: not in localStorage until user adds). */
+const mockPostCommentsById: Record<
+  string,
+  Array<{
+    id: string;
+    userId: string;
+    content: string;
+    createdAt: string;
+    user?: { name?: string; avatar?: string | null } | null;
+  }>
+> = {};
+for (const p of mockPosts) {
+  const row = p as {
+    id: string;
+    commentsCount?: number;
+    comments?: number;
+  };
+  const count = Math.max(
+    typeof row.commentsCount === "number" ? row.commentsCount : 0,
+    typeof row.comments === "number" ? row.comments : 0,
+  );
+  if (count <= 0) continue;
+  mockPostCommentsById[row.id] = [
+    {
+      id: generateId(),
+      userId: mockUsers[0].id,
+      content: "This is so relatable — thanks for sharing!",
+      createdAt: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
+      user: { name: mockUsers[0].name, avatar: mockUsers[0].avatar },
+    },
+    {
+      id: generateId(),
+      userId: mockUsers[1].id,
+      content: "See you at the event! 🎉",
+      createdAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
+      user: { name: mockUsers[1].name, avatar: mockUsers[1].avatar },
+    },
+    {
+      id: generateId(),
+      userId: mockUsers[2].id,
+      content: "First timer too — we’ve got this!",
+      createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+      user: { name: mockUsers[2].name, avatar: mockUsers[2].avatar },
+    },
+  ].slice(0, Math.min(5, Math.max(2, count)));
+}
+
+export function getMockPostCommentSeeds(postId: string) {
+  return mockPostCommentsById[postId] ?? [];
+}
+
+// Mock groups — same ids/names as backend `seedGroups.ts` (no orphan “demo-only” names).
 const mockGroups = [
   {
-    id: generateId(),
-    name: "Travel Enthusiasts",
-    description: "Connect with fellow travelers and explore the world together",
-    tags: ["Travel", "Adventure", "Photography"],
-    image: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=400&fit=crop",
-    memberCount: 245,
-    religionFocus: "all" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    name: "Fine Dining Club",
-    description: "Discover the best restaurants and culinary experiences",
-    tags: ["Food", "Dining", "Wine"],
-    image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop",
-    memberCount: 189,
-    religionFocus: "all" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    name: "Tech Innovators",
-    description: "For tech enthusiasts and innovators shaping the future",
-    tags: ["Technology", "Startups", "AI"],
-    image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&h=400&fit=crop",
-    memberCount: 312,
-    religionFocus: "all" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    name: "Fitness & Wellness",
-    description: "Stay active and healthy with like-minded individuals",
-    tags: ["Fitness", "Health", "Yoga"],
-    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&h=400&fit=crop",
-    memberCount: 156,
-    religionFocus: "all" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    name: "Young Professionals — Interfaith",
-    description: "Open table: respectful dialogue across beliefs while dating intentionally",
-    tags: ["Interfaith", "Values", "Dating"],
+    id: _MOCK_GROUP_IDS[0],
+    name: "Matchify Welcome Circle",
+    description:
+      "Official welcome space — intros, app tips, and meeting others who are dating with intention.",
+    tags: ["welcome", "community", "introductions"],
     image: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&h=400&fit=crop",
-    memberCount: 98,
-    religionFocus: "interfaith" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    name: "Community Circle",
-    description: "Faith-friendly conversations and events — welcoming all who respect the space",
-    tags: ["Community", "Faith", "Support"],
-    image: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&h=400&fit=crop",
     memberCount: 412,
     religionFocus: "all" as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: _MOCK_GROUP_IDS[1],
+    name: "Meaningful Marriage Prep",
+    description: "For members seriously preparing for marriage: values, communication, and clarity.",
+    tags: ["marriage", "values", "readiness"],
+    image: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&h=400&fit=crop",
+    memberCount: 268,
+    religionFocus: "all" as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: _MOCK_GROUP_IDS[2],
+    name: "Intentional Dating Lab",
+    description: "Share date ideas, boundaries, and lessons learned while dating on purpose.",
+    tags: ["dating", "events", "stories"],
+    image: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&h=400&fit=crop",
+    memberCount: 326,
+    religionFocus: "all" as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: _MOCK_GROUP_IDS[3],
+    name: "Faith & Values Lounge",
+    description: "Respectful conversations about faith, family, and what matters in a partnership.",
+    tags: ["faith", "family", "respect"],
+    image: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&h=400&fit=crop",
+    memberCount: 198,
+    religionFocus: "all" as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: _MOCK_GROUP_IDS[4],
+    name: "Wellness & Growth Together",
+    description: "Emotional fitness, habits, and supporting each other’s growth in relationships.",
+    tags: ["wellness", "growth", "mindfulness"],
+    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&h=400&fit=crop",
+    memberCount: 174,
+    religionFocus: "all" as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: _MOCK_GROUP_IDS[5],
+    name: "Interfaith Respect Table",
+    description: "Open, kind dialogue across backgrounds while dating — everyone is welcome.",
+    tags: ["interfaith", "dialogue", "inclusion"],
+    image: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=400&fit=crop",
+    memberCount: 121,
+    religionFocus: "interfaith" as const,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -374,52 +557,85 @@ export const removeMockGroupMembership = (userId: string, groupId: string) => {
   if (i !== -1) mockGroupMemberships.splice(i, 1);
 };
 
-// Mock Events
-const mockEvents = [
+/** Default mock user is in Welcome Circle until they join more groups. */
+addMockGroupMembership(mockUsers[0].id, _MOCK_GROUP_IDS[0]);
+
+// Mock Events (hostUserId = creator; default demo user is often mockUsers[0] so they see themselves as host on first event)
+type MockEventRow = {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  location: string;
+  type: string;
+  capacity: number;
+  price: string;
+  image: string;
+  rsvpCount: number;
+  hostUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  status?: "pending" | "approved" | "rejected";
+  hasQuestionnaire?: boolean;
+  questionnaireQuestions?: string;
+  matchRevealTime?: string;
+};
+
+const mockEvents: MockEventRow[] = [
   {
     id: generateId(),
     title: "Speed Dating Night",
     description: "Join us for an exciting evening of connections! Meet 20+ singles in a fun, relaxed atmosphere.",
-    date: "Friday, Oct 20",
-    time: "7:00 PM - 10:00 PM",
+    date: "2026-10-20",
+    time: "19:00",
     location: "The Grand Hotel, Downtown Dubai",
     type: "offline",
     capacity: 50,
     price: "$29",
     image: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&h=600&fit=crop",
     rsvpCount: 32,
+    hostUserId: mockUsers[0].id,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    status: "approved",
+    hasQuestionnaire: true,
   },
   {
     id: generateId(),
     title: "Virtual Networking Mixer",
     description: "Connect with professionals from various industries in this online networking event.",
-    date: "Saturday, Oct 21",
-    time: "6:00 PM - 8:00 PM",
+    date: "2026-10-21",
+    time: "18:00",
     location: "Zoom (link provided after RSVP)",
     type: "online",
     capacity: 100,
     price: "Free",
     image: "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800&h=600&fit=crop",
     rsvpCount: 67,
+    hostUserId: mockUsers[1].id,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    status: "approved",
+    hasQuestionnaire: true,
   },
   {
     id: generateId(),
     title: "Wine Tasting Social",
     description: "Enjoy an evening of fine wines and great company. Perfect for wine enthusiasts!",
-    date: "Sunday, Oct 22",
-    time: "5:00 PM - 9:00 PM",
+    date: "2026-10-22",
+    time: "17:00",
     location: "The Address Downtown Dubai",
     type: "offline",
     capacity: 40,
     price: "$45",
     image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=800&h=600&fit=crop",
     rsvpCount: 28,
+    hostUserId: mockUsers[2].id,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    status: "approved",
+    hasQuestionnaire: true,
   },
 ];
 
@@ -578,10 +794,280 @@ const mockConversations = [
   },
 ];
 
+/** Pathname only, for routing mock responses (avoids `/api/posts` matching `/api/posts/:id/comments`). */
+function mockApiPathname(endpoint: string): string {
+  try {
+    if (endpoint.includes("://")) return new URL(endpoint).pathname;
+  } catch {
+    /* use raw */
+  }
+  const q = endpoint.indexOf("?");
+  return (q >= 0 ? endpoint.slice(0, q) : endpoint) || "";
+}
+
+/** Fresh timestamp so directory/chat “online” dots stay within the 5-minute presence window. */
+function mockUserWithFreshPresence<T extends Record<string, unknown>>(u: T): T & { lastActiveAt: string } {
+  return { ...u, lastActiveAt: new Date().toISOString() };
+}
+
+function mockUsersWithFreshPresence<T extends Record<string, unknown>>(
+  users: T[],
+): (T & { lastActiveAt: string })[] {
+  const now = new Date().toISOString();
+  return users.map((x) => ({ ...x, lastActiveAt: now }));
+}
+
+/** Normalize mock event for API: attendee count, host fields, isHost for viewer. */
+function shapeMockEventForClient(
+  e: Record<string, unknown>,
+  viewerId: string | null,
+): Record<string, unknown> {
+  const hostUserId = String(e.hostUserId ?? mockUsers[0].id);
+  const host = mockUsers.find((u) => u.id === hostUserId) || mockUsers[0];
+  const attendeesCount =
+    typeof e.rsvpCount === "number"
+      ? e.rsvpCount
+      : typeof e.attendeesCount === "number"
+        ? e.attendeesCount
+        : 0;
+  return {
+    ...e,
+    attendeesCount,
+    hasQuestionnaire: e.hasQuestionnaire !== false,
+    hostUserId,
+    hostName: host.name,
+    isHost: Boolean(viewerId && viewerId === hostUserId),
+  };
+}
+
+function mockPathnameFromUrl(url: string): string {
+  try {
+    if (url.includes("://")) return new URL(url).pathname;
+  } catch {
+    /* use raw */
+  }
+  const q = url.indexOf("?");
+  return (q >= 0 ? url.slice(0, q) : url) || "";
+}
+
+function parseMockJsonBody(body: unknown): Record<string, unknown> {
+  if (body == null || body === "") return {};
+  if (typeof body === "string") {
+    try {
+      return JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  return body as Record<string, unknown>;
+}
+
+function createMockEventFromPayload(
+  b: Record<string, unknown>,
+  status: "pending" | "approved",
+): MockEventRow {
+  const viewer = getCurrentUserId();
+  const hostUserId = String(b.userId || viewer);
+  const id = generateId();
+  const imageDefault =
+    "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&h=600&fit=crop";
+  const imageRaw = typeof b.image === "string" ? b.image.trim() : "";
+  return {
+    id,
+    title: (typeof b.title === "string" && b.title.trim()) || "Untitled event",
+    description: typeof b.description === "string" ? b.description : "",
+    date: typeof b.date === "string" ? b.date : "",
+    time: typeof b.time === "string" ? b.time : "",
+    location: typeof b.location === "string" ? b.location : "",
+    type: b.type === "online" ? "online" : "offline",
+    capacity: Math.max(1, Number(b.capacity) || 50),
+    price: typeof b.price === "string" && b.price.trim() ? b.price : "Free",
+    image: imageRaw || imageDefault,
+    rsvpCount: 0,
+    hostUserId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status,
+    hasQuestionnaire: b.hasQuestionnaire !== false,
+    questionnaireQuestions:
+      typeof b.questionnaireQuestions === "string" ? b.questionnaireQuestions : undefined,
+  };
+}
+
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * In-memory mock writes when the real API is unreachable (or returns 5xx).
+ * Returns null if this path/method is not handled — caller should use real response or throw.
+ */
+export function tryMockApiWrite(method: string, url: string, body?: unknown): Response | null {
+  const path = mockPathnameFromUrl(url);
+  const m = method.toUpperCase();
+  const b = parseMockJsonBody(body);
+  const viewer = getCurrentUserId();
+
+  if (m === "PUT" && /^\/api\/admin\/onboarding-questionnaire\/?$/.test(path)) {
+    const items = b.items;
+    if (!Array.isArray(items)) {
+      return jsonResponse({ message: "Expected JSON body { items: [...] }" }, 400);
+    }
+    mockOnboardingQuestionnaireOverride = items as OnboardingQuestionnaireItem[];
+    return jsonResponse({
+      ok: true,
+      items: mockOnboardingQuestionnaireOverride,
+    });
+  }
+
+  if (m === "POST" && /^\/api\/admin\/events\/?$/.test(path)) {
+    const row = createMockEventFromPayload(b, "approved");
+    mockEvents.push(row);
+    return jsonResponse(shapeMockEventForClient(row as Record<string, unknown>, viewer), 201);
+  }
+
+  if (m === "POST" && /^\/api\/events\/?$/.test(path)) {
+    const row = createMockEventFromPayload(b, "pending");
+    mockEvents.push(row);
+    return jsonResponse(shapeMockEventForClient(row as Record<string, unknown>, viewer), 201);
+  }
+
+  const singleEventPath = path.match(/^\/api\/events\/([^/]+)\/?$/);
+  if (singleEventPath?.[1] && singleEventPath[1] !== "rsvps") {
+    const eventId = singleEventPath[1];
+    const idx = mockEvents.findIndex((ev) => ev.id === eventId);
+
+    if (m === "PATCH") {
+      if (idx === -1) return jsonResponse({ message: "Event not found" }, 404);
+      const cur = mockEvents[idx];
+      const next: MockEventRow = {
+        ...cur,
+        updatedAt: new Date().toISOString(),
+      };
+      if (typeof b.title === "string") next.title = b.title;
+      if (typeof b.description === "string") next.description = b.description;
+      if (typeof b.date === "string") next.date = b.date;
+      if (typeof b.time === "string") next.time = b.time;
+      if (typeof b.location === "string") next.location = b.location;
+      if (b.type === "online" || b.type === "offline") next.type = b.type;
+      if (typeof b.capacity === "number" && b.capacity >= 1) next.capacity = b.capacity;
+      if (typeof b.price === "string") next.price = b.price;
+      if (typeof b.image === "string") next.image = b.image.trim() || cur.image;
+      if (typeof b.hasQuestionnaire === "boolean") next.hasQuestionnaire = b.hasQuestionnaire;
+      if (typeof b.questionnaireQuestions === "string")
+        next.questionnaireQuestions = b.questionnaireQuestions;
+      if (typeof b.rsvpCount === "number" && b.rsvpCount >= 0) next.rsvpCount = b.rsvpCount;
+      if (typeof b.matchRevealTime === "string" || b.matchRevealTime === null) {
+        next.matchRevealTime =
+          b.matchRevealTime === null ? undefined : String(b.matchRevealTime);
+      }
+      if (b.status === "pending" || b.status === "approved" || b.status === "rejected") {
+        next.status = b.status;
+      }
+      mockEvents[idx] = next;
+      return jsonResponse(shapeMockEventForClient(next as Record<string, unknown>, viewer));
+    }
+
+    if (m === "DELETE") {
+      if (idx === -1) return jsonResponse({ message: "Event not found" }, 404);
+      mockEvents.splice(idx, 1);
+      return new Response(null, { status: 204 });
+    }
+  }
+
+  const approvePath = path.match(/^\/api\/admin\/events\/([^/]+)\/approve\/?$/);
+  if (m === "PATCH" && approvePath?.[1]) {
+    const ev = mockEvents.find((e) => e.id === approvePath[1]);
+    if (!ev) return jsonResponse({ message: "Event not found" }, 404);
+    ev.status = "approved";
+    ev.updatedAt = new Date().toISOString();
+    return jsonResponse({
+      ...ev,
+      attendeesCount: ev.rsvpCount,
+      hasQuestionnaire: ev.hasQuestionnaire !== false,
+    });
+  }
+
+  const rejectPath = path.match(/^\/api\/admin\/events\/([^/]+)\/reject\/?$/);
+  if (m === "PATCH" && rejectPath?.[1]) {
+    const ev = mockEvents.find((e) => e.id === rejectPath[1]);
+    if (!ev) return jsonResponse({ message: "Event not found" }, 404);
+    ev.status = "rejected";
+    ev.updatedAt = new Date().toISOString();
+    return jsonResponse({
+      ...ev,
+      attendeesCount: ev.rsvpCount,
+      hasQuestionnaire: ev.hasQuestionnaire !== false,
+    });
+  }
+
+  return null;
+}
+
+function shapeAdminListEvent(e: MockEventRow): Record<string, unknown> {
+  const status = e.status || "approved";
+  return {
+    ...e,
+    status,
+    attendeesCount: e.rsvpCount,
+    hasQuestionnaire: e.hasQuestionnaire !== false,
+  };
+}
+
 // Export mock data getters
 export const getMockData = (endpoint: string): any => {
+  const path = mockApiPathname(endpoint);
+  if (/^\/api\/onboarding-questionnaire\/?$/.test(path)) {
+    return (
+      mockOnboardingQuestionnaireOverride ?? getDefaultOnboardingQuestionnaireItems()
+    );
+  }
+  if (/^\/api\/admin\/onboarding-questionnaire\/?$/.test(path)) {
+    return (
+      mockOnboardingQuestionnaireOverride ?? getDefaultOnboardingQuestionnaireItems()
+    );
+  }
+  if (/^\/api\/admin\/events\/?$/.test(path)) {
+    let page = 1;
+    let limit = 50;
+    let statusFilter: string | undefined;
+    try {
+      const u = new URL(
+        endpoint.includes("://")
+          ? endpoint
+          : `http://mock.local${endpoint.startsWith("/") ? "" : "/"}${endpoint}`,
+      );
+      page = Math.max(1, parseInt(u.searchParams.get("page") || "1", 10));
+      limit = Math.max(1, Math.min(100, parseInt(u.searchParams.get("limit") || "50", 10)));
+      const s = u.searchParams.get("status");
+      if (s) statusFilter = s;
+    } catch {
+      /* defaults */
+    }
+    let list = mockEvents.map((ev) => shapeAdminListEvent(ev));
+    if (statusFilter && ["pending", "approved", "rejected"].includes(statusFilter)) {
+      list = list.filter((e) => (e.status as string) === statusFilter);
+    }
+    const total = list.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const start = (page - 1) * limit;
+    return {
+      events: list.slice(start, start + limit),
+      totalPages,
+      page,
+      total,
+    };
+  }
+  if (/\/api\/posts\/[^/]+\/comments\/?$/.test(path)) {
+    const m = path.match(/^\/api\/posts\/([^/]+)\/comments\/?$/);
+    const pid = m?.[1];
+    return pid ? getMockPostCommentSeeds(pid) : [];
+  }
   if (endpoint.includes('/api/users') && !endpoint.includes('/users/')) {
-    return mockUsers;
+    return mockUsersWithFreshPresence(mockUsers);
   }
   if (endpoint.includes('/api/users/search')) {
     let q = '';
@@ -594,18 +1080,37 @@ export const getMockData = (endpoint: string): any => {
       q = m ? decodeURIComponent(m[1]).replace(/\+/g, ' ').trim().toLowerCase() : '';
     }
     if (!q) return [];
-    return mockUsers.filter(
-      (user) =>
-        String(user.username || '')
-          .toLowerCase()
-          .includes(q) ||
-        String(user.name || '')
-          .toLowerCase()
-          .includes(q) ||
-        String(user.email || '')
-          .toLowerCase()
-          .includes(q),
+    return mockUsersWithFreshPresence(
+      mockUsers.filter(
+        (user) =>
+          String(user.username || '')
+            .toLowerCase()
+            .includes(q) ||
+          String(user.name || '')
+            .toLowerCase()
+            .includes(q) ||
+          String(user.email || '')
+            .toLowerCase()
+            .includes(q),
+      ),
     );
+  }
+  if (/\/api\/users\/[^/]+\/ai-matches\/?$/.test(path)) {
+    const pool = mockUsers.filter((u) => u.id !== currentUserId).slice(0, 4);
+    return {
+      rankingSource: "fallback" as const,
+      matches: pool.map((u, i) => ({
+        id: u.id,
+        name: u.name,
+        age: u.age,
+        image: u.avatar,
+        bio: u.bio,
+        compatibility: 76 + ((i * 4) % 20),
+        mutualCompatibility: 70 + ((i * 3) % 22),
+        reasons: ["Aligned interests", "Compatible lifestyle", "Strong communication fit"],
+        emphasis: "Promising match",
+      })),
+    };
   }
   if (endpoint.includes('/api/users/') && endpoint.includes('/unrevealed-matches')) {
     return [];
@@ -650,20 +1155,46 @@ export const getMockData = (endpoint: string): any => {
     !endpoint.includes('/search')
   ) {
     const userId = endpoint.split('/api/users/')[1]?.split('?')[0]?.split('/')[0];
-    if (!userId || userId === 'search') return mockUsers[0];
-    return mockUsers.find((u) => u.id === userId) || mockUsers[0];
+    if (!userId || userId === 'search') return mockUserWithFreshPresence(mockUsers[0]);
+    const found = mockUsers.find((u) => u.id === userId) || mockUsers[0];
+    return mockUserWithFreshPresence(found);
   }
   if (endpoint.includes('/api/stories')) {
     return mockStories;
   }
-  if (endpoint.includes('/api/posts')) {
+  if (path === "/api/posts" || /\/api\/posts\/?$/.test(path)) {
     return mockPosts;
+  }
+  {
+    const m = path.match(/^\/api\/groups\/([^/]+)\/?$/);
+    if (m?.[1] && m[1] !== "memberships") {
+      const gid = m[1];
+      const found = mockGroups.find((g) => g.id === gid);
+      if (found) return found;
+      return {
+        ...mockGroups[0],
+        id: gid,
+        name: "Group not in demo list",
+        description: "This id is not one of the seeded Matchify groups. Check mockData / seedGroups.",
+      };
+    }
   }
   if (endpoint.includes('/api/groups')) {
     return mockGroups;
   }
-  if (endpoint.includes('/api/events')) {
-    return mockEvents;
+  {
+    const m = path.match(/^\/api\/events\/([^/]+)\/?$/);
+    if (m?.[1]) {
+      const eventId = m[1];
+      const base = mockEvents.find((ev) => ev.id === eventId);
+      const viewer = getCurrentUserId();
+      if (base) return shapeMockEventForClient(base as Record<string, unknown>, viewer);
+      return shapeMockEventForClient({ ...mockEvents[0], id: eventId } as Record<string, unknown>, viewer);
+    }
+  }
+  if (path === "/api/events" || /^\/api\/events\/?$/.test(path)) {
+    const viewer = getCurrentUserId();
+    return mockEvents.map((ev) => shapeMockEventForClient(ev as Record<string, unknown>, viewer));
   }
   if (endpoint.includes('/api/courses')) {
     return mockCourses;
@@ -776,6 +1307,11 @@ export const createMockUser = (userData: {
 
 // Get current user ID
 export const getCurrentUserId = () => currentUserId || mockUsers[0].id;
+
+/** Resolve a seeded mock user (for social / blocked lists UI). */
+export function lookupMockUser(userId: string) {
+  return mockUsers.find((u) => u.id === userId) ?? null;
+}
 
 // Set current user ID
 export const setCurrentUserId = (userId: string) => {

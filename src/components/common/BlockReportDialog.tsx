@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,8 @@ interface BlockReportDialogProps {
   userId: string;
   userName: string;
   type?: 'block' | 'report' | 'both';
+  /** Called after a block succeeds (e.g. remove from discovery deck). */
+  onBlocked?: () => void;
 }
 
 const REPORT_REASONS = [
@@ -40,6 +42,7 @@ export function BlockReportDialog({
   userId,
   userName,
   type = 'both',
+  onBlocked,
 }: BlockReportDialogProps) {
   const [action, setAction] = useState<'block' | 'report'>('report');
   const [reportReason, setReportReason] = useState('');
@@ -47,16 +50,26 @@ export function BlockReportDialog({
   const { userId: currentUserId } = useCurrentUser();
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!open) return;
+    if (type === "block") setAction("block");
+    else if (type === "report") setAction("report");
+  }, [open, type]);
+
   const blockMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', `/api/users/${currentUserId}/block`, { blockedUserId: userId });
+      return apiRequest("POST", `/api/users/${currentUserId}/blocks`, { blockedId: userId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/blocked`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "social-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "social-feed-lists"] });
       toast({
         title: "User blocked",
         description: `${userName} has been blocked`,
       });
+      onBlocked?.();
       onOpenChange(false);
     },
     onError: () => {
@@ -70,10 +83,10 @@ export function BlockReportDialog({
 
   const reportMutation = useMutation({
     mutationFn: async (data: { reason: string; details: string }) => {
-      return apiRequest('POST', `/api/reports`, {
-        reportedUserId: userId,
-        reason: data.reason,
-        details: data.details,
+      const reason = [data.reason, data.details?.trim()].filter(Boolean).join(" — ");
+      return apiRequest("POST", "/api/reports", {
+        reportedId: userId,
+        reason,
       });
     },
     onSuccess: () => {

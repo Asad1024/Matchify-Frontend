@@ -265,8 +265,7 @@ export default function FlowA() {
             },
           });
           
-          // Fetch AI matches
-          const aiMatches = await getAIMatches(userId);
+          const { matches: aiMatches } = await getAIMatches(userId);
           setMatches(aiMatches);
         } catch (error) {
           console.error('Error saving blueprint or fetching matches:', error);
@@ -492,7 +491,7 @@ export default function FlowA() {
           <img src={logoImage} alt="Matchify" className="h-10 w-auto object-contain brightness-110" />
           <div className="relative flex-1 min-w-0">
             <Progress value={getProgress()} className="h-2 bg-white/10" />
-            <div className="absolute inset-0 h-2 bg-gradient-to-r from-purple-500/50 via-pink-500/50 to-indigo-500/50 rounded-full blur-sm" />
+            <div className="absolute inset-0 h-2 bg-gradient-to-r from-red-900/50 via-primary/45 to-indigo-900/50 rounded-full blur-sm" />
           </div>
         </div>
       </div>

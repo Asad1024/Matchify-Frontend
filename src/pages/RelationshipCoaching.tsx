@@ -64,12 +64,12 @@ export default function RelationshipCoaching() {
         onLogout={logout}
       />
       
-      <div className="max-w-4xl mx-auto p-4">
-        <div className="mb-6">
+      <div className="mx-auto w-full max-w-lg px-4 pt-2 pb-2">
+        <div className="mb-4">
           <Button
             variant="ghost"
             onClick={() => coachId ? setLocation('/coaches') : setLocation('/profile')}
-            className="mb-4"
+            className="mb-2 -ml-2"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             {coachId ? 'Back to Coaches' : 'Back to Profile'}
@@ -83,9 +83,9 @@ export default function RelationshipCoaching() {
               <LoadingState message="Loading coach details..." showMascot={true} />
             ) : coach ? (
               <Card className="mb-6">
-                <CardContent className="p-6">
-                  <div className="flex gap-6">
-                    <Avatar className="w-24 h-24">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                    <Avatar className="mx-auto h-24 w-24 shrink-0 sm:mx-0">
                       <AvatarImage src={coach.avatar || undefined} alt={coach.name} />
                       <AvatarFallback className="text-2xl">{coach.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>

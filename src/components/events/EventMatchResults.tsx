@@ -90,7 +90,7 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
   const getMatchQualityColor = (quality: string) => {
     switch (quality) {
       case 'high':
-        return 'bg-gradient-to-r from-primary/20 to-pink-500/20 text-primary border-primary/50';
+        return 'bg-gradient-to-r from-primary/20 to-red-950/20 text-primary border-primary/50';
       case 'medium':
         return 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-500 border-yellow-500/50';
       case 'low':
@@ -199,7 +199,7 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
                   animate={{ rotate: [0, 360] }}
                   transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                   className={`w-3 h-3 ${
-                    i % 4 === 0 ? 'bg-primary' : i % 4 === 1 ? 'bg-pink-400' : i % 4 === 2 ? 'bg-rose-300' : 'bg-white'
+                    i % 4 === 0 ? 'bg-primary' : i % 4 === 1 ? 'bg-red-800' : i % 4 === 2 ? 'bg-red-900/80' : 'bg-white'
                   } rounded-full`}
                 />
               </motion.div>
@@ -235,7 +235,7 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-pink-500 to-rose-400 bg-clip-text text-transparent"
+          className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-red-800 to-red-950 bg-clip-text text-transparent"
         >
           Your Matches Are Here! 🎉
         </motion.h2>

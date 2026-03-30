@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import PhotoUpload from "@/components/profile/PhotoUpload";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import { notifyHeaderUserUpdated } from "@/components/common/Header";
 import { Loader2 } from "lucide-react";
 import {
   Select,
@@ -54,6 +56,7 @@ export default function ProfileEditDialog({ open, onOpenChange, user }: ProfileE
     bio: user.bio || "",
     interests: user.interests?.join(", ") || "",
     avatar: user.avatar || "",
+    profileBanner: typeof user.profileBanner === "string" ? user.profileBanner : "",
     religion: typeof user.religion === "string" ? user.religion : "prefer_not_say",
     meetPreference:
       typeof user.meetPreference === "string" ? user.meetPreference : "open_to_all",
@@ -68,6 +71,7 @@ export default function ProfileEditDialog({ open, onOpenChange, user }: ProfileE
       bio: user.bio || "",
       interests: user.interests?.join(", ") || "",
       avatar: user.avatar || "",
+      profileBanner: typeof user.profileBanner === "string" ? user.profileBanner : "",
       religion: typeof user.religion === "string" ? user.religion : "prefer_not_say",
       meetPreference:
         typeof user.meetPreference === "string" ? user.meetPreference : "open_to_all",
@@ -81,22 +85,41 @@ export default function ProfileEditDialog({ open, onOpenChange, user }: ProfileE
     user.bio,
     user.interests,
     user.avatar,
+    user.profileBanner,
     user.religion,
     user.meetPreference,
   ]);
 
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<User>) => {
-      const res = await fetch(`/api/users/${user.id}`, {
+      const res = await fetch(buildApiUrl(`/api/users/${user.id}`), {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error("Failed to update profile");
-      return res.json();
+      return res.json() as Promise<Record<string, unknown>>;
     },
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      queryClient.setQueryData([`/api/users/${user.id}`], (prev) => {
+        const base =
+          prev && typeof prev === "object" ? { ...(prev as Record<string, unknown>) } : {};
+        return { ...base, ...updated } as Record<string, unknown>;
+      });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${user.id}`] });
+      try {
+        const raw = localStorage.getItem("currentUser");
+        if (raw) {
+          const cur = JSON.parse(raw) as Record<string, unknown>;
+          if (cur.id === user.id) {
+            localStorage.setItem("currentUser", JSON.stringify({ ...cur, ...updated }));
+            notifyHeaderUserUpdated();
+          }
+        }
+      } catch {
+        /* ignore */
+      }
       toast({ title: "Profile updated!" });
       onOpenChange(false);
     },
@@ -118,6 +141,7 @@ export default function ProfileEditDialog({ open, onOpenChange, user }: ProfileE
       bio: form.bio || null,
       interests: interests.length > 0 ? interests : null,
       avatar: form.avatar || null,
+      profileBanner: form.profileBanner?.trim() ? form.profileBanner.trim() : null,
       religion: form.religion,
       meetPreference: form.meetPreference,
     });
@@ -131,12 +155,35 @@ export default function ProfileEditDialog({ open, onOpenChange, user }: ProfileE
         </DialogHeader>
 
         <div className="space-y-5 py-2">
+          <div className="space-y-1.5">
+            <Label>Profile banner</Label>
+            <PhotoUpload
+              variant="banner"
+              suppressSuccessToast
+              currentPhoto={form.profileBanner}
+              userId={user.id}
+              onPhotoChange={(url) => {
+                setForm((f) => ({ ...f, profileBanner: url }));
+                updateMutation.mutate({
+                  profileBanner: url?.trim() ? url.trim() : null,
+                });
+              }}
+              label="Change banner"
+            />
+          </div>
+
           {/* Photo */}
           <div className="flex justify-center">
             <PhotoUpload
+              suppressSuccessToast
               currentPhoto={form.avatar}
               userId={user.id}
-              onPhotoChange={(url) => setForm((f) => ({ ...f, avatar: url }))}
+              onPhotoChange={(url) => {
+                setForm((f) => ({ ...f, avatar: url }));
+                updateMutation.mutate({
+                  avatar: url?.trim() ? url.trim() : null,
+                });
+              }}
               size="lg"
               label="Change Photo"
             />

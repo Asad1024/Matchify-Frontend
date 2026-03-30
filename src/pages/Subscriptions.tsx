@@ -8,6 +8,7 @@ import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type User = {
   id: string;
@@ -19,6 +20,7 @@ export default function Subscriptions() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
+  const { toast } = useToast();
 
   // Fetch current user to check membership tier
   const { data: user } = useQuery<User>({
@@ -125,6 +127,13 @@ export default function Subscriptions() {
               popular={tier.popular}
               current={tier.current}
               data-testid={`tier-${tier.id}`}
+              onSubscribe={() =>
+                toast({
+                  title: "Checkout not enabled",
+                  description:
+                    "Add Stripe keys and a checkout API route to process payments. UI-only for now.",
+                })
+              }
             />
           ))}
         </div>

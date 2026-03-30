@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearchParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/common/Header";
 import EventCard from "@/components/events/EventCard";
@@ -8,7 +8,7 @@ import SwipeableEventCard from "@/components/events/SwipeableEventCard";
 import BottomNav from "@/components/common/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Grid3x3, Zap, Sparkles } from "lucide-react";
+import { ArrowLeft, CalendarDays, Grid3x3, Zap, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/contexts/UserContext";
@@ -20,10 +20,16 @@ import { EventSkeleton } from "@/components/ui/skeleton-enhanced";
 import { EmptyEvents, EmptyState } from "@/components/common/EmptyState";
 import type { Event, User } from "@shared/schema";
 import { formatCountdown } from "@/hooks/useAiMatchCooldown";
+import { parseEventDateKey, toDateKeyLocal, dateKeyFromParts } from "@/lib/eventDateUtils";
+import { cn } from "@/lib/utils";
 
 export default function Events() {
   const [activePage, setActivePage] = useState('explore');
   const [, setLocation] = useLocation();
+  const [searchParams] = useSearchParams();
+  const fromExplore = searchParams.get("from") === "explore";
+  const fromExploreRef = useRef(false);
+  fromExploreRef.current = fromExplore;
   const { toast } = useToast();
   const { userId: currentUserId } = useCurrentUser();
   const { logout } = useAuth();
@@ -31,7 +37,6 @@ export default function Events() {
   const [swipeStack, setSwipeStack] = useState<Event[]>([]);
   const [filterType, setFilterType] = useState<string>("all");
   const [scope, setScope] = useState<"all" | "mine">("all");
-  const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
   const [sortBy, setSortBy] = useState<string>("newest");
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({ type: filterType });
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -164,7 +169,11 @@ export default function Events() {
         });
         // Navigate after a short delay for better UX
         navigationTimeoutRef.current = setTimeout(() => {
-          setLocation(`/event/${variables.eventId}`);
+          setLocation(
+            fromExploreRef.current
+              ? `/event/${variables.eventId}?from=explore`
+              : `/event/${variables.eventId}`,
+          );
           navigationTimeoutRef.current = null;
         }, 500);
       } else {
@@ -275,20 +284,100 @@ export default function Events() {
   const onlineEvents = safeEvents.filter(e => e && e.type === 'online');
   const offlineEvents = safeEvents.filter(e => e && e.type === 'offline');
 
-  // Initialize swipe stack when events load
-  const initializeSwipeStack = () => {
-    if (safeEvents.length > 0) {
-      setSwipeStack([...safeEvents].reverse()); // Reverse so we can pop from the end
+  const filteredEvents = useMemo(() => {
+    let list =
+      filterType === "all"
+        ? safeEvents
+        : filterType === "online"
+          ? onlineEvents
+          : offlineEvents;
+    if (scope === "mine") {
+      const safeRsvps = Array.isArray(rsvps) ? rsvps : [];
+      list = list.filter((event) => safeRsvps.some((r: any) => r && r.eventId === event.id));
     }
-  };
+    return [...list].sort((a, b) => {
+      if (sortBy === "popular") {
+        return (b.attendeesCount || 0) - (a.attendeesCount || 0);
+      }
+      const aDate = new Date((a as any).createdAt || a.id).getTime();
+      const bDate = new Date((b as any).createdAt || b.id).getTime();
+      return bDate - aDate;
+    });
+  }, [safeEvents, onlineEvents, offlineEvents, filterType, scope, sortBy, rsvps]);
 
-  // Auto-initialize swipe stack when events change
+  const initializeSwipeStack = useCallback(() => {
+    if (filteredEvents.length > 0) {
+      setSwipeStack([...filteredEvents].reverse());
+    } else {
+      setSwipeStack([]);
+    }
+  }, [filteredEvents]);
+
   useEffect(() => {
-    if (safeEvents.length > 0 && swipeStack.length === 0) {
+    if (filteredEvents.length > 0 && swipeStack.length === 0) {
       initializeSwipeStack();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [safeEvents.length]);
+  }, [filteredEvents.length, swipeStack.length, initializeSwipeStack]);
+
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, Event[]>();
+    for (const e of filteredEvents) {
+      const key = parseEventDateKey(e.date);
+      if (!key) continue;
+      const list = map.get(key) ?? [];
+      list.push(e);
+      map.set(key, list);
+    }
+    return map;
+  }, [filteredEvents]);
+
+  const calendarCells = useMemo(() => {
+    const y = calendarMonth.getFullYear();
+    const m = calendarMonth.getMonth();
+    const first = new Date(y, m, 1);
+    const startPad = first.getDay();
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const cells: Array<{ kind: "pad" } | { kind: "day"; day: number; key: string }> = [];
+    for (let i = 0; i < startPad; i++) cells.push({ kind: "pad" });
+    for (let d = 1; d <= lastDay; d++) {
+      cells.push({ kind: "day", day: d, key: dateKeyFromParts(y, m, d) });
+    }
+    while (cells.length % 7 !== 0) cells.push({ kind: "pad" });
+    while (cells.length < 42) cells.push({ kind: "pad" });
+    return cells;
+  }, [calendarMonth]);
+
+  const calendarListEvents = useMemo(() => {
+    const sortByDateTime = (a: Event, b: Event) => {
+      const ta = parseEventDateKey(a.date) ?? "";
+      const tb = parseEventDateKey(b.date) ?? "";
+      if (ta !== tb) return ta.localeCompare(tb);
+      return (a.time || "").localeCompare(b.time || "");
+    };
+    if (selectedDateKey) {
+      return (eventsByDate.get(selectedDateKey) ?? []).slice().sort(sortByDateTime);
+    }
+    const y = calendarMonth.getFullYear();
+    const m = calendarMonth.getMonth();
+    return filteredEvents
+      .filter((e) => {
+        const k = parseEventDateKey(e.date);
+        if (!k) return false;
+        const [ey, em] = k.split("-").map(Number);
+        return ey === y && em - 1 === m;
+      })
+      .sort(sortByDateTime);
+  }, [selectedDateKey, eventsByDate, calendarMonth, filteredEvents]);
+
+  useEffect(() => {
+    setSelectedDateKey(null);
+  }, [calendarMonth]);
 
   // Cleanup navigation timeout on unmount
   useEffect(() => {
@@ -352,30 +441,6 @@ export default function Events() {
     }
   };
 
-  // Filter events
-  let filteredEvents = filterType === "all" 
-    ? safeEvents 
-    : filterType === "online" 
-    ? onlineEvents 
-    : offlineEvents;
-
-  if (scope === "mine") {
-    filteredEvents = filteredEvents.filter((event) => isRSVPd(event.id));
-  }
-
-  // Sort events
-  filteredEvents = [...filteredEvents].sort((a, b) => {
-    if (sortBy === "popular") {
-      // Sort by attendees count (most popular first)
-      return (b.attendeesCount || 0) - (a.attendeesCount || 0);
-    } else {
-      // Sort by newest first (by createdAt or id)
-      const aDate = new Date((a as any).createdAt || a.id).getTime();
-      const bDate = new Date((b as any).createdAt || b.id).getTime();
-      return bDate - aDate;
-    }
-  });
-
   // Show loading if no userId (after all hooks are called)
   if (!currentUserId) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -390,15 +455,15 @@ export default function Events() {
         subtitle="Match-friendly meetups near you"
         onSearch={(query) => console.log('Search events:', query)}
         onNotifications={() => setLocation('/notifications')}
-        onCreate={() => setLocation('/events/create')}
+        onCreate={() => setLocation(fromExplore ? "/events/create?from=explore" : "/events/create")}
         onSettings={() => setLocation('/profile')}
         onLogout={logout}
       />
 
       {currentUserProfile?.selfDiscoveryCompleted && aiQuartetEndsAt != null && (
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 pt-3">
+        <div className="mx-auto max-w-lg px-4 pt-3">
           <div
-            className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-pink-500/10 to-primary/5 p-4 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm"
+            className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-red-950/10 to-primary/5 p-4 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm"
             data-testid="banner-ai-date-night"
           >
             <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center flex-shrink-0">
@@ -423,18 +488,27 @@ export default function Events() {
         </div>
       )}
 
-      <motion.div 
-          className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6"
+      <motion.div
+          className="mx-auto max-w-lg px-4 pb-6 pt-2"
         initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5 }}
       >
-        <div className="mb-4 sm:mb-6">
-            <div className="flex items-start justify-between gap-4 mb-3 sm:mb-4">
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">Upcoming Events</h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-                Discover inclusive events, RSVP quickly, and track your plan.
+        {fromExplore ? (
+          <Button
+            variant="ghost"
+            className="-ml-2 mb-2 h-10 px-2 text-gray-700"
+            onClick={() => setLocation("/explore?tab=events")}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Explore
+          </Button>
+        ) : null}
+        <div className="mb-5">
+            <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Discover meetups, RSVP in one tap, and keep track of what you&apos;re going to.
               </p>
               <Button
                 variant="ghost"
@@ -446,17 +520,21 @@ export default function Events() {
               </Button>
             </div>
             <Button
-              onClick={() => setLocation('/events/create')}
-              className="hidden sm:flex"
+              onClick={() =>
+                setLocation(fromExplore ? "/events/create?from=explore" : "/events/create")
+              }
+              className="hidden shrink-0 sm:flex"
               size="sm"
             >
               <CalendarDays className="w-4 h-4 mr-2" />
-              Create Event
+              Create
             </Button>
             </div>
 
             <Button
-              onClick={() => setLocation("/events/create")}
+              onClick={() =>
+                setLocation(fromExplore ? "/events/create?from=explore" : "/events/create")
+              }
               className="w-full sm:hidden mt-3 rounded-xl font-bold"
               size="sm"
             >
@@ -485,6 +563,7 @@ export default function Events() {
 
             {/* Enhanced Filter Bar */}
             <FilterBar
+              className="max-w-full"
               filters={[
                 { id: "type", label: "Type", value: filterType, options: ["online", "offline"] },
               ]}
@@ -500,31 +579,31 @@ export default function Events() {
             />
         </div>
 
-        <Tabs defaultValue="grid" className="space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-3 h-auto">
-            <TabsTrigger value="grid" data-testid="tab-grid" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3">
-              <Grid3x3 className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline sm:inline">Grid</span>
+        <Tabs defaultValue="grid" className="space-y-4">
+          <TabsList className="grid h-auto w-full min-w-0 grid-cols-3 gap-0.5 p-1">
+            <TabsTrigger value="grid" data-testid="tab-grid" className="min-w-0 gap-1 px-1 py-2.5 text-xs sm:gap-2 sm:px-2 sm:text-sm">
+              <Grid3x3 className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+              <span className="truncate">Grid</span>
             </TabsTrigger>
-            <TabsTrigger value="swipe" data-testid="tab-swipe" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3" onClick={initializeSwipeStack}>
-              <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline sm:inline">Swipe</span>
+            <TabsTrigger value="swipe" data-testid="tab-swipe" className="min-w-0 gap-1 px-1 py-2.5 text-xs sm:gap-2 sm:px-2 sm:text-sm" onClick={initializeSwipeStack}>
+              <Zap className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+              <span className="truncate">Swipe</span>
             </TabsTrigger>
-            <TabsTrigger value="calendar" data-testid="tab-calendar" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3">
-              <CalendarDays className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline sm:inline">Calendar</span>
+            <TabsTrigger value="calendar" data-testid="tab-calendar" className="min-w-0 gap-1 px-1 py-2.5 text-xs sm:gap-2 sm:px-2 sm:text-sm">
+              <CalendarDays className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+              <span className="truncate">Calendar</span>
             </TabsTrigger>
           </TabsList>
 
-                 <TabsContent value="grid">
+                 <TabsContent value="grid" className="mt-4 outline-none">
                    {isLoading ? (
-                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {[...Array(6)].map((_, i) => (
+                     <div className="flex flex-col gap-5">
+                {[...Array(4)].map((_, i) => (
                   <EventSkeleton key={i} />
                 ))}
               </div>
             ) : filteredEvents.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="flex flex-col gap-5">
                 {filteredEvents.map((event) => {
                   const isRSVPing = rsvpMutation.isPending && rsvpMutation.variables?.eventId === event.id;
                   const isCancelling = cancelRsvpMutation.isPending && cancelRsvpMutation.variables?.eventId === event.id;
@@ -545,7 +624,11 @@ export default function Events() {
                           rsvpMutation.mutate({ eventId: id });
                         }
                       }}
-                      onClick={(id) => setLocation(`/event/${id}`)}
+                      onClick={(id) =>
+                        setLocation(
+                          fromExplore ? `/event/${id}?from=explore` : `/event/${id}`,
+                        )
+                      }
                     />
                   );
                 })}
@@ -563,10 +646,10 @@ export default function Events() {
             )}
           </TabsContent>
 
-          <TabsContent value="swipe">
-            <div className="flex flex-col items-center justify-center min-h-[600px] py-8">
+          <TabsContent value="swipe" className="mt-4 outline-none">
+            <div className="flex min-h-[min(640px,85vh)] flex-col items-center py-4 sm:py-6">
               {swipeStack.length === 0 ? (
-                <div className="w-full max-w-md mx-auto">
+                <div className="mx-auto w-full max-w-md">
                   <EmptyState
                     useMascot={true}
                     mascotType="default"
@@ -577,7 +660,7 @@ export default function Events() {
                   />
                 </div>
               ) : (
-                <div className="relative w-full max-w-sm h-[600px]">
+                <div className="relative w-full max-w-md min-h-[min(480px,70vh)] pb-14">
                   <AnimatePresence mode="wait">
                     {swipeStack.slice(-1).map((event) => (
                       <SwipeableEventCard
@@ -591,14 +674,14 @@ export default function Events() {
                       />
                     ))}
                   </AnimatePresence>
-                  <div className="absolute -bottom-16 left-0 right-0 text-center">
-                    <motion.p 
+                  <div className="absolute bottom-0 left-0 right-0 text-center">
+                    <motion.p
                       key={swipeStack.length}
-                      initial={{ opacity: 0, y: 10 }}
+                      initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-sm text-muted-foreground"
+                      className="text-xs font-medium text-muted-foreground sm:text-sm"
                     >
-                      {swipeStack.length} event{swipeStack.length !== 1 ? 's' : ''} remaining
+                      {swipeStack.length} event{swipeStack.length !== 1 ? "s" : ""} left in this list
                     </motion.p>
                   </div>
                 </div>
@@ -606,81 +689,147 @@ export default function Events() {
             </div>
           </TabsContent>
 
-          <TabsContent value="calendar">
-            <div className="space-y-4">
-              <div className="grid grid-cols-7 gap-2 text-center font-medium text-sm text-muted-foreground mb-4">
-                <div>Sun</div>
-                <div>Mon</div>
-                <div>Tue</div>
-                <div>Wed</div>
-                <div>Thu</div>
-                <div>Fri</div>
-                <div>Sat</div>
-              </div>
-              <div className="grid grid-cols-7 gap-2">
-                {[...Array(35)].map((_, i) => {
-                  const dayNumber = i - 2; // Offset for starting day
-                  const hasEvent = dayNumber > 0 && dayNumber <= 30 && dayNumber % 7 === 0;
-                  return (
-                    <div
-                      key={i}
-                      className={`aspect-square p-2 rounded-lg border border-border/50 ${
-                        dayNumber > 0 && dayNumber <= 30
-                          ? hasEvent
-                            ? 'bg-primary/20 border-primary/50 cursor-pointer hover:bg-primary/30'
-                            : 'hover:bg-muted/50 cursor-pointer'
-                          : 'bg-muted/20'
-                      }`}
-                    >
-                      {dayNumber > 0 && dayNumber <= 30 && (
-                        <div className="text-sm font-medium text-foreground">{dayNumber}</div>
-                      )}
-                      {hasEvent && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary mx-auto mt-1" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Events This Month</h3>
-                <div className="space-y-3">
-                  {filteredEvents.slice(0, 5).map((event) => (
-                    <div key={event.id} className="flex items-center gap-3 p-3 rounded-lg bg-card hover-elevate cursor-pointer">
-                      <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                        <CalendarDays className="w-6 h-6 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-foreground truncate">{event.title}</h4>
-                        <p className="text-sm text-muted-foreground">{event.date} • {event.time}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={isRSVPd(event.id) ? "outline" : "default"}
-                        className={!isRSVPd(event.id) ? "glow-primary" : ""}
-                        disabled={rsvpMutation.isPending || cancelRsvpMutation.isPending}
-                        onClick={() => {
-                          if (isRSVPd(event.id)) {
-                            cancelRsvpMutation.mutate({ eventId: event.id });
-                          } else {
-                            rsvpMutation.mutate({ eventId: event.id });
-                          }
-                        }}
-                        data-testid={`button-calendar-rsvp-${event.id}`}
-                      >
-                        {rsvpMutation.isPending || cancelRsvpMutation.isPending ? (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="w-3 h-3 border-2 border-current border-t-transparent rounded-full"
-                          />
-                        ) : (
-                          isRSVPd(event.id) ? '✓' : 'RSVP'
-                        )}
-                      </Button>
+          <TabsContent value="calendar" className="mt-4 outline-none">
+            <div className="min-w-0 space-y-4">
+              <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-3 shadow-sm sm:p-4">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 shrink-0 rounded-full"
+                    onClick={() =>
+                      setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
+                    }
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <h3 className="min-w-0 flex-1 text-center font-display text-base font-bold text-foreground sm:text-lg">
+                    {calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 shrink-0 rounded-full"
+                    onClick={() =>
+                      setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
+                    }
+                    aria-label="Next month"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-7 gap-0.5 border-b border-stone-100 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                    <div key={d} className="py-1">
+                      {d}
                     </div>
                   ))}
                 </div>
+                <div className="grid grid-cols-7 gap-1 pt-2">
+                  {calendarCells.map((cell, i) => {
+                    if (cell.kind === "pad") {
+                      return <div key={`pad-${i}`} className="aspect-square min-h-[2.25rem]" aria-hidden />;
+                    }
+                    const { day, key } = cell;
+                    const onDay = eventsByDate.get(key) ?? [];
+                    const count = onDay.length;
+                    const isToday = key === toDateKeyLocal(new Date());
+                    const isSelected = selectedDateKey === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSelectedDateKey((prev) => (prev === key ? null : key))}
+                        className={cn(
+                          "flex aspect-square min-h-[2.25rem] flex-col items-center justify-center rounded-xl border text-sm font-semibold transition-colors sm:min-h-[2.75rem]",
+                          isSelected
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : count > 0
+                              ? "border-primary/35 bg-primary/[0.08] text-foreground hover:bg-primary/[0.14]"
+                              : "border-transparent bg-stone-50/80 text-foreground hover:bg-stone-100",
+                          isToday && !isSelected && "ring-2 ring-primary/40 ring-offset-1",
+                        )}
+                      >
+                        <span>{day}</span>
+                        {count > 0 ? (
+                          <span
+                            className={cn(
+                              "mt-0.5 h-1 w-1 rounded-full sm:h-1.5 sm:w-1.5",
+                              isSelected ? "bg-primary-foreground/90" : "bg-primary",
+                            )}
+                          />
+                        ) : (
+                          <span className="mt-0.5 h-1 w-1 sm:h-1.5 sm:w-1.5" aria-hidden />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedDateKey ? (
+                  <div className="mt-3 flex justify-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 rounded-full text-xs text-muted-foreground"
+                      onClick={() => setSelectedDateKey(null)}
+                    >
+                      Show all dates this month
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div>
+                <h3 className="mb-3 font-display text-lg font-bold text-foreground">
+                  {selectedDateKey
+                    ? `Events on ${new Date(selectedDateKey + "T12:00:00").toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}`
+                    : `Events in ${calendarMonth.toLocaleDateString(undefined, { month: "long" })}`}
+                </h3>
+                {calendarListEvents.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+                    No events on your filters for this {selectedDateKey ? "day" : "month"}.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {calendarListEvents.map((event) => {
+                      const isRSVPing =
+                        rsvpMutation.isPending && rsvpMutation.variables?.eventId === event.id;
+                      const isCancelling =
+                        cancelRsvpMutation.isPending && cancelRsvpMutation.variables?.eventId === event.id;
+                      return (
+                        <EventCard
+                          key={event.id}
+                          {...event}
+                          image={event.image || undefined}
+                          type={event.type as "online" | "offline"}
+                          attendees={event.attendeesCount || 0}
+                          isRSVPd={isRSVPd(event.id)}
+                          isLoading={isRSVPing || isCancelling}
+                          onRSVP={(id) => {
+                            if (isRSVPd(id)) {
+                              cancelRsvpMutation.mutate({ eventId: id });
+                            } else {
+                              rsvpMutation.mutate({ eventId: id });
+                            }
+                          }}
+                          onClick={(id) =>
+                            setLocation(
+                              fromExplore ? `/event/${id}?from=explore` : `/event/${id}`,
+                            )
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </TabsContent>

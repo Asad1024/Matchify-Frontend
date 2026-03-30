@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
@@ -9,14 +9,16 @@ import MatchReveal from "@/components/matches/MatchReveal";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Check, ArrowRight, Crown, Rocket, AlertCircle } from "lucide-react";
+import { Sparkles, Check, ArrowRight, Crown, Rocket, AlertCircle, Users, Compass } from "lucide-react";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { matchesService } from "@/services/matches.service";
 import type { User } from "@shared/schema";
 import { getAIMatches } from "@/services/aiMatchmaker.service";
 import type { AIMatch } from "@/services/aiMatchmaker.service";
+import { showOnlineDotForOther } from "@/lib/presence";
 
 type Profile = {
   id: string;
@@ -35,6 +37,9 @@ type Profile = {
   loveLanguage?: string | null;
   commitmentIntention?: string | null;
   relationshipGoal?: string | null;
+  profileBanner?: string | null;
+  privacy?: { showOnlineStatus?: boolean } | null;
+  lastActiveAt?: string | null;
 };
 
 type UnrevealedMatch = {
@@ -48,10 +53,19 @@ export default function Directory() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
-  const prefersReducedMotion = useReducedMotion();
+  const { toast } = useToast();
   const [showMatchReveal, setShowMatchReveal] = useState(false);
   const [currentMatch, setCurrentMatch] = useState<UnrevealedMatch | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [discoverTab, setDiscoverTab] = useState<"browse" | "curated">("browse");
+
+  const applyDiscoverTab = useCallback((t: "browse" | "curated") => {
+    setDiscoverTab(t);
+    const url = new URL(window.location.href);
+    if (t === "curated") url.searchParams.set("tab", "curated");
+    else url.searchParams.delete("tab");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   // Filter states
   const [ageRange, setAgeRange] = useState<[number, number]>([18, 100]);
@@ -93,9 +107,37 @@ export default function Directory() {
     setCurrentMatch(null);
   };
 
+  const likeProfileMutation = useMutation({
+    mutationFn: async (payload: { targetId: string; compatibility: number }) => {
+      if (!userId) throw new Error("Sign in required");
+      return matchesService.create({
+        user1Id: userId,
+        user2Id: payload.targetId,
+        compatibility: payload.compatibility,
+      });
+    },
+    onSuccess: (data) => {
+      const existing = Boolean((data as { existing?: boolean }).existing);
+      toast({
+        title: existing ? "Already matched" : "Like sent",
+        description: existing
+          ? "You're already connected with this member."
+          : "They'll see you in their matches.",
+      });
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/matches`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/unrevealed-matches`] });
+      }
+    },
+    onError: (e: Error) => {
+      toast({ title: "Couldn't send like", description: e.message, variant: "destructive" });
+    },
+  });
+
   const { data: currentUser } = useQuery<User & {
     selfDiscoveryCompleted?: boolean;
     attractionBlueprint?: any;
+    curatedMatchShownUserIds?: string[];
     gender?: string | null;
     dealbreakers?: string[] | null;
     topPriorities?: string[] | null;
@@ -111,20 +153,58 @@ export default function Directory() {
   /** AI Matchmaker (30 questions) saves the blueprint — required for AI matches & full Discover list */
   const aiMatchmakerComplete = hasAttractionBlueprint;
 
+  useEffect(() => {
+    if (!aiMatchmakerComplete) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "curated") applyDiscoverTab("browse");
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "curated") setDiscoverTab("curated");
+  }, [aiMatchmakerComplete, applyDiscoverTab]);
+
   const { data: aiMatches = [] } = useQuery<AIMatch[]>({
     queryKey: [`/api/users/${userId}/ai-matches`],
     enabled: !!userId && hasAttractionBlueprint,
     queryFn: async () => {
       if (!userId) return [];
-      try { return await getAIMatches(userId); } catch { return []; }
+      try {
+        const { matches } = await getAIMatches(userId);
+        return matches;
+      } catch {
+        return [];
+      }
     },
   });
 
   const safeProfiles = Array.isArray(profiles) ? profiles : [];
   const safeAiMatches = Array.isArray(aiMatches) ? aiMatches : [];
 
+  const curatedIdsRaw = Array.isArray(currentUser?.curatedMatchShownUserIds)
+    ? currentUser.curatedMatchShownUserIds.map(String)
+    : [];
+  const curatedIdsNewestFirst = [...curatedIdsRaw].reverse();
+  const curatedProfiles = curatedIdsNewestFirst
+    .map((id) => safeProfiles.find((p) => p.id === id))
+    .filter((p): p is Profile => p != null);
+
   const aiMatchMap = new Map<string, AIMatch>();
   safeAiMatches.forEach(match => { if (match?.id) aiMatchMap.set(match.id, match); });
+
+  const latestCuratedId =
+    curatedIdsRaw.length > 0 ? curatedIdsRaw[curatedIdsRaw.length - 1]! : null;
+  const latestCuratedProfile = latestCuratedId
+    ? safeProfiles.find((p) => p.id === latestCuratedId)
+    : undefined;
+  const latestAiOnly = latestCuratedId ? aiMatchMap.get(latestCuratedId) : undefined;
+
+  const handleLikeProfile = (targetId: string) => {
+    const compatibility = aiMatchMap.get(targetId)?.compatibility ?? 70;
+    likeProfileMutation.mutate({ targetId, compatibility });
+  };
+  const handleMessageProfile = (targetId: string) => {
+    setLocation(`/chat?user=${encodeURIComponent(targetId)}`);
+  };
 
   let filteredProfiles = safeProfiles.filter(p => p?.id !== userId);
   if (selectedGender !== 'all') filteredProfiles = filteredProfiles.filter(p => p.gender === selectedGender);
@@ -157,6 +237,11 @@ export default function Directory() {
   if (sortBy === 'compatibility') profilesWithCompatibility.sort((a, b) => b.compatibility - a.compatibility);
   else if (sortBy === 'age') profilesWithCompatibility.sort((a, b) => (a.age || 0) - (b.age || 0));
   if (aiMatchmakerComplete) profilesWithCompatibility = profilesWithCompatibility.filter(p => p.compatibility >= 40).slice(0, 20);
+
+  const browseProfileRows =
+    aiMatchmakerComplete && latestCuratedId
+      ? profilesWithCompatibility.filter((p) => p.id !== latestCuratedId)
+      : profilesWithCompatibility;
 
   const uniqueLocations = Array.from(new Set(profiles.map(p => p.location).filter(Boolean))) as string[];
   const uniqueGenders = Array.from(new Set(profiles.map(p => p.gender).filter(Boolean))) as string[];
@@ -206,19 +291,179 @@ export default function Directory() {
         )}
 
         {/* AI Match banner */}
-        {hasAttractionBlueprint && safeAiMatches.length > 0 && (
+        {hasAttractionBlueprint && (
           <div className="mx-4 mt-3 bg-primary/5 border border-primary/20 rounded-2xl px-4 py-3 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
               <Sparkles className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-800">AI Matchmaker Active</p>
-              <p className="text-xs text-gray-500">{safeAiMatches.length} AI-powered match{safeAiMatches.length !== 1 ? 'es' : ''} found</p>
+              <p className="text-xs font-bold text-gray-800">AI Matchmaker active</p>
+              <p className="text-xs text-gray-500 leading-snug">
+                Your <span className="font-semibold">timed pick</span> is one person per cycle on the AI
+                Matchmaker home. Here you can browse everyone; compatibility sort still uses AI scores where
+                available.
+              </p>
             </div>
           </div>
         )}
 
-        {/* Filter chips */}
+        {aiMatchmakerComplete && (
+          <div className="mx-4 mt-3 flex rounded-2xl border border-gray-200 bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => applyDiscoverTab("browse")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-colors ${
+                discoverTab === "browse"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <Compass className="h-3.5 w-3.5" aria-hidden />
+              Browse
+            </button>
+            <button
+              type="button"
+              onClick={() => applyDiscoverTab("curated")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-colors ${
+                discoverTab === "curated"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" aria-hidden />
+              Curated picks
+            </button>
+          </div>
+        )}
+
+        {discoverTab === "curated" && aiMatchmakerComplete ? (
+          <div className="px-4 mt-5 space-y-4">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Everyone listed here was assigned as your timed AI pick. New names appear automatically after
+              each cycle.
+            </p>
+            {curatedProfiles.length === 0 ? (
+              <EmptyState
+                useMascot={true}
+                mascotType="no-matches"
+                title="No curated picks yet"
+                description="When your countdown finishes, your next match will appear here and in notifications."
+                actionLabel="AI Matchmaker"
+                onAction={() => setLocation("/ai-matchmaker")}
+                className="max-w-md mx-auto py-10"
+              />
+            ) : (
+              curatedProfiles.map((profile) => {
+                const aiMatch = aiMatchMap.get(profile.id);
+                return (
+                  <ProfileCard
+                    key={profile.id}
+                    id={profile.id}
+                    name={profile.name}
+                    age={profile.age || 0}
+                    image={aiMatch?.image ?? profile.avatar ?? undefined}
+                    onViewProfile={(id: string) => setLocation(`/profile/${id}`)}
+                    onLike={handleLikeProfile}
+                    onMessage={handleMessageProfile}
+                    location={profile.location || "Location not set"}
+                    bio={profile.bio || "No bio available"}
+                    tags={Array.isArray(profile.interests) ? profile.interests : []}
+                    compatibility={aiMatch?.compatibility || 70}
+                    matchReasons={aiMatch?.reasons || ["AI curated pick"]}
+                    mutualCompatibility={aiMatch?.mutualCompatibility}
+                    isAIMatch={true}
+                    lookingFor={
+                      profile.relationshipGoal
+                        ? `Looking for ${profile.relationshipGoal.toLowerCase()}`
+                        : "Looking for meaningful connection"
+                    }
+                    profileBanner={profile.profileBanner}
+                    showOnlineDot={showOnlineDotForOther(profile)}
+                  />
+                );
+              })
+            )}
+          </div>
+        ) : null}
+
+        {/* Filter chips + browse lists (hidden on Curated picks tab) */}
+        {!(discoverTab === "curated" && aiMatchmakerComplete) && (
+        <>
+        {aiMatchmakerComplete && discoverTab === "browse" && latestCuratedId && (
+          <div className="px-4 mt-4 space-y-2" data-testid="section-latest-curated-pick">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-gray-800">
+                <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                Latest curated pick
+              </h2>
+              <button
+                type="button"
+                className="shrink-0 text-xs font-semibold text-primary hover:underline"
+                onClick={() => applyDiscoverTab("curated")}
+              >
+                All picks
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Your most recent AI Matchmaker assignment — same list as Curated picks.
+            </p>
+            {latestCuratedProfile ? (
+              <ProfileCard
+                id={latestCuratedProfile.id}
+                name={latestCuratedProfile.name}
+                age={latestCuratedProfile.age || 0}
+                image={latestAiOnly?.image ?? latestCuratedProfile.avatar ?? undefined}
+                onViewProfile={(id: string) => setLocation(`/profile/${id}`)}
+                onLike={handleLikeProfile}
+                onMessage={handleMessageProfile}
+                location={latestCuratedProfile.location || "Location not set"}
+                bio={latestCuratedProfile.bio || "No bio available"}
+                tags={Array.isArray(latestCuratedProfile.interests) ? latestCuratedProfile.interests : []}
+                compatibility={latestAiOnly?.compatibility ?? 70}
+                matchReasons={latestAiOnly?.reasons ?? ["AI curated pick"]}
+                mutualCompatibility={latestAiOnly?.mutualCompatibility}
+                isAIMatch={true}
+                lookingFor={
+                  latestCuratedProfile.relationshipGoal
+                    ? `Looking for ${latestCuratedProfile.relationshipGoal.toLowerCase()}`
+                    : "Looking for meaningful connection"
+                }
+                profileBanner={latestCuratedProfile.profileBanner}
+                showOnlineDot={showOnlineDotForOther(latestCuratedProfile)}
+              />
+            ) : latestAiOnly ? (
+              <ProfileCard
+                id={latestAiOnly.id}
+                name={latestAiOnly.name}
+                age={latestAiOnly.age ?? 0}
+                image={latestAiOnly.image ?? undefined}
+                onViewProfile={(id: string) => setLocation(`/profile/${id}`)}
+                onLike={handleLikeProfile}
+                onMessage={handleMessageProfile}
+                location="Open profile for details"
+                bio={latestAiOnly.bio || latestAiOnly.emphasis || "Your latest curated match."}
+                tags={[]}
+                compatibility={latestAiOnly.compatibility}
+                matchReasons={latestAiOnly.reasons}
+                mutualCompatibility={latestAiOnly.mutualCompatibility}
+                isAIMatch={true}
+                lookingFor="AI curated pick"
+                showOnlineDot={false}
+              />
+            ) : (
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-center">
+                <p className="text-sm font-medium text-gray-800">New curated match</p>
+                <Button
+                  size="sm"
+                  className="mt-2 rounded-full bg-primary text-primary-foreground"
+                  onClick={() => setLocation(`/profile/${latestCuratedId}`)}
+                >
+                  View profile
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="px-4 mt-4">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
             {/* Sort chips */}
@@ -327,7 +572,7 @@ export default function Directory() {
           </div>
           <button
             className="mt-3 w-full py-2.5 rounded-2xl text-sm font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #f94272, #ff6b9d)' }}
+            style={{ background: 'linear-gradient(135deg, #722F37, #8B2942)' }}
             onClick={() => setLocation('/subscriptions')}
           >
             See who liked you — Upgrade
@@ -382,16 +627,30 @@ export default function Directory() {
             <div className="py-12">
               <LoadingState message="Finding your matches..." showMascot={true} />
             </div>
-          ) : profilesWithCompatibility.length === 0 ? (
-            <EmptyState
-              useMascot={true}
-              mascotType="no-matches"
-              title="No matches found"
-              description="Try adjusting your filters or finish AI Matchmaker!"
-              className="max-w-md mx-auto py-12"
-            />
+          ) : browseProfileRows.length === 0 ? (
+            latestCuratedId ? (
+              <p className="py-8 text-center text-xs text-gray-500 leading-relaxed">
+                No other profiles match your filters right now. Try widening age or location, or open{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-primary hover:underline"
+                  onClick={() => applyDiscoverTab("curated")}
+                >
+                  Curated picks
+                </button>
+                .
+              </p>
+            ) : (
+              <EmptyState
+                useMascot={true}
+                mascotType="no-matches"
+                title="No matches found"
+                description="Try adjusting your filters or finish AI Matchmaker!"
+                className="max-w-md mx-auto py-12"
+              />
+            )
           ) : (
-            profilesWithCompatibility.map((profile) => {
+            browseProfileRows.map((profile) => {
               const aiMatch = aiMatchMap.get(profile.id);
               return (
                 <ProfileCard
@@ -401,6 +660,8 @@ export default function Directory() {
                   age={profile.age || 0}
                   image={aiMatch?.image ?? profile.avatar ?? undefined}
                   onViewProfile={(id: string) => setLocation(`/profile/${id}`)}
+                  onLike={handleLikeProfile}
+                  onMessage={handleMessageProfile}
                   location={profile.location || 'Location not set'}
                   bio={profile.bio || 'No bio available'}
                   tags={profile.tags}
@@ -409,11 +670,15 @@ export default function Directory() {
                   mutualCompatibility={aiMatch?.mutualCompatibility}
                   isAIMatch={!!aiMatch}
                   lookingFor={profile.relationshipGoal ? `Looking for ${profile.relationshipGoal.toLowerCase()}` : "Looking for meaningful connection"}
+                  profileBanner={profile.profileBanner}
+                  showOnlineDot={showOnlineDotForOther(profile)}
                 />
               );
             })
           )}
         </div>
+        </>
+        )}
       </div>
 
       <BottomNav active={activePage} onNavigate={setActivePage} />

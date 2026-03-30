@@ -9,9 +9,9 @@ interface MatchCountdownProps {
 
 const CONFETTI_DURATION_MS = 2500;
 const CONFETTI_COLORS = [
-  "hsl(346 96% 62%)",
-  "hsl(338 100% 72%)",
-  "#f94272", "#ff6b9d", "#fda4c2", "#ffc2d9", "#ffe4ef", "#ffffff",
+  "hsl(349 52% 38%)",
+  "hsl(348 45% 48%)",
+  "#722F37", "#8B2942", "#a84860", "#c4879a", "#e8d4dc", "#ffffff",
 ];
 
 const ROW_HEIGHT = 128; // height of each row in the reel (more space between numbers)
@@ -103,7 +103,7 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[200] flex flex-col items-center justify-center overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #f94272 0%, #ff6b9d 50%, #ff8ab6 100%)" }}
+        style={{ background: "linear-gradient(135deg, #722F37 0%, #8B2942 45%, #a84860 100%)" }}
       >
         <div className="absolute inset-0 pointer-events-none">
           {[...Array(100)].map((_, i) => {

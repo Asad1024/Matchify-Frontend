@@ -1,21 +1,67 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useSearchParams } from "wouter";
-import { buildApiUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/common/Header";
 import PageWrapper from "@/components/common/PageWrapper";
 import BottomNav from "@/components/common/BottomNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Send, Search, MoreVertical, Phone, Video, Check, CheckCheck, Mic, ArrowLeft, Sparkles } from "lucide-react";
+import {
+  Send,
+  Search,
+  MoreVertical,
+  Phone,
+  Video,
+  Check,
+  CheckCheck,
+  Mic,
+  ArrowLeft,
+  Sparkles,
+  Smile,
+  Copy,
+  Pencil,
+  UserX,
+  Ban,
+} from "lucide-react";
+import EmojiPicker, { Theme, type EmojiClickData } from "emoji-picker-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceNoteRecorder } from "@/components/chat/VoiceNoteRecorder";
+import { VoiceMessagePlayer } from "@/components/chat/VoiceMessagePlayer";
 import { Icebreakers } from "@/components/chat/Icebreakers";
 import { AutoDeleteTimer } from "@/components/chat/AutoDeleteTimer";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { OnlineIndicator } from "@/components/profile/OnlineIndicator";
+import { showOnlineDotForOther } from "@/lib/presence";
 
 type Conversation = {
   id: string;
@@ -32,6 +78,9 @@ type ConversationSummary = Conversation & {
     content: string;
     read: boolean | null;
     createdAt: Date | string | null;
+    deletedForEveryone?: boolean;
+    type?: string;
+    voiceUrl?: string | null;
   } | null;
   unreadCount: number;
 };
@@ -47,17 +96,26 @@ type Message = {
   voiceUrl?: string | null;
   autoDeleteAt?: string | null;
   isIcebreaker?: boolean;
+  deletedForEveryone?: boolean;
+  editedAt?: string | Date | null;
 };
+
+const chatMessagesQueryKey = (
+  conversationId: string | null | undefined,
+  uid: string | null | undefined,
+) => ["chat-messages", conversationId ?? "", uid ?? ""] as const;
 
 type User = {
   id: string;
   name: string;
   avatar: string | null;
+  lastActiveAt?: string | null;
+  privacy?: { showOnlineStatus?: boolean } | null;
 };
 
 export default function Chat() {
   const [activePage, setActivePage] = useState('chat');
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [searchParams] = useSearchParams();
   const queryUserId = searchParams.get("user");
   const handoffInFlight = useRef(false);
@@ -67,6 +125,12 @@ export default function Chat() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showIcebreakers, setShowIcebreakers] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState<
+    null | { kind: "me" | "everyone"; messageId: string }
+  >(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
@@ -83,44 +147,210 @@ export default function Chat() {
     queryKey: ['/api/users'],
   });
 
-  // Fetch messages for selected conversation
+  // Fetch messages for selected conversation (userId filters "delete for me" hidden rows)
   const { data: messages = [] } = useQuery<Message[]>({
-    queryKey: ['/api/messages', selectedChat],
-    enabled: !!selectedChat,
+    queryKey: chatMessagesQueryKey(selectedChat, userId),
+    enabled: !!selectedChat && !!userId,
+    queryFn: async () => {
+      const url = buildApiUrl(
+        `/api/messages/${selectedChat}?userId=${encodeURIComponent(userId!)}`,
+      );
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: getAuthHeaders(false),
+      });
+      if (!res.ok) {
+        const text = (await res.text()) || res.statusText;
+        throw new Error(text);
+      }
+      return res.json() as Promise<Message[]>;
+    },
   });
 
-  // Send message mutation
+  type SendMessageBody = {
+    content: string;
+    type?: string;
+    voiceUrl?: string | null;
+  };
+
   const sendMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async (payload: string | SendMessageBody) => {
       if (!selectedChat || !userId) return;
+      const body =
+        typeof payload === "string"
+          ? { conversationId: selectedChat, senderId: userId, content: payload }
+          : {
+              conversationId: selectedChat,
+              senderId: userId,
+              content: payload.content,
+              type: payload.type ?? "text",
+              voiceUrl: payload.voiceUrl ?? null,
+            };
       const response = await fetch(buildApiUrl("/api/messages"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...getAuthHeaders(true) },
         credentials: "include",
-        body: JSON.stringify({
-          conversationId: selectedChat,
-          senderId: userId,
-          content,
-        }),
+        body: JSON.stringify(body),
       });
-      if (!response.ok) throw new Error('Failed to send message');
+      if (!response.ok) {
+        let detail = response.statusText;
+        try {
+          const j = (await response.json()) as { message?: string };
+          if (j?.message) detail = j.message;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(detail || "Failed to send message");
+      }
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/messages', selectedChat] });
+      queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/conversations`] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/conversation-summaries`] });
       queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "chat-unread-count"] });
-      setMessage('');
+      setMessage("");
+      setShowVoiceRecorder(false);
     },
-    onError: () => {
+    onError: (err: Error) => {
       toast({
-        title: "Error",
-        description: "Failed to send message",
+        title: "Could not send",
+        description: err.message || "Failed to send message",
         variant: "destructive",
       });
     },
   });
+
+  const invalidateThreadQueries = () => {
+    void queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+    if (userId) {
+      void queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/conversation-summaries`] });
+    }
+  };
+
+  const updateMessageMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: string; content: string }) => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await fetch(buildApiUrl(`/api/messages/${id}`), {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(true) },
+        credentials: "include",
+        body: JSON.stringify({ userId, content }),
+      });
+      if (!res.ok) {
+        let detail = res.statusText;
+        try {
+          const j = (await res.json()) as { message?: string };
+          if (j?.message) detail = j.message;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(detail || "Update failed");
+      }
+      return res.json() as Promise<Message>;
+    },
+    onSuccess: () => {
+      invalidateThreadQueries();
+      setEditingMessageId(null);
+      setEditDraft("");
+      toast({ title: "Message updated" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Could not edit message",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteForMeMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await fetch(buildApiUrl(`/api/messages/${messageId}/delete-for-me`), {
+        method: "POST",
+        headers: { ...getAuthHeaders(true) },
+        credentials: "include",
+        body: JSON.stringify({ userId }),
+      });
+      if (!res.ok && res.status !== 204) {
+        let detail = res.statusText;
+        try {
+          const j = (await res.json()) as { message?: string };
+          if (j?.message) detail = j.message;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(detail || "Delete failed");
+      }
+    },
+    onSuccess: () => {
+      invalidateThreadQueries();
+      setConfirmDialog(null);
+      toast({ title: "Removed from your chat" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Could not delete",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteForEveryoneMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await fetch(buildApiUrl(`/api/messages/${messageId}/delete-for-everyone`), {
+        method: "POST",
+        headers: { ...getAuthHeaders(true) },
+        credentials: "include",
+        body: JSON.stringify({ userId }),
+      });
+      if (!res.ok) {
+        let detail = res.statusText;
+        try {
+          const j = (await res.json()) as { message?: string };
+          if (j?.message) detail = j.message;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(detail || "Delete failed");
+      }
+      return res.json() as Promise<Message>;
+    },
+    onSuccess: () => {
+      invalidateThreadQueries();
+      setConfirmDialog(null);
+      setEditingMessageId(null);
+      setEditDraft("");
+      toast({ title: "Deleted for everyone" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Could not delete for everyone",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const copyMessageText = async (msg: Message) => {
+    let text = "";
+    if (msg.deletedForEveryone) text = "This message was deleted";
+    else if (msg.voiceUrl || msg.type === "voice") text = "Voice message";
+    else text = msg.content || "";
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied to clipboard" });
+    } catch {
+      toast({
+        title: "Could not copy",
+        description: "Clipboard permission may be blocked.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Ensure arrays are safe (must be declared before use)
   const safeConversations = Array.isArray(conversationSummaries) ? conversationSummaries : [];
@@ -129,7 +359,44 @@ export default function Chat() {
 
   const handleSend = () => {
     if (message.trim() && selectedChat) {
-      sendMutation.mutate(message);
+      sendMutation.mutate(message.trim());
+    }
+  };
+
+  const MAX_VOICE_BYTES = 2 * 1024 * 1024;
+
+  const blobToDataUrl = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result as string);
+      r.onerror = () => reject(new Error("read failed"));
+      r.readAsDataURL(blob);
+    });
+
+  const handleVoiceComplete = async (blob: Blob) => {
+    if (!selectedChat || !userId) return;
+    if (blob.size > MAX_VOICE_BYTES) {
+      toast({
+        title: "Recording too large",
+        description: "Try a shorter voice note.",
+        variant: "destructive",
+      });
+      setShowVoiceRecorder(false);
+      return;
+    }
+    try {
+      const voiceUrl = await blobToDataUrl(blob);
+      await sendMutation.mutateAsync({
+        content: "Voice message",
+        type: "voice",
+        voiceUrl,
+      });
+    } catch (e) {
+      toast({
+        title: "Could not send voice note",
+        description: e instanceof Error ? e.message : "Try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -160,6 +427,10 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [safeMessages]);
 
+  useEffect(() => {
+    if (location.startsWith("/chat")) setActivePage("chat");
+  }, [location]);
+
   // Open or create thread from /chat?user=<id> (e.g. after match reveal)
   useEffect(() => {
     if (!queryUserId) {
@@ -174,7 +445,7 @@ export default function Chat() {
       try {
         const res = await fetch(buildApiUrl("/api/conversations"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { ...getAuthHeaders(true) },
           credentials: "include",
           body: JSON.stringify({
             participant1Id: userId,
@@ -220,26 +491,42 @@ export default function Chat() {
 
   const selectedConversation = safeConversations.find(c => c && c.id === selectedChat);
   const selectedOtherUser = selectedConversation ? getOtherUser(selectedConversation) : null;
+  /** Used for outgoing message ticks: single = sent (they look offline), double gray = online, double blue = read. */
+  const otherRecipientOnline = !!(selectedOtherUser && showOnlineDotForOther(selectedOtherUser));
 
   return (
-    <PageWrapper>
-    <div className={`min-h-screen bg-gray-50 ${selectedChat ? "pb-0" : "pb-24"}`}>
-      {!selectedChat && (
+    <PageWrapper className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-gray-50">
+      {/* Full viewport column: header + chat card fills space above fixed BottomNav */}
+      <div className="shrink-0">
         <Header
-          showSearch={false}
+          showSearch={true}
+          onSearch={(query) => {
+            const q = query.trim();
+            if (q) {
+              try {
+                sessionStorage.setItem("matchify_explore_search", q);
+              } catch {
+                /* ignore */
+              }
+              setLocation("/explore");
+            }
+          }}
+          onNotifications={() => setLocation("/notifications")}
+          onCreate={() => setLocation("/")}
+          onSettings={() => setLocation("/profile")}
           onLogout={logout}
-          title="Messages"
         />
-      )}
+      </div>
 
-      <div
-        className={`max-w-lg mx-auto flex flex-col ${
-          selectedChat ? "h-[100dvh] min-h-0" : "h-[calc(100vh-56px)] min-h-0"
-        }`}
-      >
+      <div className="flex min-h-0 flex-1 flex-col w-full max-w-lg mx-auto px-4 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] rounded-b-2xl border border-gray-100 bg-white shadow-sm shadow-gray-200/40">
         {/* Conversations List */}
         {!selectedChat ? (
-          <div className="flex flex-col flex-1 overflow-hidden bg-white">
+          <div className="flex flex-col flex-1 overflow-hidden bg-white min-h-0">
+            <div className="px-4 pt-3 pb-1">
+              <h1 className="text-lg font-bold text-gray-900 tracking-tight">Messages</h1>
+              <p className="text-xs text-gray-500 mt-0.5">Your conversations</p>
+            </div>
             {/* Search */}
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="relative">
@@ -272,7 +559,7 @@ export default function Chat() {
                   ) : (
                     <>
                       <div className="relative">
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-pink-100 flex items-center justify-center">
+                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-red-100 flex items-center justify-center">
                           <span className="text-3xl">💬</span>
                         </div>
                         <div className="absolute -top-1 -right-1 w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-md">
@@ -299,9 +586,12 @@ export default function Chat() {
                   const otherUser = getOtherUser(conv);
                   const summary = conv as ConversationSummary;
                   const last = summary.lastMessage;
-                  const preview =
-                    last?.content?.slice(0, 80) ||
-                    (conv.lastMessageAt ? "Open to continue the chat" : "Say hello 👋");
+                  const preview = last?.deletedForEveryone
+                    ? "Message deleted"
+                    : last?.voiceUrl || last?.type === "voice"
+                      ? "Voice message"
+                      : last?.content?.slice(0, 80) ||
+                        (conv.lastMessageAt ? "Open to continue the chat" : "Say hello 👋");
                   const ts = last?.createdAt ?? conv.lastMessageAt;
                   const unread = summary.unreadCount ?? 0;
                   const isFromMe = last && userId && last.senderId === userId;
@@ -313,14 +603,23 @@ export default function Chat() {
                       data-testid={`conversation-${conv.id}`}
                     >
                       <div className="relative flex-shrink-0">
-                        <Avatar className="w-12 h-12">
+                        <Avatar className="h-12 w-12">
                           <AvatarImage src={otherUser?.avatar || undefined} />
                           <AvatarFallback className="bg-primary/10 text-primary font-bold">
                             {otherUser?.name.slice(0, 2).toUpperCase() || '??'}
                           </AvatarFallback>
                         </Avatar>
+                        {otherUser && showOnlineDotForOther(otherUser) ? (
+                          <OnlineIndicator className="pointer-events-none absolute bottom-0 right-0 z-[1] h-3 w-3" />
+                        ) : null}
                         {unread > 0 && (
-                          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
+                          <span
+                            className={
+                              unread > 9
+                                ? "absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[22px] place-items-center rounded-full border-2 border-white bg-primary px-1 text-[9px] font-bold tabular-nums leading-none tracking-tight text-white"
+                                : "absolute -right-0.5 -top-0.5 grid size-[18px] place-items-center rounded-full border-2 border-white bg-primary text-[10px] font-bold tabular-nums leading-none text-white"
+                            }
+                          >
                             {unread > 9 ? "9+" : unread}
                           </span>
                         )}
@@ -350,9 +649,9 @@ export default function Chat() {
           </div>
         ) : (
           /* Chat Area */
-          <div className="flex flex-col flex-1 overflow-hidden bg-white">
+          <div className="flex flex-col flex-1 overflow-hidden bg-white min-h-0">
             {/* Chat Header */}
-            <div className="px-4 py-3 bg-white border-b border-gray-100 flex items-center gap-3 safe-top shrink-0">
+            <div className="px-4 py-3.5 bg-white border-b border-gray-100 flex items-center gap-3 shrink-0">
               <button
                 type="button"
                 className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors touch-manipulation"
@@ -367,22 +666,21 @@ export default function Chat() {
                 <ArrowLeft className="w-5 h-5 text-gray-700" />
               </button>
               <div className="relative flex-shrink-0">
-                <Avatar className="w-10 h-10">
+                <Avatar className="h-10 w-10">
                   <AvatarImage src={selectedOtherUser?.avatar || undefined} />
                   <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
-                    {selectedOtherUser?.name.slice(0, 2).toUpperCase() || '??'}
+                    {selectedOtherUser?.name.slice(0, 2).toUpperCase() || "??"}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-primary rounded-full border-2 border-white" />
+                {selectedOtherUser && showOnlineDotForOther(selectedOtherUser) ? (
+                  <OnlineIndicator className="pointer-events-none absolute bottom-0 right-0 z-10" />
+                ) : null}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-sm leading-tight">
-                  {selectedOtherUser?.name || 'Unknown User'}
+                  {selectedOtherUser?.name || "Unknown User"}
                 </p>
-                <p className="text-xs text-primary flex items-center gap-1 font-medium">
-                  <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                  Active now
-                </p>
+                <p className="text-xs text-gray-500 font-medium">Direct message</p>
               </div>
               <div className="flex items-center gap-1">
                 <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors hidden sm:flex">
@@ -398,12 +696,23 @@ export default function Chat() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50/90 min-h-0">
               <AnimatePresence initial={false}>
                 {safeMessages.map((msg, index) => {
                   if (!msg) return null;
                   const isCurrentUser = msg.senderId === userId;
-                  const showAvatar = index === 0 || (safeMessages[index - 1] && safeMessages[index - 1].senderId !== msg.senderId);
+                  const showAvatar =
+                    index === 0 ||
+                    (safeMessages[index - 1] && safeMessages[index - 1].senderId !== msg.senderId);
+                  const isVoice = !!(msg.voiceUrl || msg.type === "voice");
+                  const isDeleted = !!msg.deletedForEveryone;
+                  const isEditing = editingMessageId === msg.id;
+                  const canEditText = isCurrentUser && !isDeleted && !isVoice;
+                  const senderUser = !isCurrentUser
+                    ? safeUsers.find((u) => u?.id === msg.senderId)
+                    : undefined;
+                  const showSenderOnlineDot =
+                    !!senderUser && showAvatar && showOnlineDotForOther(senderUser);
 
                   return (
                     <motion.div
@@ -412,55 +721,319 @@ export default function Chat() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ duration: 0.15 }}
-                      className={`flex gap-2 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
+                      className={`flex flex-row gap-0.5 items-start w-full ${isCurrentUser ? "justify-end" : "justify-start"}`}
                     >
                       {!isCurrentUser && (
-                        <Avatar className={`w-7 h-7 flex-shrink-0 ${showAvatar ? '' : 'invisible'}`}>
-                          <AvatarImage src={safeUsers.find(u => u?.id === msg.senderId)?.avatar || undefined} />
-                          <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                            {safeUsers.find(u => u?.id === msg.senderId)?.name?.slice(0, 2).toUpperCase() || '??'}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div
+                          className={`relative mt-0.5 flex-shrink-0 ${showAvatar ? "" : "invisible"}`}
+                        >
+                          <Avatar className="h-7 w-7">
+                            <AvatarImage src={senderUser?.avatar || undefined} />
+                            <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                              {senderUser?.name?.slice(0, 2).toUpperCase() || "??"}
+                            </AvatarFallback>
+                          </Avatar>
+                          {showSenderOnlineDot ? (
+                            <OnlineIndicator className="pointer-events-none absolute bottom-0 right-0 z-10 h-2.5 w-2.5" />
+                          ) : null}
+                        </div>
                       )}
 
-                      <div className={`max-w-[75%] flex flex-col gap-1 ${isCurrentUser ? 'items-end' : 'items-start'}`}>
-                        <div
-                          className={`px-3.5 py-2.5 rounded-2xl ${
-                            isCurrentUser
-                              ? 'bg-primary text-white rounded-br-sm'
-                              : 'bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100'
-                          }`}
-                        >
-                          {msg.type === 'voice' && msg.voiceUrl ? (
-                            <div className="flex items-center gap-2">
-                              <Mic className="w-4 h-4" />
-                              <audio controls src={msg.voiceUrl} className="max-w-full" />
+                      <div
+                        className={`flex flex-col gap-1 min-w-0 max-w-[min(100%,20rem)] ${isCurrentUser ? "items-end" : "items-start"}`}
+                      >
+                        <ContextMenu>
+                          <ContextMenuTrigger asChild disabled={isEditing}>
+                            <div
+                              className={`px-3.5 py-2.5 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+                                isCurrentUser
+                                  ? "bg-primary text-white rounded-br-sm"
+                                  : "bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100"
+                              } ${!isEditing ? "cursor-context-menu touch-manipulation" : ""}`}
+                            >
+                          {isDeleted ? (
+                            <p
+                              className={`text-sm italic ${
+                                isCurrentUser ? "text-white/85" : "text-gray-500"
+                              }`}
+                            >
+                              This message was deleted
+                            </p>
+                          ) : isEditing ? (
+                            <div className="flex flex-col gap-2 min-w-[min(100vw-6rem,18rem)]">
+                              <Textarea
+                                value={editDraft}
+                                onChange={(e) => setEditDraft(e.target.value)}
+                                className={`min-h-[72px] text-sm resize-y ${
+                                  isCurrentUser
+                                    ? "bg-white/15 border-white/30 text-white placeholder:text-white/50"
+                                    : ""
+                                }`}
+                                rows={3}
+                              />
+                              <div className="flex gap-2 justify-end flex-wrap">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className={isCurrentUser ? "text-white hover:bg-white/15" : ""}
+                                  onClick={() => {
+                                    setEditingMessageId(null);
+                                    setEditDraft("");
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={isCurrentUser ? "secondary" : "default"}
+                                  disabled={!editDraft.trim() || updateMessageMutation.isPending}
+                                  onClick={() => {
+                                    const t = editDraft.trim();
+                                    if (t) updateMessageMutation.mutate({ id: msg.id, content: t });
+                                  }}
+                                >
+                                  Save
+                                </Button>
+                              </div>
                             </div>
+                          ) : msg.voiceUrl ? (
+                            <VoiceMessagePlayer voiceUrl={msg.voiceUrl} isOutgoing={isCurrentUser} />
+                          ) : msg.type === "voice" || msg.content === "[Voice Note]" ? (
+                            <p
+                              className={`text-sm flex items-center gap-2 ${
+                                isCurrentUser ? "text-white/90" : "text-gray-600"
+                              }`}
+                            >
+                              <Mic className="w-4 h-4 shrink-0" />
+                              Voice message (no audio data)
+                            </p>
                           ) : (
-                            <p className="text-sm leading-relaxed break-words">{msg.content}</p>
+                            <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
                           )}
-                          {msg.isIcebreaker && (
-                            <Badge variant="secondary" className="mt-1 text-xs bg-white/20 text-white border-0">Icebreaker</Badge>
+                          {!isDeleted && !isEditing && msg.isIcebreaker && (
+                            <Badge
+                              variant="secondary"
+                              className={`mt-1 text-xs border-0 ${
+                                isCurrentUser ? "bg-white/20 text-white" : ""
+                              }`}
+                            >
+                              Icebreaker
+                            </Badge>
                           )}
-                        </div>
-                        <div className={`flex items-center gap-1 px-1 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                          {!isDeleted && !isEditing && msg.editedAt ? (
+                            <p
+                              className={`text-[10px] mt-1 ${isCurrentUser ? "text-white/70" : "text-gray-400"}`}
+                            >
+                              Edited
+                            </p>
+                          ) : null}
+                            </div>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-52">
+                            <ContextMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                void copyMessageText(msg);
+                              }}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Copy className="w-4 h-4 shrink-0" />
+                                Copy
+                              </span>
+                            </ContextMenuItem>
+                            {canEditText ? (
+                              <ContextMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  setEditingMessageId(msg.id);
+                                  setEditDraft(msg.content || "");
+                                }}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <Pencil className="w-4 h-4 shrink-0" />
+                                  Edit
+                                </span>
+                              </ContextMenuItem>
+                            ) : null}
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setConfirmDialog({ kind: "me", messageId: msg.id });
+                              }}
+                            >
+                              <span className="flex items-center gap-2">
+                                <UserX className="w-4 h-4 shrink-0" />
+                                Delete for me
+                              </span>
+                            </ContextMenuItem>
+                            {isCurrentUser && !isDeleted ? (
+                              <ContextMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  setConfirmDialog({ kind: "everyone", messageId: msg.id });
+                                }}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <Ban className="w-4 h-4 shrink-0" />
+                                  Delete for everyone
+                                </span>
+                              </ContextMenuItem>
+                            ) : null}
+                          </ContextMenuContent>
+                        </ContextMenu>
+                        <div
+                          className={`flex items-center gap-1 px-1 ${isCurrentUser ? "flex-row-reverse" : "flex-row"}`}
+                        >
                           <span className="text-[10px] text-gray-400">
-                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                            {msg.createdAt
+                              ? new Date(msg.createdAt).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : ""}
                           </span>
                           {msg.autoDeleteAt && <AutoDeleteTimer deleteAt={msg.autoDeleteAt} />}
-                          {isCurrentUser && (
-                            msg.read
-                              ? <CheckCheck className="w-3 h-3 text-primary" />
-                              : <Check className="w-3 h-3 text-gray-300" />
+                          {isCurrentUser && !isDeleted && (
+                            <>
+                              {msg.read ? (
+                                <CheckCheck
+                                  className="h-3.5 w-3.5 shrink-0 text-sky-500"
+                                  strokeWidth={2.5}
+                                  aria-label="Read"
+                                />
+                              ) : otherRecipientOnline ? (
+                                <CheckCheck
+                                  className="h-3.5 w-3.5 shrink-0 text-gray-400"
+                                  strokeWidth={2.5}
+                                  aria-label="Delivered"
+                                />
+                              ) : (
+                                <Check
+                                  className="h-3.5 w-3.5 shrink-0 text-gray-400"
+                                  strokeWidth={2.5}
+                                  aria-label="Sent"
+                                />
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 text-gray-400 hover:text-gray-700 hover:bg-gray-100/80 rounded-full mt-0.5"
+                            aria-label="Message actions"
+                          >
+                            <MoreVertical className="w-3.5 h-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align={isCurrentUser ? "end" : "start"} className="w-52">
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              void copyMessageText(msg);
+                            }}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Copy className="w-4 h-4 shrink-0" />
+                              Copy
+                            </span>
+                          </DropdownMenuItem>
+                          {canEditText ? (
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setEditingMessageId(msg.id);
+                                setEditDraft(msg.content || "");
+                              }}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Pencil className="w-4 h-4 shrink-0" />
+                                Edit
+                              </span>
+                            </DropdownMenuItem>
+                          ) : null}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setConfirmDialog({ kind: "me", messageId: msg.id });
+                            }}
+                          >
+                            <span className="flex items-center gap-2">
+                              <UserX className="w-4 h-4 shrink-0" />
+                              Delete for me
+                            </span>
+                          </DropdownMenuItem>
+                          {isCurrentUser && !isDeleted ? (
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setConfirmDialog({ kind: "everyone", messageId: msg.id });
+                              }}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Ban className="w-4 h-4 shrink-0" />
+                                Delete for everyone
+                              </span>
+                            </DropdownMenuItem>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </motion.div>
                   );
                 })}
               </AnimatePresence>
               <div ref={messagesEndRef} />
             </div>
+
+            <AlertDialog
+              open={confirmDialog !== null}
+              onOpenChange={(open) => {
+                if (!open) setConfirmDialog(null);
+              }}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {confirmDialog?.kind === "everyone"
+                      ? "Delete for everyone?"
+                      : "Delete for you only?"}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {confirmDialog?.kind === "everyone"
+                      ? "This removes the message for both people in the chat."
+                      : "The other person will still see this message. You can hide it from your view only."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <Button
+                    variant={confirmDialog?.kind === "everyone" ? "destructive" : "default"}
+                    disabled={deleteForMeMutation.isPending || deleteForEveryoneMutation.isPending}
+                    onClick={() => {
+                      if (!confirmDialog) return;
+                      if (confirmDialog.kind === "me") {
+                        deleteForMeMutation.mutate(confirmDialog.messageId);
+                      } else {
+                        deleteForEveryoneMutation.mutate(confirmDialog.messageId);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             {/* Icebreakers */}
             <AnimatePresence>
@@ -481,66 +1054,97 @@ export default function Chat() {
               )}
             </AnimatePresence>
 
-            {/* Voice recorder */}
-            <AnimatePresence>
-              {showVoiceRecorder && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="border-t border-gray-100 bg-white"
-                >
-                  <VoiceNoteRecorder
-                    onRecordComplete={(blob: Blob) => {
-                      if (selectedChat && userId) {
-                        sendMutation.mutate(`[Voice Note]`);
-                      }
-                      setShowVoiceRecorder(false);
-                    }}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Input area */}
-            <div className="px-4 py-3 bg-white border-t border-gray-100 flex items-end gap-2">
-              <div className="flex-1 bg-gray-100 rounded-3xl px-4 py-2.5 flex items-center gap-2">
-                <input
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none"
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                  data-testid="input-message"
+            {/* Input area — voice mode replaces the text row (WhatsApp-style inline bar) */}
+            <div className="px-4 pt-3 pb-5 bg-white border-t border-gray-100 flex items-center gap-2 shrink-0 min-h-[3.25rem]">
+              {showVoiceRecorder ? (
+                <VoiceNoteRecorder
+                  layout="inline"
+                  className="flex-1 min-w-0"
+                  autoStart
+                  onCancel={() => setShowVoiceRecorder(false)}
+                  onRecordComplete={(blob) => void handleVoiceComplete(blob)}
                 />
-                <button
-                  className="text-gray-400 hover:text-primary transition-colors"
-                  onClick={() => setShowIcebreakers(!showIcebreakers)}
-                >
-                  <Sparkles className="w-4 h-4" />
-                </button>
-                <button
-                  className="text-gray-400 hover:text-primary transition-colors"
-                  onClick={() => setShowVoiceRecorder(!showVoiceRecorder)}
-                >
-                  <Mic className="w-4 h-4" />
-                </button>
-              </div>
-              <button
-                onClick={handleSend}
-                disabled={!message.trim() || sendMutation.isPending}
-                className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-md shadow-primary/20 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex-shrink-0"
-                data-testid="button-send"
-              >
-                <Send className="w-4 h-4 text-white" />
-              </button>
+              ) : (
+                <>
+                  <div className="flex-1 bg-gray-100 rounded-3xl px-3 py-2.5 flex items-center gap-1.5 min-w-0">
+                    <input
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Type a message..."
+                      className="flex-1 min-w-0 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
+                      }}
+                      data-testid="input-message"
+                    />
+                    <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-gray-500 hover:text-primary"
+                          aria-label="Emoji"
+                        >
+                          <Smile className="w-4 h-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-auto p-0 border-border shadow-lg"
+                        align="end"
+                        side="top"
+                        sideOffset={8}
+                      >
+                        <EmojiPicker
+                          theme={Theme.LIGHT}
+                          lazyLoadEmojis
+                          width={300}
+                          height={340}
+                          searchPlaceHolder="Search emojis"
+                          onEmojiClick={(d: EmojiClickData) => setMessage((p) => p + d.emoji)}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <button
+                      type="button"
+                      className="p-1.5 rounded-full text-gray-400 hover:text-primary transition-colors shrink-0"
+                      onClick={() => setShowIcebreakers(!showIcebreakers)}
+                      aria-label="Icebreakers"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1.5 rounded-full shrink-0 text-gray-400 hover:text-primary transition-colors"
+                      onClick={() => {
+                        setShowIcebreakers(false);
+                        setShowVoiceRecorder(true);
+                      }}
+                      aria-label="Record voice note"
+                    >
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleSend}
+                    disabled={!message.trim() || sendMutation.isPending}
+                    className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-md shadow-primary/20 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex-shrink-0"
+                    data-testid="button-send"
+                  >
+                    <Send className="w-4 h-4 text-white" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
+        </div>
       </div>
 
-      {!selectedChat && <BottomNav active={activePage} onNavigate={setActivePage} />}
-    </div>
+      <BottomNav active={activePage} onNavigate={setActivePage} />
     </PageWrapper>
   );
 }

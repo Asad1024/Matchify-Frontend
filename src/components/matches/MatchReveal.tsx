@@ -71,14 +71,15 @@ export default function MatchReveal({
         {/* Card */}
         <motion.div
           key={step}
-          className="relative w-full max-w-sm mx-4 bg-background rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto"
+          className="relative z-10 w-full max-w-sm mx-4 bg-background rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto"
           initial={{ scale: 0.92, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.92, opacity: 0 }}
           transition={{ type: "spring", bounce: 0.3 }}
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header glow */}
-          <div className="h-1 bg-gradient-to-r from-primary via-purple-500 to-pink-500" />
+          <div className="h-1 bg-gradient-to-r from-primary via-red-900/80 to-red-950" />
 
           {/* Top bar */}
           <div className="flex items-center justify-between px-4 pt-4 pb-1">
@@ -174,16 +175,24 @@ export default function MatchReveal({
                 <div className="space-y-2">
                   <div className="flex gap-3">
                     <Button
+                      type="button"
                       variant="outline"
-                      className="flex-1 rounded-full border-rose-200 text-rose-500 hover:bg-rose-50"
-                      onClick={handleDecline}
+                      className="flex-1 rounded-full border-primary/25 text-primary hover:bg-primary/5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDecline();
+                      }}
                     >
                       <X className="w-4 h-4 mr-1.5" />
                       Pass
                     </Button>
                     <Button
+                      type="button"
                       className="flex-1 rounded-full"
-                      onClick={handleAccept}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAccept();
+                      }}
                     >
                       <Heart className="w-4 h-4 mr-1.5 fill-current" />
                       Connect
@@ -191,23 +200,29 @@ export default function MatchReveal({
                   </div>
                   <div className="flex gap-2">
                     <Button
+                      type="button"
                       variant="ghost"
                       size="sm"
                       className="flex-1 text-xs text-muted-foreground"
-                      onClick={() => setLocation(`/profile/${match.user.id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLocation(`/profile/${match.user.id}`);
+                      }}
                     >
                       <User className="w-3.5 h-3.5 mr-1" />
                       View Profile
                     </Button>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="sm"
                       className="flex-1 text-xs text-muted-foreground"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         if (onMessage) {
                           onMessage(match.user.id);
                         } else {
-                          setLocation(`/chat?user=${match.user.id}`);
+                          setLocation(`/chat?user=${encodeURIComponent(match.user.id)}`);
                         }
                       }}
                     >
@@ -217,7 +232,14 @@ export default function MatchReveal({
                   </div>
                 </div>
               ) : (
-                <Button className="w-full rounded-full" onClick={handleReveal}>
+                <Button
+                  type="button"
+                  className="w-full rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReveal();
+                  }}
+                >
                   <Sparkles className="w-4 h-4 mr-2" />
                   Reveal Match
                 </Button>

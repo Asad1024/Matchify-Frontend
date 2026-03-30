@@ -125,7 +125,7 @@ function PhoneMockup() {
           <div className="h-7 bg-white flex items-center justify-center shrink-0">
             <div className="w-16 h-4 rounded-full bg-zinc-900/10" />
           </div>
-          <div className="flex-1 bg-gradient-to-b from-primary/15 via-white to-rose-50/80 p-3 flex flex-col gap-2">
+          <div className="flex-1 bg-gradient-to-b from-primary/12 via-white to-red-50/60 p-3 flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <BrandLogo className="w-9 h-9 rounded-xl object-contain bg-white p-0.5" alt="" />
               <div className="flex-1 space-y-1">
@@ -165,7 +165,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
       {/* ═══ HERO — Muzz-style split: headline left, phone right ═══ */}
       <section
         className="relative text-white overflow-hidden"
-        style={{ background: "linear-gradient(165deg, hsl(346 96% 58%) 0%, hsl(330 90% 52%) 45%, hsl(280 55% 45%) 100%)" }}
+        style={{ background: "linear-gradient(165deg, hsl(349 52% 36%) 0%, hsl(350 48% 28%) 45%, hsl(280 35% 32%) 100%)" }}
       >
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 right-0 w-[min(100%,600px)] h-[min(100%,600px)] rounded-full bg-white/[0.07] blur-3xl -translate-y-1/4 translate-x-1/4" />
@@ -335,10 +335,10 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
         </div>
       </section>
 
-      {/* ═══ ALL FEATURES — full-bleed pink band ═══ */}
+      {/* ═══ ALL FEATURES — full-bleed wine band ═══ */}
       <section
         className="py-16 sm:py-20 text-white relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, hsl(346 96% 56%) 0%, hsl(320 85% 48%) 100%)" }}
+        style={{ background: "linear-gradient(160deg, hsl(349 50% 38%) 0%, hsl(350 42% 30%) 100%)" }}
       >
         <div className="absolute inset-0 opacity-[0.08] pointer-events-none bg-[radial-gradient(circle_at_30%_20%,white_1px,transparent_1px)] bg-[length:24px_24px]" />
         <div className="relative max-w-6xl mx-auto px-5 sm:px-8">
@@ -472,7 +472,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
       {/* ═══ FOOTER CTA ═══ */}
       <section
         className="mt-auto py-16 sm:py-20 px-5 text-center"
-        style={{ background: "linear-gradient(165deg, hsl(346 96% 58%) 0%, hsl(330 90% 48%) 100%)" }}
+        style={{ background: "linear-gradient(165deg, hsl(349 52% 36%) 0%, hsl(350 45% 30%) 100%)" }}
       >
         <motion.div
           initial={{ opacity: 0, y: 12 }}

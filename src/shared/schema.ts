@@ -45,7 +45,12 @@ export const insertUserSchema = z.object({
   meetPreference: z.enum(["same_faith", "open_to_all", "prefer_not_say"]).optional().nullable(),
   // Self-discovery fields
   selfDiscoveryCompleted: z.boolean().default(false),
-  commitmentIntention: z.enum(['hookup', 'casual', 'serious', 'marriage']).optional().nullable(),
+  commitmentIntention: z
+    .enum(['figuring_out', 'hookup', 'casual', 'serious', 'marriage', 'engaged'])
+    .optional()
+    .nullable(),
+  marriageApproach: z.string().optional().nullable(),
+  marriageTimeline: z.string().optional().nullable(),
   loveLanguage: z.enum(['words', 'acts', 'gifts', 'time', 'touch']).optional().nullable(),
   topPriorities: z.array(z.string()).optional().nullable(),
   dealbreakers: z.array(z.string()).optional().nullable(),
@@ -108,6 +113,7 @@ export const insertUserSchema = z.object({
 export const insertPostSchema = z.object({
   userId: z.string().uuid(),
   content: z.string().min(1),
+  groupId: z.string().uuid().optional().nullable(),
 });
 
 export const insertStorySchema = z.object({

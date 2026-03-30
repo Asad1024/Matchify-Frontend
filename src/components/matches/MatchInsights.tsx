@@ -16,7 +16,10 @@ export function MatchInsights({ targetUserId }: MatchInsightsProps) {
 
   const { data: matches = [], isLoading } = useQuery<AIMatch[]>({
     queryKey: [`/api/users/${currentUserId}/ai-matches`],
-    queryFn: () => getAIMatches(currentUserId!),
+    queryFn: async () => {
+      const { matches } = await getAIMatches(currentUserId!);
+      return matches;
+    },
     enabled: !!currentUserId,
   });
 

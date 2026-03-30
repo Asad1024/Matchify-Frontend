@@ -42,7 +42,7 @@ const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
     items: [
       { icon: HeartHandshake, label: "Marriage", path: "/" },
       { icon: Compass, label: "Explore", path: "/explore" },
-      { icon: Globe, label: "Community", path: "/community" },
+      { icon: Globe, label: "Feed", path: "/community" },
       { icon: Users, label: "Directory", path: "/directory" },
       { icon: Sparkles, label: "AI Matchmaker", path: "/ai-matchmaker", highlight: true },
       { icon: Calendar, label: "Events", path: "/events" },
@@ -85,7 +85,7 @@ export default function HamburgerMenu({
 
   const buttonClass =
     buttonPosition === "header"
-      ? "w-10 h-10 flex items-center justify-center transition-all duration-300 hover-elevate rounded-lg hover:bg-primary/10 active:scale-95"
+      ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-300 hover-elevate hover:bg-primary/10 active:scale-95"
       : "fixed top-4 left-4 z-[100] w-11 h-11 flex items-center justify-center flex-shrink-0 transition-all duration-300 hover-elevate bg-background/95 backdrop-blur-md border border-border/60 shadow-lg hover:shadow-xl rounded-lg hover:bg-primary/10 hover:border-primary/30 active:scale-95";
 
   return (
@@ -230,7 +230,7 @@ export function HamburgerMenuButton() {
   return (
     <motion.button
       onClick={() => setIsOpen(!isOpen)}
-      className="w-10 h-10 flex items-center justify-center transition-all duration-300 hover-elevate rounded-lg hover:bg-primary/10 active:scale-95"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-300 hover-elevate hover:bg-primary/10 active:scale-95"
       data-testid="button-hamburger-menu-header"
       aria-label={isOpen ? "Close menu" : "Open menu"}
       aria-expanded={isOpen}
@@ -239,9 +239,9 @@ export function HamburgerMenuButton() {
     >
       <motion.div animate={{ rotate: isOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
         {isOpen ? (
-          <X className="h-6 w-6 text-foreground" />
+          <X className="h-5 w-5 text-foreground" strokeWidth={2} aria-hidden />
         ) : (
-          <Menu className="h-6 w-6 text-foreground" />
+          <Menu className="h-5 w-5 text-foreground" strokeWidth={2} aria-hidden />
         )}
       </motion.div>
     </motion.button>

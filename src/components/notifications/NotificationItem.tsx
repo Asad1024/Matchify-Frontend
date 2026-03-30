@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Bell, Heart, MessageCircle, Calendar, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type NotificationType = "match" | "message" | "event" | "system";
+type NotificationType = "match" | "message" | "event" | "system" | "curated_match";
 
 interface NotificationItemProps {
   id: string;
@@ -17,13 +17,15 @@ interface NotificationItemProps {
 
 const ICON_MAP: Record<NotificationType, React.ElementType> = {
   match: Heart,
+  curated_match: Heart,
   message: MessageCircle,
   event: Calendar,
   system: Bell,
 };
 
 const COLOR_MAP: Record<NotificationType, string> = {
-  match: "bg-rose-100 text-rose-500",
+  match: "bg-primary/10 text-primary",
+  curated_match: "bg-primary/10 text-primary",
   message: "bg-primary/10 text-primary",
   event: "bg-amber-100 text-amber-500",
   system: "bg-gray-100 text-gray-500",

@@ -5,6 +5,7 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { notifyHeaderUserUpdated } from "@/components/common/Header";
 
 export default function GoogleCallback() {
   const [, setLocation] = useLocation();
@@ -25,10 +26,18 @@ export default function GoogleCallback() {
 
     if (userDataEncoded) {
       try {
-        const userData = JSON.parse(decodeURIComponent(userDataEncoded));
-        
-        localStorage.setItem("authToken", userData.token || "google-token");
+        const userData = JSON.parse(decodeURIComponent(userDataEncoded)) as Record<string, unknown>;
+        const avatar =
+          (typeof userData.avatar === "string" && userData.avatar) ||
+          (typeof userData.picture === "string" && userData.picture) ||
+          null;
+        if (avatar && !userData.avatar) {
+          userData.avatar = avatar;
+        }
+
+        localStorage.setItem("authToken", (userData.token as string) || "google-token");
         localStorage.setItem("currentUser", JSON.stringify(userData));
+        notifyHeaderUserUpdated();
         
         const isNewUser = isNewUserParam === 'true';
 

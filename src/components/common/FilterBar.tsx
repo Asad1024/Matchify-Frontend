@@ -69,8 +69,8 @@ export function FilterBar({
   );
 
   return (
-    <div className={`space-y-4 ${className || ""}`}>
-      <div className="flex flex-wrap items-center gap-3">
+    <div className={`min-w-0 space-y-4 ${className || ""}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         {/* Filter Selects */}
         {filters.map((filter) => (
           <Select
@@ -78,7 +78,7 @@ export function FilterBar({
             value={selectedFilters[filter.id] || ""}
             onValueChange={(value) => handleFilterSelect(filter.id, value)}
           >
-            <SelectTrigger className="w-[140px] sm:w-[160px]">
+            <SelectTrigger className="w-full sm:w-[150px]">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue placeholder={filter.label} />
             </SelectTrigger>
@@ -102,7 +102,7 @@ export function FilterBar({
         {/* Sort Select */}
         {sortOptions && sortOptions.length > 0 && onSortChange && (
           <Select value={sortValue || ""} onValueChange={onSortChange}>
-            <SelectTrigger className="w-[140px] sm:w-[160px]">
+            <SelectTrigger className="w-full sm:w-[150px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>

@@ -95,29 +95,31 @@ export default function Coaches() {
         onLogout={logout} 
       />
 
-      <div className="max-w-7xl mx-auto p-4">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
-                <GraduationCap className="w-8 h-8 text-primary" />
+      <div className="mx-auto w-full max-w-lg px-4 pt-2 pb-2">
+        <div className="mb-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-foreground sm:text-3xl">
+                <GraduationCap className="h-7 w-7 shrink-0 text-primary sm:h-8 sm:w-8" />
                 Relationship Coaches
               </h1>
-              <p className="text-muted-foreground mt-2">Connect with expert coaches to strengthen your relationship</p>
+              <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+                Connect with expert coaches to strengthen your relationship
+              </p>
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleRefresh}
               disabled={coachesLoading}
-              className="flex items-center gap-2"
+              className="flex shrink-0 items-center gap-2 self-start sm:self-auto"
             >
-              <RefreshCw className={`w-4 h-4 ${coachesLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${coachesLoading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
           </div>
 
           {/* Search Bar */}
-          <div className="relative max-w-md">
+          <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search coaches by name, specialty, or expertise..."

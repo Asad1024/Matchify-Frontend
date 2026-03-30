@@ -6,6 +6,8 @@ import { ArrowLeft, Heart, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { MATCHIFY_LOGO_URL } from "@/lib/matchifyBranding";
+import { buildApiUrl } from "@/services/api";
+import { notifyHeaderUserUpdated } from "@/components/common/Header";
 
 interface AuthScreenProps {
   onAuth?: (user: any, isNewUser: boolean) => void;
@@ -38,10 +40,11 @@ export default function AuthScreen({
       const body = isSignUp
         ? { email, password, name, username: email.split('@')[0] }
         : { email, password };
-      const response = await fetch(endpoint, {
+      const response = await fetch(buildApiUrl(endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        credentials: 'include',
       });
       if (!response.ok) {
         const error = await response.json();
@@ -51,28 +54,12 @@ export default function AuthScreen({
       if (user.token) localStorage.setItem("authToken", user.token);
       if (user.id || user.userId) {
         localStorage.setItem("currentUser", JSON.stringify(user));
+        notifyHeaderUserUpdated();
         if (user.onboardingCompleted === true) localStorage.setItem("onboardingCompleted", "true");
         else if (user.onboardingCompleted === false) localStorage.removeItem("onboardingCompleted");
       }
       onAuth?.(user, isSignUp);
     } catch (error: any) {
-      if (isSignUp) {
-        const mockUser = {
-          id: `user-${Date.now()}`,
-          userId: `user-${Date.now()}`,
-          email,
-          name,
-          username: email.split('@')[0],
-          onboardingCompleted: false,
-          token: "mock-token-" + Date.now(),
-        };
-        localStorage.setItem("authToken", mockUser.token);
-        localStorage.setItem("currentUser", JSON.stringify(mockUser));
-        toast({ title: "Account Created (Demo Mode)", description: "Welcome! Complete your profile to get started." });
-        onAuth?.(mockUser, true);
-        setIsLoading(false);
-        return;
-      }
       toast({ title: "Error", description: error.message || "Authentication failed", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -83,15 +70,17 @@ export default function AuthScreen({
     setIsLoading(true);
     try {
       try {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch(buildApiUrl('/api/auth/login'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: "demo@matchify.com", password: "demo123" }),
+          credentials: 'include',
         });
         if (response.ok) {
           const user = await response.json();
           localStorage.setItem("authToken", user.token || "demo-token");
           localStorage.setItem("currentUser", JSON.stringify(user));
+          notifyHeaderUserUpdated();
           onAuth?.(user, false);
           setIsLoading(false);
           return;
@@ -212,7 +201,9 @@ export default function AuthScreen({
         <div className="grid grid-cols-2 gap-3 mb-5">
           <button
             type="button"
-            onClick={() => toast({ title: "Coming Soon", description: "Google login will be available soon" })}
+            onClick={() => {
+              window.location.href = buildApiUrl("/api/auth/google/start");
+            }}
             className="flex items-center justify-center gap-2 h-12 rounded-2xl border border-gray-200 bg-white text-gray-700 font-semibold text-sm hover:bg-gray-50 active:scale-[0.98] transition-all"
             data-testid="button-auth-google"
           >

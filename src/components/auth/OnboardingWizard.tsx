@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,27 +11,65 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import PhotoUpload from "@/components/profile/PhotoUpload";
 import { ArrowRight, ArrowLeft, Check, Sparkles, Heart, Star, Camera, Target, Users, Smile, X, Zap, BookOpen, MessageCircle, Trophy, Award, TrendingUp, Send } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { RELIGION_OPTIONS, MEET_PREFERENCE_OPTIONS } from "@/lib/religionOptions";
-
-const RELIGION_FIELD_OPTIONS = RELIGION_OPTIONS.map((r) => ({ value: r.value, label: r.label }));
+import { MEET_PREFERENCE_OPTIONS, RELIGION_OPTIONS } from "@/lib/religionOptions";
+import {
+  buildChaptersRecord,
+  normalizeOnboardingQuestionnaire,
+  getOnboardingChapterOrder,
+  type OnboardingQuestionnaireItem,
+} from "@/lib/onboardingQuestionnaire";
 
 const basicInfoSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   age: z.coerce.number().min(18, "Must be at least 18").max(100, "Invalid age"),
   location: z.string().min(2, "Location is required"),
   bio: z.string().min(10, "Bio must be at least 10 characters").max(500, "Bio too long"),
-  gender: z.enum(['male', 'female', 'other'], { required_error: "Please select your gender" }),
+  gender: z.enum(["male", "female", "other"], { required_error: "Please select your gender" }),
   education: z.string().optional(),
   career: z.string().optional(),
   incomeRange: z.string().optional(),
-  zodiacSign: z.enum(['aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo', 'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces']).optional(),
+  zodiacSign: z
+    .enum([
+      "aries",
+      "taurus",
+      "gemini",
+      "cancer",
+      "leo",
+      "virgo",
+      "libra",
+      "scorpio",
+      "sagittarius",
+      "capricorn",
+      "aquarius",
+      "pisces",
+    ])
+    .optional(),
   birthDate: z.string().optional(),
   religion: z.string().optional(),
+  extraBio: z.string().max(1200).optional(),
+  faithImportance: z.string().optional(),
+  commitmentIntention: z.string().optional(),
+  marriageTimeline: z.string().optional(),
+  marriageApproach: z.string().optional(),
+  heightCm: z.preprocess((v) => {
+    if (v === "" || v === null || v === undefined) return undefined;
+    const n = Number(v);
+    return Number.isNaN(n) ? undefined : n;
+  }, z.number().min(100).max(260).optional()),
+  maritalStatus: z.string().optional(),
+  hasChildren: z.string().optional(),
+  wantsChildren: z.string().optional(),
+  loveLanguage: z.string().optional(),
+  languages: z.string().optional(),
+  nationality: z.string().optional(),
+  ethnicity: z.string().optional(),
+  smoking: z.string().optional(),
+  drinksAlcohol: z.string().optional(),
 });
 
 type BasicInfoData = z.infer<typeof basicInfoSchema>;
@@ -53,51 +91,64 @@ const RELATIONSHIP_GOALS = [
   { value: "networking", label: "Professional Networking", icon: Users },
 ];
 
-const VALUES = [
-  "Family-Oriented", "Career-Focused", "Adventurous", "Spiritual",
-  "Health-Conscious", "Creative", "Ambitious", "Honest",
-  "Loyal", "Fun-Loving", "Intellectual", "Empathetic"
+const VALUES_FALLBACK = [
+  "Family-Oriented",
+  "Career-Focused",
+  "Adventurous",
+  "Spiritual",
+  "Health-Conscious",
+  "Creative",
+  "Ambitious",
+  "Honest",
+  "Loyal",
+  "Fun-Loving",
+  "Intellectual",
+  "Empathetic",
 ];
 
-const LIFESTYLE = [
-  "Fitness Enthusiast", "Foodie", "Travel Lover", "Homebody",
-  "Night Owl", "Early Bird", "Pet Lover", "Social Butterfly",
-  "Bookworm", "Tech Savvy", "Artist", "Entrepreneur"
+const LIFESTYLE_FALLBACK = [
+  "Fitness Enthusiast",
+  "Foodie",
+  "Travel Lover",
+  "Homebody",
+  "Night Owl",
+  "Early Bird",
+  "Pet Lover",
+  "Social Butterfly",
+  "Bookworm",
+  "Tech Savvy",
+  "Artist",
+  "Entrepreneur",
 ];
 
-const INTERESTS = [
-  "Technology", "Travel", "Fitness", "Reading", "Cooking",
-  "Music", "Art", "Sports", "Photography", "Gaming",
-  "Fashion", "Movies", "Dancing", "Hiking"
+const INTERESTS_FALLBACK = [
+  "Technology",
+  "Travel",
+  "Fitness",
+  "Reading",
+  "Cooking",
+  "Music",
+  "Art",
+  "Sports",
+  "Photography",
+  "Gaming",
+  "Fashion",
+  "Movies",
+  "Dancing",
+  "Hiking",
 ];
 
-const EDUCATION_LEVELS = [
-  "High School", "Some College", "Bachelor's Degree",
-  "Master's Degree", "PhD/Doctorate", "Professional Degree",
-];
-
-const INCOME_RANGES = [
-  "Under $30k", "$30k - $50k", "$50k - $75k",
-  "$75k - $100k", "$100k - $150k", "$150k+", "Prefer not to say",
-];
-
-const ZODIAC_SIGNS = [
-  { value: 'aries', label: 'Aries (Mar 21 - Apr 19)' },
-  { value: 'taurus', label: 'Taurus (Apr 20 - May 20)' },
-  { value: 'gemini', label: 'Gemini (May 21 - Jun 20)' },
-  { value: 'cancer', label: 'Cancer (Jun 21 - Jul 22)' },
-  { value: 'leo', label: 'Leo (Jul 23 - Aug 22)' },
-  { value: 'virgo', label: 'Virgo (Aug 23 - Sep 22)' },
-  { value: 'libra', label: 'Libra (Sep 23 - Oct 22)' },
-  { value: 'scorpio', label: 'Scorpio (Oct 23 - Nov 21)' },
-  { value: 'sagittarius', label: 'Sagittarius (Nov 22 - Dec 21)' },
-  { value: 'capricorn', label: 'Capricorn (Dec 22 - Jan 19)' },
-  { value: 'aquarius', label: 'Aquarius (Jan 20 - Feb 18)' },
-  { value: 'pisces', label: 'Pisces (Feb 19 - Mar 20)' },
-];
-
-type JourneyStyle = 'fast' | 'deep' | 'conversational' | null;
-type ChapterType = 'intro' | 'who-are-you' | 'what-matters' | 'how-connect' | 'ideal-day' | 'future-together' | 'photos' | 'blueprint';
+type JourneyStyle = "fast" | "deep" | "conversational" | null;
+type ChapterType =
+  | "intro"
+  | "who-are-you"
+  | "marriage-essentials"
+  | "what-matters"
+  | "how-connect"
+  | "ideal-day"
+  | "future-together"
+  | "photos"
+  | "blueprint";
 
 const JOURNEY_STYLES = [
   {
@@ -129,182 +180,6 @@ const JOURNEY_STYLES = [
   },
 ];
 
-// Story Chapters Configuration - Different for each journey style
-const getChaptersForStyle = (style: JourneyStyle) => {
-  if (style === 'fast') {
-    // Fast & Fun: Shorter, simpler questions, fewer fields
-    return {
-      'who-are-you': {
-        title: "Quick Start",
-        subtitle: "Let's get to know you fast!",
-        description: "Just the essentials - we'll make this quick",
-        questions: [
-          { id: 'name', label: "Your name?", type: 'text', required: true, placeholder: "Full name" },
-          { id: 'age', label: "Age?", type: 'number', required: true, placeholder: "Age" },
-          { id: 'location', label: "Where are you?", type: 'text', required: true, placeholder: "City" },
-          { id: 'gender', label: "Gender?", type: 'select', required: true, options: [
-            { value: 'male', label: 'Male' },
-            { value: 'female', label: 'Female' },
-            { value: 'other', label: 'Other' },
-          ]},
-          { id: 'bio', label: "Quick bio (min 10 chars)", type: 'textarea', required: true, placeholder: "Tell us about yourself in a few words..." },
-        ],
-      },
-      'what-matters': {
-        title: "What You Want",
-        subtitle: "Your goal & top values",
-        description: "What are you looking for?",
-        questions: [
-          { id: 'relationshipGoal', label: "What are you looking for?", type: 'goal-select', required: true },
-          { id: 'meetPreference', label: "People & groups — what should we highlight?", type: 'meet-preference-select', required: true },
-          { id: 'values', label: "Top 3 values", type: 'multi-select', required: true, max: 3 },
-        ],
-      },
-      'how-connect': {
-        title: "Your Vibe",
-        subtitle: "Lifestyle & interests",
-        description: "How do you like to spend your time?",
-        questions: [
-          { id: 'lifestyle', label: "Lifestyle tags", type: 'multi-select', required: false, max: 5 },
-          { id: 'interests', label: "Interests", type: 'multi-select', required: false, max: 5 },
-        ],
-      },
-      'ideal-day': {
-        title: "About You",
-        subtitle: "Quick details",
-        description: "A few more quick details",
-        questions: [
-          { id: 'career', label: "What do you do?", type: 'text', required: false, placeholder: "Job title" },
-        ],
-      },
-      'future-together': {
-        title: "Almost Done!",
-        subtitle: "Optional extras",
-        description: "Anything else? (Optional)",
-        questions: [],
-      },
-    };
-  } else if (style === 'deep') {
-    // Deep & Thoughtful: More detailed, narrative questions
-    return {
-      'who-are-you': {
-        title: "Chapter 1: The Foundation of You",
-        subtitle: "Building your authentic identity",
-        description: "Every great story begins with understanding who you are at your core. Let's explore the fundamental aspects that make you uniquely you.",
-        questions: [
-          { id: 'name', label: "What name do you go by?", type: 'text', required: true, placeholder: "The name that represents you" },
-          { id: 'age', label: "How many years of life experience have you gathered?", type: 'number', required: true, placeholder: "Your age" },
-          { id: 'location', label: "Where do you call home?", type: 'text', required: true, placeholder: "The place where your heart feels at peace" },
-          { id: 'gender', label: "How do you identify yourself?", type: 'select', required: true, options: [
-            { value: 'male', label: 'Male' },
-            { value: 'female', label: 'Female' },
-            { value: 'other', label: 'Other' },
-          ]},
-          { id: 'religion', label: "How would you describe your faith or worldview?", type: 'select', required: true, options: RELIGION_FIELD_OPTIONS },
-          { id: 'bio', label: "Share your story with us", type: 'textarea', required: true, placeholder: "Tell us your story — passions, dreams, what you're seeking in life. What makes you, you?" },
-        ],
-      },
-      'what-matters': {
-        title: "Chapter 2: The Values That Guide You",
-        subtitle: "Discovering what truly matters",
-        description: "Our values are the compass that guides our decisions and shapes our relationships. What principles do you hold dear?",
-        questions: [
-          { id: 'relationshipGoal', label: "What kind of connection are you seeking?", type: 'goal-select', required: true },
-          { id: 'meetPreference', label: "For matches and communities, what should we prioritize?", type: 'meet-preference-select', required: true },
-          { id: 'values', label: "Select your core values (up to 5)", type: 'multi-select', required: true, max: 5 },
-        ],
-      },
-      'how-connect': {
-        title: "Chapter 3: The Art of Connection",
-        subtitle: "How you relate to the world",
-        description: "Connection is an art form. How do you prefer to engage with others and express yourself?",
-        questions: [
-          { id: 'lifestyle', label: "Which lifestyle elements resonate with you?", type: 'multi-select', required: false },
-          { id: 'interests', label: "What activities and interests light you up?", type: 'multi-select', required: false },
-        ],
-      },
-      'ideal-day': {
-        title: "Chapter 4: The Canvas of Your Life",
-        subtitle: "Painting your ideal reality",
-        description: "Imagine your perfect day. What does it look like? What elements would make it meaningful?",
-        questions: [
-          { id: 'education', label: "What level of education have you achieved?", type: 'select', required: false, options: EDUCATION_LEVELS.map(l => ({ value: l, label: l })) },
-          { id: 'career', label: "What work or calling do you pursue?", type: 'text', required: false, placeholder: "Tell us about your career path" },
-          { id: 'incomeRange', label: "Income range", type: 'select', required: false, options: INCOME_RANGES.map(r => ({ value: r, label: r })) },
-        ],
-      },
-      'future-together': {
-        title: "Chapter 5: Visions of Tomorrow",
-        subtitle: "Envisioning your future",
-        description: "As we look ahead, what do you envision for your future relationships and life path?",
-        questions: [
-          { id: 'zodiacSign', label: "Do you identify with a zodiac sign?", type: 'select', required: false, options: ZODIAC_SIGNS.map(s => ({ value: s.value, label: s.label })) },
-          { id: 'birthDate', label: "When were you born?", type: 'birthday', required: false },
-        ],
-      },
-    };
-  } else {
-    // Conversational: Chat-like, interactive prompts
-    return {
-      'who-are-you': {
-        title: "Let's Chat",
-        subtitle: "Getting to know you",
-        description: "Hi! I'm here to help you create an amazing profile. Let's start with the basics - just like we're having a conversation.",
-        questions: [
-          { id: 'name', label: "First things first - what should I call you?", type: 'text', required: true, placeholder: "Your name" },
-          { id: 'age', label: "How old are you? (Don't worry, I won't judge!)", type: 'number', required: true, placeholder: "Your age" },
-          { id: 'location', label: "Where are you based? I'd love to know where you're from!", type: 'text', required: true, placeholder: "Your location" },
-          { id: 'gender', label: "How do you identify?", type: 'select', required: true, options: [
-            { value: 'male', label: 'Male' },
-            { value: 'female', label: 'Female' },
-            { value: 'other', label: 'Other' },
-          ]},
-          { id: 'religion', label: "What faith or worldview fits you best? (Everyone’s welcome here)", type: 'select', required: true, options: RELIGION_FIELD_OPTIONS },
-          { id: 'bio', label: "Now, tell me about yourself! What makes you unique?", type: 'textarea', required: true, placeholder: "Share whatever you'd like - your interests, what you're looking for, your personality..." },
-        ],
-      },
-      'what-matters': {
-        title: "What Matters to You?",
-        subtitle: "Let's talk about your goals",
-        description: "I'm curious - what are you really looking for in a relationship? And what values drive you?",
-        questions: [
-          { id: 'relationshipGoal', label: "What kind of relationship are you seeking?", type: 'goal-select', required: true },
-          { id: 'meetPreference', label: "Should we highlight people & groups closer to your background, or keep everything open?", type: 'meet-preference-select', required: true },
-          { id: 'values', label: "What values are most important to you? (Pick up to 5)", type: 'multi-select', required: true, max: 5 },
-        ],
-      },
-      'how-connect': {
-        title: "How You Connect",
-        subtitle: "Tell me about your lifestyle",
-        description: "I want to understand how you like to live and what gets you excited. What are you into?",
-        questions: [
-          { id: 'lifestyle', label: "Which of these describe your lifestyle?", type: 'multi-select', required: false },
-          { id: 'interests', label: "What are your interests? What do you love doing?", type: 'multi-select', required: false },
-        ],
-      },
-      'ideal-day': {
-        title: "A Bit More About You",
-        subtitle: "Just a few more questions",
-        description: "Almost there! Just a couple more things I'm curious about...",
-        questions: [
-          { id: 'education', label: "What's your education level?", type: 'select', required: false, options: EDUCATION_LEVELS.map(l => ({ value: l, label: l })) },
-          { id: 'career', label: "What do you do for work?", type: 'text', required: false, placeholder: "Your profession" },
-          { id: 'incomeRange', label: "Income range (totally optional!)", type: 'select', required: false, options: INCOME_RANGES.map(r => ({ value: r, label: r })) },
-        ],
-      },
-      'future-together': {
-        title: "Wrapping Up",
-        subtitle: "Any final details?",
-        description: "We're almost done! Anything else you'd like to share? (This is optional)",
-        questions: [
-          { id: 'zodiacSign', label: "Are you into astrology? What's your sign?", type: 'select', required: false, options: ZODIAC_SIGNS.map(s => ({ value: s.value, label: s.label })) },
-          { id: 'birthDate', label: "When's your birthday?", type: 'birthday', required: false },
-        ],
-      },
-    };
-  }
-};
-
 // AI Insights Generator
 const generateInsight = (chapter: string, answers: any, journeyStyle: JourneyStyle): string => {
   const insights: Record<string, Record<string, string[]>> = {
@@ -323,6 +198,23 @@ const generateInsight = (chapter: string, answers: any, journeyStyle: JourneySty
         "Thank you for sharing that with me.",
         "I'm noticing patterns in what you're telling me.",
         "This helps me understand you better.",
+      ],
+    },
+    "marriage-essentials": {
+      fast: [
+        "Great — your marriage profile is taking shape.",
+        "These details help others understand you better.",
+        "Clear intentions make stronger matches.",
+      ],
+      deep: [
+        "I'm learning how you see commitment and family.",
+        "Your answers build a trustworthy marriage profile.",
+        "This context helps us honor what matters to you.",
+      ],
+      conversational: [
+        "Thanks — that really helps for marriage mode.",
+        "I'm noting how you approach commitment.",
+        "This will show clearly on your profile.",
       ],
     },
     'what-matters': {
@@ -407,6 +299,18 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
   const chatEndRef = useState<HTMLDivElement | null>(null)[0];
   const { toast } = useToast();
 
+  const { data: questionnaireRows } = useQuery<OnboardingQuestionnaireItem[]>({
+    queryKey: ["/api/onboarding-questionnaire"],
+  });
+  const resolvedQuestionnaire = useMemo(
+    () => normalizeOnboardingQuestionnaire(questionnaireRows),
+    [questionnaireRows],
+  );
+  const chaptersRecord = useMemo(() => {
+    if (!journeyStyle) return null;
+    return buildChaptersRecord(journeyStyle, resolvedQuestionnaire);
+  }, [journeyStyle, resolvedQuestionnaire]);
+
   const form = useForm<BasicInfoData>({
     resolver: zodResolver(basicInfoSchema),
     defaultValues: {
@@ -421,6 +325,21 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
       zodiacSign: undefined,
       birthDate: "",
       religion: "",
+      extraBio: "",
+      faithImportance: "",
+      commitmentIntention: "",
+      marriageTimeline: "",
+      marriageApproach: "",
+      heightCm: undefined,
+      maritalStatus: "",
+      hasChildren: "",
+      wantsChildren: "",
+      loveLanguage: "",
+      languages: "",
+      nationality: "",
+      ethnicity: "",
+      smoking: "",
+      drinksAlcohol: "",
     },
   });
 
@@ -549,24 +468,19 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
     }
   };
 
-  // Chapter navigation - different order for Fast & Fun (skip some chapters)
   const getChapterOrder = (): ChapterType[] => {
-    if (journeyStyle === 'fast') {
-      // Fast & Fun: Skip some optional chapters to make it faster
-      return ['who-are-you', 'what-matters', 'how-connect', 'ideal-day', 'photos', 'blueprint'];
-    }
-    return ['who-are-you', 'what-matters', 'how-connect', 'ideal-day', 'future-together', 'photos', 'blueprint'];
+    if (!journeyStyle) return [];
+    return getOnboardingChapterOrder(journeyStyle) as ChapterType[];
   };
-  
+
   const chapterOrder = getChapterOrder();
-  
+
   const getCurrentChapterData = () => {
-    if (currentChapter === 'intro' || currentChapter === 'photos' || currentChapter === 'blueprint') {
+    if (currentChapter === "intro" || currentChapter === "photos" || currentChapter === "blueprint") {
       return null;
     }
-    if (!journeyStyle) return null;
-    const chapters = getChaptersForStyle(journeyStyle);
-    return chapters[currentChapter as keyof typeof chapters];
+    if (!journeyStyle || !chaptersRecord) return null;
+    return chaptersRecord[currentChapter as keyof typeof chaptersRecord] ?? null;
   };
 
   const handleNextChapter = () => {
@@ -647,18 +561,47 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
       networking: "casual",
     };
 
+    const langs = basicInfo.languages
+      ? basicInfo.languages.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+    const heightNum =
+      basicInfo.heightCm != null && !Number.isNaN(Number(basicInfo.heightCm))
+        ? Number(basicInfo.heightCm)
+        : undefined;
+
     const profileData = {
       ...basicInfo,
+      heightCm: heightNum,
+      height: heightNum != null ? `${heightNum} cm` : undefined,
       birthDate: calculatedBirthDate,
       photos,
       relationshipGoal: selectedGoal,
-      commitmentIntention: commitmentMap[selectedGoal] ?? "casual",
+      commitmentIntention:
+        (basicInfo.commitmentIntention && String(basicInfo.commitmentIntention).trim()) ||
+        commitmentMap[selectedGoal] ||
+        "casual",
       values: selectedValues,
       lifestyle: selectedLifestyle,
       interests: selectedInterests,
       religion: basicInfo.religion || undefined,
       meetPreference: meetPreference || "open_to_all",
       onboardingCompleted: true,
+      extraBio: basicInfo.extraBio?.trim() ? basicInfo.extraBio.trim() : null,
+      faithImportance: basicInfo.faithImportance || null,
+      marriageTimeline: basicInfo.marriageTimeline || null,
+      marriageApproach: basicInfo.marriageApproach?.trim() || null,
+      maritalStatus: basicInfo.maritalStatus || null,
+      hasChildren: basicInfo.hasChildren || null,
+      wantsChildren: basicInfo.wantsChildren || null,
+      loveLanguage:
+        basicInfo.loveLanguage && basicInfo.loveLanguage !== "unsure"
+          ? basicInfo.loveLanguage
+          : null,
+      languages: langs.length ? langs : null,
+      nationality: basicInfo.nationality?.trim() || null,
+      ethnicity: basicInfo.ethnicity || null,
+      smoking: basicInfo.smoking || null,
+      drinksAlcohol: basicInfo.drinksAlcohol || null,
     };
     
     if (journeyStyle === 'fast') {
@@ -786,55 +729,72 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.15),rgba(255,255,255,0))]" />
       
-      <Card className="w-full max-w-2xl relative z-10 shadow-2xl border-primary/20 mx-2 sm:mx-4">
-        {/* Close Button */}
-        <div className="absolute top-4 right-4 z-20">
+      <Card className="w-full max-w-2xl relative z-10 shadow-2xl border-primary/20 mx-2 sm:mx-4 overflow-hidden flex flex-col">
+        {/* Top bar: points (left) + close (right) — flow layout, no overlap */}
+        <div className="flex items-start justify-between gap-3 px-4 sm:px-6 pt-4 pb-2 border-b border-border/50 bg-muted/20">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1 pr-2">
+            {journeyStyle === 'fast' && (
+              <>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-2.5 py-1 shrink-0">
+                  <Trophy className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold text-primary tabular-nums">{points}</span>
+                </div>
+                {achievements.length > 0 && (
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-2.5 py-1 shrink-0">
+                    <Award className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-xs sm:text-sm font-medium text-primary tabular-nums">{achievements.length}</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
           <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            type="button"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleClose}
-            className="w-10 h-10 rounded-full bg-muted/80 hover:bg-muted border border-border flex items-center justify-center"
+            aria-label="Close onboarding"
+            className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-background hover:bg-muted border border-border flex items-center justify-center shadow-sm"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </motion.button>
         </div>
 
-        {/* Points & Achievements (Fast & Fun style) */}
-        {journeyStyle === 'fast' && (
-          <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-            <div className="bg-primary/10 border border-primary/30 rounded-full px-3 py-1 flex items-center gap-1">
-              <Trophy className="w-4 h-4 text-primary" />
-              <span className="text-sm font-bold text-primary">{points}</span>
-            </div>
-            {achievements.length > 0 && (
-              <div className="bg-primary/10 border border-primary/30 rounded-full px-3 py-1 flex items-center gap-1">
-                <Award className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">{achievements.length}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Progress Bar */}
-        <div className="p-4 sm:p-6 pb-4">
-          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <div className="flex-1 min-w-0">
-              <span className="text-xs sm:text-sm font-medium text-muted-foreground block truncate">
+        {/* Chapter title, style badge, progress */}
+        <div className="px-4 sm:px-6 pt-4 pb-3 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-1">
+              <span className="text-sm sm:text-base font-semibold text-foreground block leading-snug">
                 {chapterData ? chapterData.title : currentChapter === 'intro' ? "Let's Begin" : currentChapter === 'blueprint' ? "Your Blueprint" : "Building Your Profile"}
               </span>
               {chapterData && chapterData.questions.length > 1 && (
-                <span className="text-xs text-muted-foreground/70 mt-1 block">
+                <span className="text-xs text-muted-foreground block">
                   Question {currentQuestionIndex + 1} of {chapterData.questions.length}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-primary border-primary text-xs sm:text-sm flex items-center gap-1">
-                {journeyStyle === 'fast' && <><Zap className="w-3 h-3" /> Fast</>}
-                {journeyStyle === 'deep' && <><BookOpen className="w-3 h-3" /> Deep</>}
-                {journeyStyle === 'conversational' && <><MessageCircle className="w-3 h-3" /> Conversational</>}
+            <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+              <Badge
+                variant="outline"
+                className="text-primary border-primary/40 text-xs font-medium flex items-center gap-1 px-2 py-0.5 whitespace-nowrap"
+              >
+                {journeyStyle === 'fast' && (
+                  <>
+                    <Zap className="w-3 h-3 shrink-0" /> Fast
+                  </>
+                )}
+                {journeyStyle === 'deep' && (
+                  <>
+                    <BookOpen className="w-3 h-3 shrink-0" /> Deep
+                  </>
+                )}
+                {journeyStyle === 'conversational' && (
+                  <>
+                    <MessageCircle className="w-3 h-3 shrink-0" /> Chat
+                  </>
+                )}
               </Badge>
-              <span className="text-xs sm:text-sm font-medium text-primary">
+              <span className="text-xs sm:text-sm font-semibold text-primary tabular-nums min-w-[2.5rem] text-right">
                 {Math.round(progress)}%
               </span>
             </div>
@@ -884,8 +844,8 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
                     setCurrentChapter('who-are-you');
                     if (journeyStyle === 'conversational') {
                       // Initialize chat with first question
-                      const chapters = getChaptersForStyle('conversational');
-                      const firstChapter = chapters['who-are-you'];
+                      const chapters = buildChaptersRecord("conversational", resolvedQuestionnaire);
+                      const firstChapter = chapters["who-are-you"];
                       if (firstChapter && firstChapter.questions.length > 0) {
                         const firstQuestion = firstChapter.questions[0];
                         const welcomeMsg: ChatMessage = {
@@ -1055,8 +1015,14 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
                           }
                         } else if (currentQuestion.type === 'multi-select') {
                           // For multi-select, try to match and add to selection
-                          const items = currentQuestion.id === 'values' ? VALUES : 
-                                      currentQuestion.id === 'lifestyle' ? LIFESTYLE : INTERESTS;
+                          const items =
+                            currentQuestion.options && currentQuestion.options.length > 0
+                              ? currentQuestion.options.map((o: { label: string }) => o.label)
+                              : currentQuestion.id === "values"
+                                ? VALUES_FALLBACK
+                                : currentQuestion.id === "lifestyle"
+                                  ? LIFESTYLE_FALLBACK
+                                  : INTERESTS_FALLBACK;
                           const selected = currentQuestion.id === 'values' ? selectedValues :
                                          currentQuestion.id === 'lifestyle' ? selectedLifestyle : selectedInterests;
                           const setter = currentQuestion.id === 'values' ? setSelectedValues :
@@ -1629,10 +1595,12 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
     }
 
     if (question.type === 'textarea') {
-      const textValue = form.watch(question.id as keyof BasicInfoData) as string;
-      const hasError = question.required && (!textValue || textValue.trim().length < 10);
+      const textValue = (form.watch(question.id as keyof BasicInfoData) as string) || "";
+      const minChars = question.minLength ?? 10;
+      const maxLen = question.id === "extraBio" ? 1200 : 500;
+      const hasError =
+        question.required && (!textValue || textValue.trim().length < minChars);
       const charCount = textValue?.length || 0;
-      const minChars = 10;
       const isConversational = style === 'conversational';
       
       return (
@@ -1680,7 +1648,7 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
                 : 'border-primary/20 focus:border-primary/60'
             }`}
             autoFocus
-            maxLength={500}
+            maxLength={maxLen}
           />
           <div className="flex items-center justify-between mt-2">
             <div className="flex-1">
@@ -1695,7 +1663,7 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
               )}
             </div>
             <span className={`text-xs ${charCount >= minChars ? 'text-primary' : 'text-muted-foreground'}`}>
-              {charCount}/500
+              {charCount}/{maxLen}
             </span>
           </div>
           {style === 'fast' && textValue && textValue.length > 20 && (
@@ -1971,10 +1939,20 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
       const isValues = question.id === 'values';
       const isLifestyle = question.id === 'lifestyle';
       const isInterests = question.id === 'interests';
-      const items = isValues ? VALUES : isLifestyle ? LIFESTYLE : INTERESTS;
+      const items =
+        question.options && question.options.length > 0
+          ? question.options.map((o: { label: string }) => o.label)
+          : isValues
+            ? VALUES_FALLBACK
+            : isLifestyle
+              ? LIFESTYLE_FALLBACK
+              : INTERESTS_FALLBACK;
       const selected = isValues ? selectedValues : isLifestyle ? selectedLifestyle : selectedInterests;
       const setter = isValues ? setSelectedValues : isLifestyle ? setSelectedLifestyle : setSelectedInterests;
-      const hasError = question.required && question.id === 'values' && selected.length === 0;
+      const hasError =
+        question.required &&
+        ((question.id === "values" && selected.length === 0) ||
+          (question.id === "interests" && selected.length === 0));
       const isConversational = style === 'conversational';
 
       return (
@@ -2028,7 +2006,7 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
             </motion.p>
           )}
           <div className={`flex flex-wrap gap-2 sm:gap-3 ${isConversational ? 'justify-start' : 'justify-center'}`}>
-            {items.map((item, itemIndex) => (
+            {items.map((item: string, itemIndex: number) => (
               <motion.button
                 key={item}
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -2141,25 +2119,31 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
 
   function isChapterComplete(chapter: any): boolean {
     if (!chapter) return false;
-    
+
     return chapter.questions.every((q: any) => {
       if (!q.required) return true;
 
       if (q.type === "meet-preference-select") return meetPreference !== "";
-      if (q.type === 'goal-select') return selectedGoal !== "";
-      if (q.type === 'multi-select') {
-        if (q.id === 'values') return selectedValues.length > 0;
-        if (q.id === 'lifestyle') return true; // Optional
-        if (q.id === 'interests') return true; // Optional
+      if (q.type === "goal-select") return selectedGoal !== "";
+      if (q.type === "multi-select") {
+        if (q.id === "values") return selectedValues.length > 0;
+        if (q.id === "lifestyle") return true;
+        if (q.id === "interests") return selectedInterests.length > 0;
       }
-      
-      if (q.type === 'textarea') {
+
+      if (q.type === "textarea") {
         const value = form.watch(q.id as keyof BasicInfoData) as string;
-        return value && value.trim().length >= 10;
+        const minL = q.minLength ?? 10;
+        return Boolean(value && value.trim().length >= minL);
       }
-      
+
+      if (q.type === "number" && q.id === "heightCm") {
+        const n = Number(form.watch("heightCm" as keyof BasicInfoData));
+        return !Number.isNaN(n) && n >= 100 && n <= 260;
+      }
+
       const value = form.watch(q.id as keyof BasicInfoData);
-      return value && String(value).trim() !== '';
+      return value !== undefined && value !== null && String(value).trim() !== "";
     });
   }
 

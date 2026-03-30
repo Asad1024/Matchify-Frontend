@@ -1,5 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { apiRequest } from "@/services/api";
+import { apiRequest, buildApiUrl, getAuthHeaders } from "@/services/api";
 import { getMockData } from "./mockData";
 
 async function throwIfResNotOk(res: Response) {
@@ -19,8 +19,9 @@ export function getQueryFn<T>(options: {
   return async ({ queryKey }) => {
     try {
       const url = queryKey.join("/");
-      const res = await fetch(url, {
+      const res = await fetch(buildApiUrl(url), {
         credentials: "include",
+        headers: getAuthHeaders(false),
       });
 
       if (options.on401 === "returnNull" && res.status === 401) {

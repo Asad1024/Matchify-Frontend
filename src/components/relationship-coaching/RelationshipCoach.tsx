@@ -44,7 +44,7 @@ const TIPS: CoachTip[] = [
     title: "Daily Gratitude",
     content: "Express appreciation for small things every day. Saying 'thank you for making dinner' or 'I appreciate you listening' builds a culture of gratitude and strengthens your bond.",
     icon: Heart,
-    color: "bg-rose-100 text-rose-600",
+    color: "bg-primary/10 text-primary",
   },
   {
     id: "goals",
@@ -408,7 +408,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
 
       {/* Partner status */}
       {activeSpace?.partner ? (
-        <Card className="border-rose-200 bg-rose-50/50">
+        <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="flex -space-x-2">
               <Avatar className="w-10 h-10 border-2 border-white">
@@ -416,22 +416,22 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
               </Avatar>
               <Avatar className="w-10 h-10 border-2 border-white">
                 <AvatarImage src={activeSpace.partner.avatar || undefined} alt={activeSpace.partner.name} />
-                <AvatarFallback className="bg-rose-200 text-rose-600 text-xs font-bold">
+                <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
                   {activeSpace.partner.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </div>
             <div>
-              <p className="text-sm font-semibold text-rose-700">Coaching with {activeSpace.partner.name}</p>
-              <p className="text-xs text-rose-500">Your relationship, together</p>
+              <p className="text-sm font-semibold text-primary">Coaching with {activeSpace.partner.name}</p>
+              <p className="text-xs text-primary/80">Your relationship, together</p>
             </div>
-            <Heart className="w-5 h-5 text-rose-400 fill-rose-300 ml-auto" />
+            <Heart className="w-5 h-5 text-primary fill-primary/25 ml-auto" />
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-dashed border-rose-200">
+        <Card className="border-dashed border-primary/25">
           <CardContent className="p-4 text-center text-sm text-muted-foreground">
-            <Heart className="w-6 h-6 text-rose-300 mx-auto mb-2" />
+            <Heart className="w-6 h-6 text-primary/40 mx-auto mb-2" />
             Pick one of your matches and add them to Luna.
           </CardContent>
         </Card>

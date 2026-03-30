@@ -5,7 +5,9 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { LogOut } from "lucide-react";
 
 const SETTINGS_KEY = 'admin_settings';
 
@@ -21,6 +23,7 @@ const DEFAULT_SETTINGS = {
 
 export default function AdminSettings() {
   const { toast } = useToast();
+  const { logout } = useAuth();
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
   useEffect(() => {
@@ -91,6 +94,22 @@ export default function AdminSettings() {
                 className="w-40"
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Session</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full justify-start border-red-200/90 font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 sm:w-auto"
+              onClick={() => logout()}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Log out
+            </Button>
           </CardContent>
         </Card>
 

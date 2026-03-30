@@ -8,21 +8,30 @@ import { Grid3x3, ArrowRight, ArrowLeft, Check, X, ChevronRight, Sparkles, Info,
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useQuery } from "@tanstack/react-query";
-import { saveAttractionBlueprint, getAIMatches, type AIMatch } from "@/services/aiMatchmaker.service";
+import {
+  claimNextCuratedMatch,
+  getAIMatches,
+  reopenAIMatchmakerSession,
+  saveAttractionBlueprint,
+  type AIMatch,
+} from "@/services/aiMatchmaker.service";
+import { queryClient } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { recordAiMatchClaimed } from "@/hooks/useAiMatchCooldown";
 import { MatchDetails } from "@/components/matches/MatchDetails";
 import { ImageWithFallback } from "@/components/ui/ImageWithFallback";
 import { getFlowBOptionImage } from "@/lib/attractionFlowImages";
 import { getFlowBOptions, getFlowBSectionOptions, isFlowBImageQuestion, isFlowBSectionQuestion } from "@/lib/flowBImages";
 import { getActorImage } from "@/lib/actorImages";
-import { MATCHIFY_LOGO_URL } from "@/lib/matchifyBranding";
+import { getAiMatchCooldownLabel, MATCHIFY_LOGO_URL } from "@/lib/matchifyBranding";
 import { FEMALE_FLOW_ORDER, FLOW_B_STEP_COUNT, MALE_FLOW_ORDER } from "@/lib/flowBStepOrder";
 
-/** AI Matchmaker / Flow B screen theme (Matchify pink, not legacy purple). */
+/** AI Matchmaker / Flow B screen theme (Matchify red wine, not legacy purple). */
 const FLOW_BG =
-  "min-h-screen h-[100dvh] bg-gradient-to-br from-zinc-950 via-rose-950/85 to-zinc-950";
+  "min-h-screen h-[100dvh] bg-gradient-to-br from-zinc-950 via-red-950/90 to-zinc-950";
+
+/** Centered column — a bit wider on sm+ so wide monitors aren’t all empty margin */
+const FLOW_COL = "mx-auto w-full min-w-0 max-w-lg sm:max-w-xl";
 
 // Build option with actor-style image by index
 const actorOpt = (i: number, id: string, label: string, description = "") =>
@@ -999,11 +1008,21 @@ export default function FlowB() {
   const { toast } = useToast();
   const [currentQ, setCurrentQ] = useState(-1);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
-  /** Start 48h AI pacing when user sees their single curated match (once per completion). */
+  /** Start AI-match cooldown when user sees their single curated match (once per completion). */
   const curatedCooldownRecordedRef = useRef(false);
+  /** Latest answers for results effect (avoid effect deps on every tap). */
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+  const [matches, setMatches] = useState<AIMatch[]>([]);
+  /** Set when /ai-matches returns — openai = LLM-ranked; fallback = placeholder scores. */
+  const [matchRankingSource, setMatchRankingSource] = useState<"openai" | "fallback" | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<AIMatch | null>(null);
 
   // Get user gender for gender-specific matching
-  const { data: currentUser } = useQuery<User>({
+  const { data: currentUser, isLoading: userProfileLoading } = useQuery<User>({
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
   });
@@ -1013,9 +1032,153 @@ export default function FlowB() {
     rawGenderB === "male" || rawGenderB === "female" ? rawGenderB : null;
   const matchmakerLocked = !!(currentUser as any)?.matchmakerLocked;
   const hasBlueprint = !!(currentUser as any)?.attractionBlueprint;
-  
-  // Get gender-specific questions
-  const QUESTIONS = getQuestions(userGender);
+
+  /** Frozen list for the active run so profile/gender hydration can't swap question ids mid-flow. */
+  const [sessionQuestions, setSessionQuestions] = useState<any[] | null>(null);
+  const liveQuestions = getQuestions(userGender);
+  const QUESTIONS = sessionQuestions ?? liveQuestions;
+
+  useEffect(() => {
+    if (currentQ !== QUESTIONS.length) return;
+    if (!userId) {
+      setIsSaving(false);
+      setIsLoadingMatches(false);
+      return;
+    }
+    let cancelled = false;
+
+    const saveAndFetch = async () => {
+      const a = answersRef.current;
+      setIsSaving(true);
+      setIsLoadingMatches(true);
+      try {
+        const blueprint = {
+          flowType: "flow-b" as const,
+          stylePreferences: a.personality_turn_on || [],
+          bodyPreferences: a.physical_attraction || [],
+          faceShapePreferences: a.face_shape_preference || [],
+          eyeShapePreferences: a.eye_shape_preference || [],
+          lipShapePreferences: a.lip_shape_preference || [],
+          energyPreferences: a.energy_vibe || [],
+          coreValues: a.core_values || [],
+          communicationStyle: a.communication || [],
+          conflictStyle: a.conflict_style || [],
+          lifestylePreferences: a.lifestyle || [],
+          hobbies: a.hobbies || [],
+          socialLife: a.sociallife || [],
+          foodPreferences: a.food || [],
+          career: a.career || [],
+          futureVision: a.future || [],
+          timeline: a.timeline?.[0] || "",
+          kidsPreference: a.kidsQ?.[0] || "",
+          dealbreakers: a.dealbreakers || [],
+          mustHaves: a.mustHave || [],
+          weights: {
+            looks: userGender === "male" ? 0.3 : 0.15,
+            energy: userGender === "male" ? 0.2 : 0.15,
+            lifestyle: 0.15,
+            goals: userGender === "female" ? 0.25 : 0.15,
+            personality: 0.1,
+            values: userGender === "female" ? 0.2 : 0.15,
+          },
+        };
+
+        const readinessKeys = [
+          "sd_ready_healed",
+          "sd_ready_values",
+          "sd_ready_communication",
+          "sd_ready_available",
+          "sd_ready_respect",
+          "sd_ready_accountability",
+        ] as const;
+        const readinessByQuestion: Record<string, string> = {
+          sd_ready_healed: "I have healed from past relationship wounds",
+          sd_ready_values: "I know my own values and deal-breakers",
+          sd_ready_communication: "I communicate openly and honestly",
+          sd_ready_available: "I'm emotionally available for a new relationship",
+          sd_ready_respect: "I respect different perspectives and boundaries",
+          sd_ready_accountability: "I take accountability for my actions",
+        };
+        const readinessScores = readinessKeys.map((k) => Number(a[k]?.[0] || "3"));
+        const readinessAvg = readinessScores.reduce((sum, value) => sum + value, 0) / readinessScores.length;
+        const readinessPercent = Math.round((readinessAvg / 5) * 100);
+        const lowReadinessItems = readinessKeys
+          .filter((k) => Number(a[k]?.[0] || "3") <= 2)
+          .map((k) => readinessByQuestion[k]);
+
+        await saveAttractionBlueprint(userId, blueprint);
+
+        await fetch(`/api/users/${userId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            selfDiscoveryCompleted: true,
+            commitmentIntention: a.sd_commitment?.[0] || null,
+            loveLanguage: a.sd_love_language?.[0] || null,
+            topPriorities: a.sd_priorities || [],
+            relationshipReadiness: {
+              score: readinessPercent,
+              blindSpots: lowReadinessItems.slice(0, 2),
+              needsWork: lowReadinessItems.slice(2, 4),
+            },
+          }),
+        });
+
+        let rankingSource: "openai" | "fallback" = "fallback";
+        let top: AIMatch | undefined;
+        try {
+          const claimed = await claimNextCuratedMatch(userId);
+          rankingSource = claimed.rankingSource;
+          top = claimed.match ?? undefined;
+        } catch (claimErr) {
+          const st = (claimErr as { status?: number })?.status;
+          if (st === 409) {
+            const { matches: aiList, rankingSource: rs } = await getAIMatches(userId, { limit: 1 });
+            rankingSource = rs;
+            top = aiList[0];
+          } else {
+            throw claimErr;
+          }
+        }
+        if (!cancelled) {
+          setMatchRankingSource(rankingSource);
+          setMatches(top ? [top] : []);
+          curatedCooldownRecordedRef.current = true;
+        }
+      } catch (error) {
+        console.error("Error saving blueprint or fetching matches:", error);
+        if (!cancelled) {
+          setMatchRankingSource("fallback");
+          toast({
+            title: "Error",
+            description: "Failed to save preferences. Showing sample matches.",
+            variant: "destructive",
+          });
+          const fallback: AIMatch = {
+            id: "1",
+            name: "Emily",
+            age: 28,
+            image: getActorImage(0),
+            compatibility: 85,
+            reasons: ["Shared life goals", "Values match"],
+            emphasis: "Goals, Education & Values",
+          };
+          setMatches([fallback]);
+          curatedCooldownRecordedRef.current = true;
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSaving(false);
+          setIsLoadingMatches(false);
+        }
+      }
+    };
+
+    saveAndFetch();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentQ, QUESTIONS.length, userId, userGender, toast]);
 
   const toggleAnswer = (qId: string, optionId: string, max: number) => {
     setAnswers(prev => {
@@ -1042,6 +1205,7 @@ export default function FlowB() {
     if (currentQ < QUESTIONS.length - 1) {
       setCurrentQ(currentQ + 1);
     } else {
+      setIsLoadingMatches(true);
       setCurrentQ(QUESTIONS.length);
     }
   };
@@ -1049,15 +1213,17 @@ export default function FlowB() {
   if (currentQ === -1) {
     if (matchmakerLocked && hasBlueprint) {
       return (
-        <div className={`${FLOW_BG} flex flex-col items-center justify-center px-6 text-center`}>
-          <div className="inline-flex bg-white/95 rounded-2xl px-6 py-3 mb-5 shadow-lg">
+        <div className={`${FLOW_BG} flex flex-col items-center justify-center px-4 py-8 text-center`}>
+          <div className={`${FLOW_COL} px-4`}>
+          <div className="inline-flex rounded-2xl bg-white/95 px-6 py-3 shadow-lg mb-5">
             <img src={MATCHIFY_LOGO_URL} alt="" className="h-14 w-auto object-contain" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">AI Matchmaker completed</h2>
-          <p className="text-sm text-white/75 max-w-sm mb-6">
-            Your 30-question profile is locked and now powers future matching and Luna coaching.
+          <h2 className="text-xl font-bold text-white sm:text-2xl mb-2">AI Matchmaker completed</h2>
+          <p className="mx-auto mb-6 max-w-sm text-sm text-white/75 leading-relaxed">
+            Your 30-question profile is saved and powers matching and Luna coaching. You can run through the
+            questions again anytime if your preferences change.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Button size="lg" className="rounded-full px-8" onClick={() => setLocation('/ai-matchmaker')}>
               Back to AI Matchmaker
             </Button>
@@ -1069,38 +1235,63 @@ export default function FlowB() {
             >
               Open People
             </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="rounded-full px-8 bg-white/95 text-foreground hover:bg-white"
+              disabled={!userId}
+              onClick={async () => {
+                if (!userId) return;
+                try {
+                  await reopenAIMatchmakerSession(userId);
+                  await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+                } catch {
+                  toast({
+                    title: "Could not unlock",
+                    description: "Sign in and try again, or use AI Matchmaker from your profile.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Change my answers
+            </Button>
+          </div>
           </div>
         </div>
       );
     }
     return (
-      <div className={`${FLOW_BG} flex flex-col overflow-hidden safe-top safe-bottom`}>
-        {/* Header with back button */}
-        <div className="px-4 pt-3 pb-2 flex items-center gap-3">
-          <button
-            onClick={() => setLocation('/ai-matchmaker')}
-            className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            <BackArrow className="w-5 h-5 text-white" />
-          </button>
-        </div>
+      <div
+        className={`${FLOW_BG} flex h-[100dvh] min-h-0 flex-col overflow-hidden safe-top safe-bottom`}
+      >
+        <div className={`${FLOW_COL} flex min-h-0 flex-1 flex-col px-4`}>
+          <div className="flow-b-intro-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain py-3 pb-[max(8rem,env(safe-area-inset-bottom,0px)+5rem)]">
+            <button
+              type="button"
+              onClick={() => setLocation("/ai-matchmaker")}
+              className="mb-5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 transition-colors hover:bg-white/20"
+              aria-label="Back to AI Matchmaker"
+            >
+              <BackArrow className="h-5 w-5 text-white" />
+            </button>
 
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+            <div className="flex flex-col items-center text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
             className="flex flex-col items-center"
           >
-            <div className="inline-flex bg-white/95 rounded-2xl px-6 py-3 mb-4 shadow-lg">
-              <img src={MATCHIFY_LOGO_URL} alt="" className="h-16 sm:h-20 w-auto object-contain" />
+            <div className="mb-4 inline-flex rounded-2xl bg-white/95 px-6 py-3 shadow-lg">
+              <img src={MATCHIFY_LOGO_URL} alt="" className="h-16 w-auto object-contain sm:h-20" />
             </div>
-            <div className="w-32 h-1.5 bg-primary/40 rounded-full mx-auto mb-8">
+            <div className="mx-auto mb-6 h-1.5 w-32 rounded-full bg-primary/40">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: "100%" }}
                 transition={{ duration: 0.8, delay: 0.3 }}
-                className="h-full bg-primary rounded-full"
+                className="h-full rounded-full bg-primary"
               />
             </div>
           </motion.div>
@@ -1109,15 +1300,15 @@ export default function FlowB() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="mb-8"
+            className="mb-6 w-full sm:mb-8"
           >
-            <h2 className="text-2xl font-bold text-white mb-2">AI Matchmaker</h2>
-            <p className="text-white/80 text-sm mb-1">
+            <h2 className="mb-2 text-2xl font-bold text-white sm:text-3xl">AI Matchmaker</h2>
+            <p className="mb-1 text-sm text-white/80">
               {QUESTIONS.length} questions · order adapts to your profile gender
             </p>
-            <p className="text-white/60 text-xs">
-              Attraction, lifestyle, values, and readiness. One curated match when you finish — then a
-              fresh pick every 48 hours.
+            <p className="mx-auto max-w-md text-xs leading-relaxed text-white/60">
+              We rank members from a wider pool (richer profiles first). When you finish, your top pick is
+              scored with AI from your answers. Next curated pick every {getAiMatchCooldownLabel()}.
             </p>
           </motion.div>
           
@@ -1125,7 +1316,7 @@ export default function FlowB() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
-            className="text-left space-y-2 mb-8 p-4 bg-white/10 backdrop-blur-md rounded-xl text-xs w-full max-w-[280px] border border-white/20"
+            className="mb-6 w-full space-y-2 rounded-xl border border-white/20 bg-white/10 p-4 text-left text-xs backdrop-blur-md sm:mb-8"
           >
             <div className="flex items-center gap-2 text-white">
               <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[11px] text-white font-bold">1</div>
@@ -1157,187 +1348,90 @@ export default function FlowB() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9 }}
+            className="w-full max-w-sm"
           >
             <Button 
               size="lg"
-              className="rounded-full px-8 py-6 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-base shadow-lg shadow-primary/25"
+              className="h-12 w-full rounded-full bg-primary px-6 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 sm:h-14 sm:px-8"
+              disabled={!userId || userProfileLoading}
               onClick={() => {
                 curatedCooldownRecordedRef.current = false;
+                setMatchRankingSource(null);
+                const resolvedGender = userGender === "female" ? "female" : "male";
+                setSessionQuestions(getQuestions(resolvedGender));
                 setCurrentQ(0);
               }}
               data-testid="button-start-flow-b"
             >
-              Start {QUESTIONS.length} questions (~12 min)
-              <ArrowRight className="w-5 h-5 ml-2" />
+              Start {liveQuestions.length} questions (~12 min)
+              <ArrowRight className="ml-2 h-5 w-5 shrink-0" />
             </Button>
+            {(!userId || userProfileLoading) && (
+              <p className="mt-3 text-center text-[11px] text-white/50">
+                {userProfileLoading ? "Loading your profile…" : "Sign in to start."}
+              </p>
+            )}
           </motion.div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   if (currentQ >= QUESTIONS.length) {
-    const [isSaving, setIsSaving] = useState(false);
-    const [matches, setMatches] = useState<AIMatch[]>([]);
-    const [isLoadingMatches, setIsLoadingMatches] = useState(true);
-    const [selectedMatch, setSelectedMatch] = useState<AIMatch | null>(null);
-
-    // Save preferences and fetch matches when results screen loads
-    useEffect(() => {
-      const saveAndFetch = async () => {
-        if (!userId) return;
-        
-        setIsSaving(true);
-        try {
-          // Map Flow B answers to blueprint format
-          const blueprint = {
-            flowType: 'flow-b' as const,
-            stylePreferences: answers.personality_turn_on || [],
-            bodyPreferences: answers.physical_attraction || [],
-            faceShapePreferences: answers.face_shape_preference || [],
-            eyeShapePreferences: answers.eye_shape_preference || [],
-            lipShapePreferences: answers.lip_shape_preference || [],
-            energyPreferences: answers.energy_vibe || [],
-            coreValues: answers.core_values || [],
-            communicationStyle: answers.communication || [],
-            conflictStyle: answers.conflict_style || [],
-            lifestylePreferences: answers.lifestyle || [],
-            hobbies: answers.hobbies || [],
-            socialLife: answers.sociallife || [],
-            foodPreferences: answers.food || [],
-            career: answers.career || [],
-            futureVision: answers.future || [],
-            timeline: answers.timeline?.[0] || '',
-            kidsPreference: answers.kidsQ?.[0] || '',
-            dealbreakers: answers.dealbreakers || [],
-            mustHaves: answers.mustHave || [],
-            weights: {
-              looks: userGender === 'male' ? 0.3 : 0.15,
-              energy: userGender === 'male' ? 0.2 : 0.15,
-              lifestyle: 0.15,
-              goals: userGender === 'female' ? 0.25 : 0.15,
-              personality: 0.1,
-              values: userGender === 'female' ? 0.2 : 0.15,
-            },
-          };
-          
-          const readinessKeys = [
-            "sd_ready_healed",
-            "sd_ready_values",
-            "sd_ready_communication",
-            "sd_ready_available",
-            "sd_ready_respect",
-            "sd_ready_accountability",
-          ] as const;
-          const readinessByQuestion: Record<string, string> = {
-            sd_ready_healed: "I have healed from past relationship wounds",
-            sd_ready_values: "I know my own values and deal-breakers",
-            sd_ready_communication: "I communicate openly and honestly",
-            sd_ready_available: "I'm emotionally available for a new relationship",
-            sd_ready_respect: "I respect different perspectives and boundaries",
-            sd_ready_accountability: "I take accountability for my actions",
-          };
-          const readinessScores = readinessKeys.map((k) => Number(answers[k]?.[0] || "3"));
-          const readinessAvg = readinessScores.reduce((sum, value) => sum + value, 0) / readinessScores.length;
-          const readinessPercent = Math.round((readinessAvg / 5) * 100);
-          const lowReadinessItems = readinessKeys
-            .filter((k) => Number(answers[k]?.[0] || "3") <= 2)
-            .map((k) => readinessByQuestion[k]);
-
-          // Save attraction blueprint
-          await saveAttractionBlueprint(userId, blueprint);
-
-          // Also persist merged self-discovery into profile
-          await fetch(`/api/users/${userId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              selfDiscoveryCompleted: true,
-              commitmentIntention: answers.sd_commitment?.[0] || null,
-              loveLanguage: answers.sd_love_language?.[0] || null,
-              topPriorities: answers.sd_priorities || [],
-              relationshipReadiness: {
-                score: readinessPercent,
-                blindSpots: lowReadinessItems.slice(0, 2),
-                needsWork: lowReadinessItems.slice(2, 4),
-              },
-            }),
-          });
-          
-          // Fetch AI matches — show only the top curated pick; start 48h pacing once
-          const aiMatches = await getAIMatches(userId);
-          const top = aiMatches[0];
-          setMatches(top ? [top] : []);
-          if (top && !curatedCooldownRecordedRef.current) {
-            await recordAiMatchClaimed(userId);
-            curatedCooldownRecordedRef.current = true;
-          }
-        } catch (error) {
-          console.error('Error saving blueprint or fetching matches:', error);
-          toast({
-            title: "Error",
-            description: "Failed to save preferences. Showing sample matches.",
-            variant: "destructive",
-          });
-          // Fallback: single sample match
-          const fallback: AIMatch = {
-            id: "1",
-            name: "Emily",
-            age: 28,
-            image: getActorImage(0),
-            compatibility: 85,
-            reasons: ["Shared life goals", "Values match"],
-            emphasis: "Goals, Education & Values",
-          };
-          setMatches([fallback]);
-          if (!curatedCooldownRecordedRef.current) {
-            await recordAiMatchClaimed(userId);
-            curatedCooldownRecordedRef.current = true;
-          }
-        } finally {
-          setIsSaving(false);
-          setIsLoadingMatches(false);
-        }
-      };
-      
-      saveAndFetch();
-    }, [userId, answers, userGender]);
-
     const totalAnswers = Object.values(answers).flat();
     const dealbreakers = answers.dealbreakers || [];
     const coreValues = answers.core_values || [];
 
     if (isSaving || isLoadingMatches) {
       return (
-        <div className={`${FLOW_BG} flex items-center justify-center`}>
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-sm text-white/80">Finding your curated match...</p>
+        <div className={`${FLOW_BG} flex items-center justify-center px-4`}>
+          <div className={`${FLOW_COL} text-center`}>
+            <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-white/80">Finding your curated match…</p>
           </div>
         </div>
       );
     }
 
     return (
-      <div className={`${FLOW_BG} px-3 pt-3 pb-16`}>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-2xl font-bold text-white drop-shadow-lg">Your curated match</h2>
-            <p className="text-xs text-white/60">From {totalAnswers.length} answers across {FLOW_B_STEP_COUNT} steps</p>
+      <div className={`${FLOW_BG} pb-24 pt-3`}>
+        <div className={`${FLOW_COL} space-y-3 px-4`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-white drop-shadow-lg sm:text-2xl">Your curated match</h2>
+            <p className="mt-0.5 text-[11px] text-white/60 sm:text-xs">
+              From {totalAnswers.length} answers across {FLOW_B_STEP_COUNT} steps
+            </p>
           </div>
-          <Badge className="bg-white/20 text-white border border-white/30 text-xs px-3 py-1">AI</Badge>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <Badge className="border border-white/30 bg-white/20 px-2.5 py-1 text-xs text-white">AI</Badge>
+            {matchRankingSource === "openai" && (
+              <span className="text-[10px] font-medium text-emerald-200/90">AI-ranked</span>
+            )}
+            {matchRankingSource === "fallback" && (
+              <span className="max-w-[9rem] text-right text-[10px] text-amber-200/90">
+                Suggested (AI unavailable)
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="mb-4 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md">
-          <p className="text-xs text-white/90 leading-relaxed">
-            <span className="font-semibold text-white">Next pick in 48 hours.</span> We surface one
-            highly compatible profile per cycle so you can focus. Directory boost on the AI Matchmaker
-            home uses the same timer.
+        <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md">
+          <p className="text-xs leading-relaxed text-white/90">
+            <span className="font-semibold text-white">
+              Next pick in {getAiMatchCooldownLabel()}.
+            </span>{" "}
+            {matchRankingSource === "openai"
+              ? "Compatibility scores and reasons below are from AI using your blueprint and member profiles."
+              : "Scores below are approximate until AI ranking succeeds (e.g. network or API issue)."}
+            {" "}Directory boost on the AI Matchmaker home uses the same timer.
           </p>
         </div>
 
         {coreValues.length > 0 && (
-          <div className="mb-3 p-4 rounded-xl bg-white/10 backdrop-blur-md border border-white/20">
+          <div className="rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur-md">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-4 h-4 text-white" />
               <p className="text-sm font-medium text-white">Your Core Values</p>
@@ -1363,7 +1457,7 @@ export default function FlowB() {
         )}
 
         {dealbreakers.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-2">
             {dealbreakers.map((d, i) => (
               <Badge key={i} className="text-xs px-2 py-1 bg-red-500/20 text-red-300 border border-red-500/30">
                 <X className="w-3 h-3 mr-1" />
@@ -1446,7 +1540,9 @@ export default function FlowB() {
           ) : (
             <div className="text-center py-12">
               <p className="text-sm text-white/80 mb-2">No curated pick this cycle.</p>
-              <p className="text-xs text-white/60">Try People to explore more profiles, or check back after the next 48h window.</p>
+              <p className="text-xs text-white/60">
+                Try People to explore more profiles, or check back after the next {getAiMatchCooldownLabel()} cooldown.
+              </p>
             </div>
           )}
         </div>
@@ -1458,14 +1554,18 @@ export default function FlowB() {
           />
         )}
 
-        <div className="fixed bottom-0 left-0 right-0 p-3 bg-black/90 backdrop-blur border-t border-primary/20">
-          <Button 
-            size="lg"
-            className="w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold shadow-lg shadow-primary/20"
-            onClick={() => setLocation('/directory')}
-          >
-            Browse People
-          </Button>
+        </div>
+
+        <div className="fixed bottom-0 left-0 right-0 border-t border-primary/20 bg-black/90 backdrop-blur safe-bottom">
+          <div className={`${FLOW_COL} px-4 py-3`}>
+            <Button 
+              size="lg"
+              className="h-11 w-full rounded-full bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 sm:h-12"
+              onClick={() => setLocation('/directory')}
+            >
+              Browse People
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -1475,41 +1575,45 @@ export default function FlowB() {
   const selected = answers[q.id] || [];
 
   return (
-    <div className={`${FLOW_BG} flex flex-col overflow-hidden safe-top safe-bottom relative`}>
+    <div className={`${FLOW_BG} relative flex flex-col overflow-hidden safe-top safe-bottom`}>
       {/* Header with back button and progress */}
-      <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+      <div className={`${FLOW_COL} flex items-center gap-3 px-4 pb-2 pt-3`}>
         <button
+          type="button"
           onClick={() => {
             if (currentQ > 0) {
               setCurrentQ(currentQ - 1);
             } else {
+              setSessionQuestions(null);
               setCurrentQ(-1);
             }
           }}
-          className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 transition-colors hover:bg-white/20"
         >
-          <BackArrow className="w-5 h-5 text-white" />
+          <BackArrow className="h-5 w-5 text-white" />
         </button>
-        <div className="flex-1 flex items-center gap-2">
-          <div className="bg-white/95 rounded-xl px-2.5 py-1 shadow-sm shrink-0">
-            <img src={MATCHIFY_LOGO_URL} alt="" className="h-8 w-auto object-contain" />
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="shrink-0 rounded-xl bg-white/95 px-2.5 py-1 shadow-sm">
+            <img src={MATCHIFY_LOGO_URL} alt="" className="h-7 w-auto object-contain sm:h-8" />
           </div>
-          <div className="relative flex-1 min-w-0">
+          <div className="relative min-w-0 flex-1">
             <Progress value={progress} className="h-2 bg-white/10" />
-            <div className="absolute inset-0 h-2 bg-gradient-to-r from-primary/60 via-pink-400/50 to-rose-500/50 rounded-full blur-sm pointer-events-none" />
+            <div className="pointer-events-none absolute inset-0 h-2 rounded-full bg-gradient-to-r from-primary/60 via-red-900/50 to-red-950/50 blur-sm" />
           </div>
         </div>
       </div>
 
-      <div className="flex-1 px-4 overflow-y-auto pb-20">
+      <div className={`${FLOW_COL} min-h-0 flex-1 overflow-y-auto px-4 pb-24`}>
         <motion.div
-          key={`${currentQ}-${userGender}`}
+          key={currentQ}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          className="mb-5 sm:mb-6"
         >
-          <h2 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">{q.title}</h2>
-          <p className="text-white/80 text-sm mb-2">{q.subtitle}</p>
+          <h2 className="mb-2 text-xl font-bold leading-tight text-white drop-shadow-lg sm:text-2xl md:text-3xl">
+            {q.title}
+          </h2>
+          <p className="mb-2 text-sm text-white/80">{q.subtitle}</p>
           {q.description && (
             <div className="flex items-start gap-2 mt-3 p-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/20">
               <Info className="w-4 h-4 text-white/80 mt-0.5 flex-shrink-0" />
@@ -1523,7 +1627,7 @@ export default function FlowB() {
         </motion.div>
 
         {q.type === "image" ? (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2 sm:max-w-none sm:grid-cols-3 sm:gap-3">
             {q.options.map((opt: any, index: number) => {
               const isSelected = selected.includes(opt.id);
               return (
@@ -1542,10 +1646,10 @@ export default function FlowB() {
                     stiffness: 300,
                     damping: 25
                   }}
-                  className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
+                  className={`relative aspect-square overflow-hidden rounded-xl transition-all ${
                     isSelected 
-                      ? 'ring-3 ring-primary shadow-[0_0_22px_hsl(346_96%_62%/0.45)]' 
-                      : 'ring-2 ring-white/20 hover:ring-primary/40'
+                      ? 'ring-2 ring-primary shadow-[0_0_22px_hsl(349_52%_38%/0.45)] sm:ring-[3px]' 
+                      : 'ring-1 ring-white/20 hover:ring-primary/40 sm:ring-2'
                   }`}
                   data-testid={`option-${q.id}-${opt.id}`}
                   whileHover={!isSelected ? { scale: 1.05, y: -4 } : {}}
@@ -1603,13 +1707,13 @@ export default function FlowB() {
                         times: [0, 0.5, 1]
                       }}
                     >
-                      <Heart className="w-8 h-8 text-primary fill-primary drop-shadow-[0_0_14px_hsl(346_96%_62%/0.85)]" />
+                      <Heart className="h-6 w-6 fill-primary text-primary drop-shadow-[0_0_14px_hsl(349_52%_38%/0.85)] sm:h-8 sm:w-8" />
                     </motion.div>
                   )}
                   
-                  <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 via-black/70 to-transparent backdrop-blur-sm">
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-1.5 backdrop-blur-sm sm:p-2">
                     <motion.span 
-                      className="text-[10px] font-bold text-white text-center block truncate"
+                      className="block truncate text-center text-[9px] font-bold text-white sm:text-[10px]"
                       animate={isSelected ? {
                         scale: [1, 1.05, 1]
                       } : {}}
@@ -1676,7 +1780,7 @@ export default function FlowB() {
             })}
           </div>
         ) : (
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {q.options.map((opt: any, index: number) => {
               const isSelected = selected.includes(opt.id);
               const isDealbreaker = q.type === "dealbreaker";
@@ -1696,12 +1800,12 @@ export default function FlowB() {
                     damping: 25
                   }}
                   onClick={() => toggleAnswer(q.id, opt.id, q.max)}
-                  className={`px-4 py-3 rounded-full text-sm font-medium transition-all backdrop-blur-md ${
+                  className={`rounded-full px-3 py-2.5 text-left text-xs font-medium backdrop-blur-md transition-all sm:px-4 sm:py-3 sm:text-sm ${
                     isSelected 
                       ? isDealbreaker 
-                        ? 'bg-red-500/30 text-red-200 ring-3 ring-red-400/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' 
-                        : 'bg-primary/25 text-white ring-3 ring-primary/60 shadow-[0_0_16px_hsl(346_96%_62%/0.35)]'
-                      : 'bg-white/10 text-white/70 hover:bg-white/15 border border-white/20'
+                        ? 'bg-red-500/30 text-red-200 ring-2 ring-red-400/50 shadow-[0_0_15px_rgba(239,68,68,0.3)] sm:ring-[3px]' 
+                        : 'bg-primary/25 text-white ring-2 ring-primary/60 shadow-[0_0_16px_hsl(349_52%_38%/0.35)] sm:ring-[3px]'
+                      : 'border border-white/20 bg-white/10 text-white/70 hover:bg-white/15'
                   }`}
                   data-testid={`option-${q.id}-${opt.id}`}
                   whileHover={!isSelected ? { scale: 1.05, y: -2 } : {}}
@@ -1733,16 +1837,18 @@ export default function FlowB() {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-3 bg-black/90 backdrop-blur border-t border-primary/20">
-        <Button 
-          size="lg"
-          className="w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold shadow-lg shadow-primary/20"
-          onClick={goNext}
-          disabled={!canProceed()}
-        >
-          {currentQ === QUESTIONS.length - 1 ? 'See Matches' : 'Next'}
-          <ChevronRight className="w-5 h-5 ml-2" />
-        </Button>
+      <div className="fixed bottom-0 left-0 right-0 border-t border-primary/20 bg-black/90 backdrop-blur safe-bottom">
+        <div className={`${FLOW_COL} px-4 py-3`}>
+          <Button 
+            size="lg"
+            className="h-11 w-full rounded-full bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 sm:h-12"
+            onClick={goNext}
+            disabled={!canProceed()}
+          >
+            {currentQ === QUESTIONS.length - 1 ? "See matches" : "Next"}
+            <ChevronRight className="ml-2 h-5 w-5 shrink-0" />
+          </Button>
+        </div>
       </div>
     </div>
   );

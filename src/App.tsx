@@ -3,7 +3,9 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { UserProvider } from "@/contexts/UserContext";
+import { UserProvider, useCurrentUser } from "@/contexts/UserContext";
+import { CuratedMatchAutoClaim } from "@/components/curated/CuratedMatchAutoClaim";
+import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -14,6 +16,7 @@ import type React from "react";
 const Landing = lazy(() => import("@/pages/Landing"));
 const Home = lazy(() => import("@/pages/Home"));
 const Community = lazy(() => import("@/pages/Community"));
+const CommunityPostPage = lazy(() => import("@/pages/CommunityPostPage"));
 const Directory = lazy(() => import("@/pages/Directory"));
 const Events = lazy(() => import("@/pages/Events"));
 const Chat = lazy(() => import("@/pages/Chat"));
@@ -21,15 +24,22 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const Menu = lazy(() => import("@/pages/Menu"));
 const ExploreMuzz = lazy(() => import("@/pages/ExploreMuzz"));
 const ViewProfile = lazy(() => import("@/pages/ViewProfile"));
+const SocialSelfProfile = lazy(() => import("@/pages/SocialSelfProfile"));
+const SocialEditProfile = lazy(() => import("@/pages/SocialEditProfile"));
+const GroupDetailPage = lazy(() => import("@/pages/GroupDetailPage"));
+const GroupCreatePostPage = lazy(() => import("@/pages/GroupCreatePostPage"));
 const Subscriptions = lazy(() => import("@/pages/Subscriptions"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
 const Courses = lazy(() => import("@/pages/Courses"));
 const Coaches = lazy(() => import("@/pages/Coaches"));
 const AIMatchmaker = lazy(() => import("@/pages/AIMatchmaker"));
 const FlowB = lazy(() => import("@/pages/FlowB"));
+const NextCuratedMatch = lazy(() => import("@/pages/NextCuratedMatch"));
 const EmpathyObserver = lazy(() => import("@/pages/EmpathyObserver"));
 const RelationshipCoaching = lazy(() => import("@/pages/RelationshipCoaching"));
 const Settings = lazy(() => import("@/pages/Settings"));
+const SettingsSocial = lazy(() => import("@/pages/SettingsSocial"));
+const SocialConnectionsPage = lazy(() => import("@/pages/SocialConnectionsPage"));
 const EventDetail = lazy(() => import("@/pages/EventDetail"));
 const EventMatchDemo = lazy(() => import("@/pages/EventMatchDemo"));
 const CreateEvent = lazy(() => import("@/pages/CreateEvent"));
@@ -45,6 +55,9 @@ const AdminCourses = lazy(() => import("@/pages/admin/Courses"));
 const AdminCoaches = lazy(() => import("@/pages/admin/Coaches"));
 const AdminMessages = lazy(() => import("@/pages/admin/Messages"));
 const AdminQuestions = lazy(() => import("@/pages/admin/Questions"));
+const AdminOnboardingQuestionnaire = lazy(
+  () => import("@/pages/admin/OnboardingQuestionnaire"),
+);
 const AdminModeration = lazy(() => import("@/pages/admin/Moderation"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const AdminAI = lazy(() => import("@/pages/admin/AI"));
@@ -56,6 +69,12 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const OnboardingWizard = lazy(() => import("@/components/auth/OnboardingWizard"));
 
 // Loading wrapper component
+function AuthenticatedPresence() {
+  const { userId } = useCurrentUser();
+  usePresenceHeartbeat(userId);
+  return null;
+}
+
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
     <LoadingState message="Loading..." showMascot={true} />
@@ -187,6 +206,8 @@ function AppContent() {
   // Show app routes if authenticated and onboarded
   return (
     <AuthProvider onLogout={handleLogout}>
+      <AuthenticatedPresence />
+      <CuratedMatchAutoClaim />
       <LazyErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Switch>
@@ -194,7 +215,11 @@ function AppContent() {
             <Route path="/" component={Home} />
             <Route path="/menu" component={Menu} />
             <Route path="/explore" component={ExploreMuzz} />
+            <Route path="/community/create-post" component={GroupCreatePostPage} />
+            <Route path="/community/post/:postId" component={CommunityPostPage} />
             <Route path="/community" component={Community} />
+            <Route path="/group/:id/create-post" component={GroupCreatePostPage} />
+            <Route path="/group/:id" component={GroupDetailPage} />
             <Route path="/people">
               <Redirect to="/directory" />
             </Route>
@@ -204,6 +229,8 @@ function AppContent() {
             <Route path="/event/:id" component={EventDetail} />
             <Route path="/events" component={Events} />
             <Route path="/chat" component={Chat} />
+            <Route path="/profile/social/edit" component={SocialEditProfile} />
+            <Route path="/profile/social" component={SocialSelfProfile} />
             <Route path="/profile/:id" component={ViewProfile} />
             <Route path="/profile" component={Profile} />
             <Route path="/subscriptions" component={Subscriptions} />
@@ -215,11 +242,14 @@ function AppContent() {
               <Redirect to="/ai-matchmaker/flow-b" />
             </Route>
             <Route path="/ai-matchmaker/flow-b" component={FlowB} />
+            <Route path="/ai-matchmaker/next-curated" component={NextCuratedMatch} />
             <Route path="/self-discovery">
               <Redirect to="/ai-matchmaker/flow-b" />
             </Route>
             <Route path="/empathy-observer" component={EmpathyObserver} />
             <Route path="/relationship-coaching" component={RelationshipCoaching} />
+            <Route path="/settings/social/connections" component={SocialConnectionsPage} />
+            <Route path="/settings/social" component={SettingsSocial} />
             <Route path="/settings" component={Settings} />
             <Route path="/login">
               <Redirect to="/" />
@@ -239,6 +269,7 @@ function AppContent() {
             <Route path="/admin/courses" component={AdminCourses} />
             <Route path="/admin/coaches" component={AdminCoaches} />
             <Route path="/admin/messages" component={AdminMessages} />
+            <Route path="/admin/onboarding-questionnaire" component={AdminOnboardingQuestionnaire} />
             <Route path="/admin/questions" component={AdminQuestions} />
             <Route path="/admin/reports" component={AdminModeration} />
             <Route path="/admin/settings" component={AdminSettings} />

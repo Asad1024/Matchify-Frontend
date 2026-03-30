@@ -1,21 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Users, Clock, Heart, Coffee, Music, Utensils, Dumbbell } from "lucide-react";
+import { Calendar, MapPin, Users, Clock } from "lucide-react";
 import { motion } from "framer-motion";
-
-const EVENT_THEMES = [
-  { gradient: "from-rose-400 via-pink-500 to-red-400", icon: Heart },
-  { gradient: "from-amber-400 via-orange-400 to-yellow-500", icon: Coffee },
-  { gradient: "from-violet-500 via-purple-500 to-indigo-400", icon: Music },
-  { gradient: "from-emerald-400 via-green-500 to-teal-400", icon: Utensils },
-  { gradient: "from-blue-400 via-cyan-500 to-sky-400", icon: Dumbbell },
-];
-
-function getEventTheme(id: string) {
-  const idx = id.charCodeAt(0) % EVENT_THEMES.length;
-  return EVENT_THEMES[idx];
-}
+import { getEventTheme } from "@/lib/eventCardTheme";
 
 interface EventCardProps {
   id: string;
@@ -57,69 +44,78 @@ export default function EventCard({
 
   return (
     <motion.div
-      whileHover={{ y: -4 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="w-full min-w-0 max-w-full"
+      whileHover={{ y: -2 }}
+      transition={{ type: "spring", stiffness: 300, damping: 22 }}
     >
       <Card 
-        className="overflow-hidden hover-elevate cursor-pointer transition-all shadow-lg hover:shadow-2xl"
+        className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-gray-100/80 bg-white shadow-md transition-all hover:shadow-lg"
         onClick={() => onClick?.(id)}
         data-testid={`card-event-${id}`}
       >
-        <div className="relative h-52">
+        <div className="relative h-44 w-full overflow-hidden sm:h-48">
           {image ? (
-            <img src={image} alt={title} className="w-full h-full object-cover" />
+            <img src={image} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className={`w-full h-full bg-gradient-to-br ${theme.gradient} flex items-center justify-center`}>
+            <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${theme.gradient}`}>
               <div className="absolute inset-0 opacity-10"
                 style={{ backgroundImage: "radial-gradient(circle, white 1.5px, transparent 1.5px)", backgroundSize: "24px 24px" }}
               />
-              <ThemeIcon className="w-20 h-20 text-white/80" strokeWidth={1} />
+              <ThemeIcon className="h-16 w-16 text-white/80 sm:h-20 sm:w-20" strokeWidth={1} />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          <Badge className="absolute top-4 left-4 bg-background/90 backdrop-blur-md border-primary/20 shadow-lg">
-            {type === 'online' ? '🌐 Online' : '📍 In Person'}
-          </Badge>
-          {price && (
-            <Badge className="absolute top-4 right-4 bg-success text-success-foreground shadow-lg shadow-success/30">
-              {price}
-            </Badge>
-          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/35" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-3 pt-3">
+            <span
+              className="inline-flex max-w-[56%] shrink-0 items-center truncate rounded-full border border-white/25 bg-white/95 px-3 py-1.5 text-[11px] font-bold text-gray-900 shadow-[0_2px_16px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:text-xs"
+              title={type === "online" ? "Online event" : "In person"}
+            >
+              {type === "online" ? "Online" : "In person"}
+            </span>
+            {price ? (
+              <span
+                className="inline-flex max-w-[56%] shrink-0 items-center truncate rounded-full border border-white/35 bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-[0_2px_16px_rgba(0,0,0,0.45)] sm:text-xs"
+                title={price}
+              >
+                {price}
+              </span>
+            ) : null}
+          </div>
         </div>
-        <CardContent className="p-5 space-y-4">
-          <div>
-            <h3 className="font-display font-bold text-xl text-foreground leading-tight">{title}</h3>
-            <p className="text-sm text-muted-foreground line-clamp-2 mt-2 leading-relaxed">{description}</p>
+        <CardContent className="space-y-3 p-4 sm:space-y-4 sm:p-5">
+          <div className="min-w-0">
+            <h3 className="font-display text-lg font-bold leading-snug text-foreground sm:text-xl">{title}</h3>
+            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
           </div>
-          <div className="space-y-3 text-sm">
-            <div className="flex items-center gap-3 text-foreground">
-              <div className="bg-primary/20 p-2 rounded-lg">
-                <Calendar className="w-4 h-4 text-primary-foreground" />
+          <div className="grid grid-cols-1 gap-2 text-sm sm:gap-2.5">
+            <div className="flex min-w-0 items-center gap-2.5 text-foreground">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+                <Calendar className="h-4 w-4 text-primary" />
               </div>
-              <span className="font-medium">{date}</span>
+              <span className="min-w-0 font-medium">{date}</span>
             </div>
-            <div className="flex items-center gap-3 text-foreground">
-              <div className="bg-primary/20 p-2 rounded-lg">
-                <Clock className="w-4 h-4 text-primary-foreground" />
+            <div className="flex min-w-0 items-center gap-2.5 text-foreground">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+                <Clock className="h-4 w-4 text-primary" />
               </div>
-              <span className="font-medium">{time}</span>
+              <span className="min-w-0 font-medium">{time}</span>
             </div>
-            <div className="flex items-center gap-3 text-foreground">
-              <div className="bg-primary/20 p-2 rounded-lg">
-                <MapPin className="w-4 h-4 text-primary-foreground" />
+            <div className="flex min-w-0 items-center gap-2.5 text-foreground">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+                <MapPin className="h-4 w-4 text-primary" />
               </div>
-              <span className="line-clamp-1 font-medium">{location}</span>
+              <span className="min-w-0 truncate font-medium">{location}</span>
             </div>
-            <div className="flex items-center gap-3 text-foreground">
-              <div className="bg-primary/20 p-2 rounded-lg">
-                <Users className="w-4 h-4 text-primary-foreground" />
+            <div className="flex min-w-0 items-center gap-2.5 text-foreground">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+                <Users className="h-4 w-4 text-primary" />
               </div>
-              <span className="font-medium">{attendees}/{capacity} attending</span>
+              <span className="min-w-0 font-medium">{attendees}/{capacity} attending</span>
             </div>
           </div>
-          <motion.div whileTap={{ scale: isLoading ? 1 : 0.95 }} className="w-full">
+          <motion.div whileTap={{ scale: isLoading ? 1 : 0.95 }} className="w-full min-w-0 pt-1">
             <Button
-              className={`w-full rounded-full h-12 font-bold shadow-lg ${!isRSVPd ? 'bg-success text-success-foreground hover:bg-success/90 glow-primary transition-all duration-300' : ''}`}
+              className={`h-11 w-full rounded-full text-sm font-bold shadow-md sm:h-12 sm:text-base ${!isRSVPd ? "bg-success text-success-foreground shadow-success/20 hover:bg-success/90" : ""}`}
               variant={isRSVPd ? "outline" : "default"}
               disabled={isLoading}
               onClick={(e) => {

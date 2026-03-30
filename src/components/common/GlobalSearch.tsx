@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   CommandDialog,
@@ -8,10 +8,13 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
-import { Home, Users, Calendar, MessageCircle, User as UserIcon, Compass, Bell, GraduationCap, Sparkles, Search } from "lucide-react";
+import { Home, Users, Calendar, MessageCircle, User as UserIcon, Compass, Bell, GraduationCap, Sparkles, Search, Globe } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getMockData } from "@/lib/mockData";
 import type { User, Event, Group, Post } from "@shared/schema";
+
+/** Dispatched by Header search button so the palette opens from the icon tap. */
+export const OPEN_GLOBAL_SEARCH_EVENT = "matchify-open-global-search";
 
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
@@ -32,6 +35,11 @@ export function GlobalSearch() {
     queryKey: ['/api/posts'],
   });
 
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(OPEN_GLOBAL_SEARCH_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_GLOBAL_SEARCH_EVENT, onOpen);
+  }, []);
 
   // Filter results based on search query
   const filteredUsers = users.filter((user: any) =>
@@ -56,7 +64,7 @@ export function GlobalSearch() {
   const navigationItems = [
     { icon: Home, label: "Home", path: "/" },
     { icon: Compass, label: "Directory", path: "/directory" },
-    { icon: Users, label: "Community", path: "/community" },
+    { icon: Globe, label: "Feed", path: "/community" },
     { icon: Calendar, label: "Events", path: "/events" },
     { icon: MessageCircle, label: "Chat", path: "/chat" },
     { icon: UserIcon, label: "Profile", path: "/profile" },

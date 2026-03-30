@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRoute, useLocation } from "wouter";
+import { useRoute, useLocation, useSearchParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/common/Header";
 import BottomNav from "@/components/common/BottomNav";
@@ -13,7 +13,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Users, Calendar, MapPin, Clock, Settings, Heart, Sparkles, Zap } from "lucide-react";
+import {
+  ArrowLeft,
+  Users,
+  Calendar,
+  MapPin,
+  Clock,
+  Settings,
+  Heart,
+  Sparkles,
+  Zap,
+  UserRound,
+} from "lucide-react";
 import { buildApiUrl } from "@/services/api";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +47,9 @@ interface Match {
 
 export default function EventDetail() {
   const [, setLocation] = useLocation();
+  const [searchParams] = useSearchParams();
+  const eventsBackPath =
+    searchParams.get("from") === "explore" ? "/explore?tab=events" : "/events";
   const [, params] = useRoute('/event/:id');
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
@@ -66,7 +80,14 @@ export default function EventDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
       const hasQuestionnaire = data?.event?.hasQuestionnaire ?? event?.hasQuestionnaire;
       toast({ title: "You're going!", description: "RSVP confirmed." });
-      if (hasQuestionnaire) {
+      const evPayload = data?.event as { hostUserId?: string; isHost?: boolean } | undefined;
+      const isHostAfterRsvp =
+        !!userId &&
+        (Boolean(evPayload?.isHost) ||
+          Boolean(event?.isHost) ||
+          String(evPayload?.hostUserId ?? (event as { hostUserId?: string })?.hostUserId ?? "") ===
+            userId);
+      if (hasQuestionnaire && !isHostAfterRsvp) {
         setActiveTab("questionnaire");
         setShowQuestionnaire(true);
       }
@@ -132,12 +153,18 @@ export default function EventDetail() {
   const questionnaireCompleted = !!questionnaire?.completed;
 
   // Fetch event details
-  const { data: event, isLoading } = useQuery<Event & { 
-    matchRevealTime?: string;
-    isHost?: boolean;
-    hasQuestionnaire?: boolean;
-    questionnaireCompleted?: boolean;
-  }>({
+  const { data: event, isLoading } = useQuery<
+    Event & {
+      matchRevealTime?: string;
+      isHost?: boolean;
+      hasQuestionnaire?: boolean;
+      questionnaireCompleted?: boolean;
+      hostUserId?: string;
+      hostName?: string;
+      host?: { name?: string };
+      userId?: string;
+    }
+  >({
     queryKey: [`/api/events/${eventId}`],
     enabled: !!eventId,
     queryFn: async () => {
@@ -147,6 +174,22 @@ export default function EventDetail() {
       return res.json();
     },
   });
+
+  const isHost = useMemo(() => {
+    if (!userId || !event) return false;
+    if (event.isHost === true) return true;
+    const hid =
+      (event as { hostUserId?: string; userId?: string }).hostUserId ??
+      (event as { userId?: string }).userId;
+    return Boolean(hid && hid === userId);
+  }, [userId, event]);
+
+  const hostDisplayName = useMemo(() => {
+    if (!event) return "";
+    const e = event as { hostName?: string; host?: { name?: string } };
+    const n = e.hostName?.trim() || e.host?.name?.trim();
+    return n || "";
+  }, [event]);
 
   // Fetch matches if revealed (server returns cards for current user when userId is passed)
   const { data: matches = [] } = useQuery<Match[]>({
@@ -176,20 +219,44 @@ export default function EventDetail() {
   }, [eventId, userId, refetchRsvps]);
 
   useEffect(() => {
+    // Hosts don't complete the attendee questionnaire
+    if (isHost && showQuestionnaire) {
+      setShowQuestionnaire(false);
+    }
+    if (isHost && activeTab === "questionnaire") {
+      setActiveTab("details");
+    }
+  }, [isHost, showQuestionnaire, activeTab]);
+
+  useEffect(() => {
     // Check if we should show questionnaire
     // Wait for all data to be loaded before showing
-    // Only auto-show if questionnaire is not completed and user has RSVP'd
-    if (event && !isLoading && event.hasQuestionnaire && !questionnaireCompleted && isRSVPd) {
+    // Only auto-show if questionnaire is not completed and user has RSVP'd (not the host)
+    if (
+      event &&
+      !isLoading &&
+      !isHost &&
+      event.hasQuestionnaire &&
+      !questionnaireCompleted &&
+      isRSVPd
+    ) {
       // Only auto-show if questionnaire modal is not already shown
       if (!showQuestionnaire) {
         setShowQuestionnaire(true);
-        setActiveTab('questionnaire');
+        setActiveTab("questionnaire");
       }
     } else if (questionnaireCompleted) {
       // If questionnaire is completed, make sure it's hidden
       setShowQuestionnaire(false);
     }
-  }, [event, isLoading, isRSVPd, questionnaireCompleted, showQuestionnaire]);
+  }, [
+    event,
+    isLoading,
+    isHost,
+    isRSVPd,
+    questionnaireCompleted,
+    showQuestionnaire,
+  ]);
 
   // Check if reveal time has passed
   const revealTime = event?.matchRevealTime ? new Date(event.matchRevealTime) : null;
@@ -203,8 +270,8 @@ export default function EventDetail() {
   if (!eventId) {
     return (
       <div className="min-h-screen bg-background pb-24">
-        <Header showSearch={false} unreadNotifications={0} onNotifications={() => {}} onCreate={() => {}} onSettings={() => {}} onLogout={logout} />
-        <div className="max-w-4xl mx-auto p-4">
+        <Header showSearch={false} unreadNotifications={0} onNotifications={() => {}} onCreate={() => {}} onLogout={logout} />
+        <div className="mx-auto max-w-lg px-4 pb-6 pt-2">
           <EmptyState title="Event not found" description="The event you're looking for doesn't exist" />
         </div>
       </div>
@@ -214,7 +281,7 @@ export default function EventDetail() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background pb-24">
-        <Header showSearch={false} unreadNotifications={0} onNotifications={() => {}} onCreate={() => {}} onSettings={() => {}} onLogout={logout} />
+        <Header showSearch={false} unreadNotifications={0} onNotifications={() => {}} onCreate={() => {}} onLogout={logout} />
         <LoadingState message="Loading event..." showMascot={true} />
       </div>
     );
@@ -223,8 +290,8 @@ export default function EventDetail() {
   if (!event) {
     return (
       <div className="min-h-screen bg-background pb-24">
-        <Header showSearch={false} unreadNotifications={0} onNotifications={() => {}} onCreate={() => {}} onSettings={() => {}} onLogout={logout} />
-        <div className="max-w-4xl mx-auto p-4">
+        <Header showSearch={false} unreadNotifications={0} onNotifications={() => {}} onCreate={() => {}} onLogout={logout} />
+        <div className="mx-auto max-w-lg px-4 pb-6 pt-2">
           <EmptyState title="Event not found" description="The event you're looking for doesn't exist" />
         </div>
       </div>
@@ -238,7 +305,6 @@ export default function EventDetail() {
         unreadNotifications={0}
         onNotifications={() => setLocation('/notifications')}
         onCreate={() => setLocation('/')}
-        onSettings={() => setLocation('/profile')}
         onLogout={logout}
       />
 
@@ -258,7 +324,7 @@ export default function EventDetail() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-4xl mx-auto p-4"
+        className="mx-auto max-w-lg px-4 pb-6 pt-2"
       >
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -267,16 +333,16 @@ export default function EventDetail() {
         >
           <Button
             variant="ghost"
-            onClick={() => setLocation('/events')}
+            onClick={() => setLocation(eventsBackPath)}
             className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Events
+            {searchParams.get("from") === "explore" ? "Back to Explore" : "Back to Events"}
           </Button>
         </motion.div>
 
         <AnimatePresence mode="wait">
-          {showQuestionnaire ? (
+          {showQuestionnaire && !isHost ? (
             <motion.div
               key="questionnaire"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -311,7 +377,7 @@ export default function EventDetail() {
                   <TabsTrigger value="details" className="relative">
                     Event Details
                   </TabsTrigger>
-                  {event.hasQuestionnaire && (
+                  {event.hasQuestionnaire && !isHost && (
                     <TabsTrigger value="questionnaire" className="relative">
                       <span className="flex items-center gap-1">
                         Questionnaire
@@ -346,7 +412,7 @@ export default function EventDetail() {
                       </TabsTrigger>
                     </motion.div>
                   )}
-                  {event.isHost && (
+                  {isHost && (
                     <TabsTrigger value="admin" className="relative">
                       <span className="flex items-center gap-1">
                         Admin
@@ -388,6 +454,10 @@ export default function EventDetail() {
                               { icon: Calendar, label: event.date, sublabel: event.time },
                               { icon: MapPin, label: event.location, badge: event.type === 'online' ? 'Online' : 'In Person' },
                               { icon: Users, label: `${event.attendeesCount || 0}/${event.capacity} attending` },
+                              hostDisplayName && {
+                                icon: UserRound,
+                                label: `Host: ${hostDisplayName}`,
+                              },
                               event.price && { icon: Clock, label: event.price },
                             ].filter(Boolean) as Array<{ icon: typeof Calendar; label: string; sublabel?: string; badge?: string }>).map((item, index) => (
                               <motion.div
@@ -414,14 +484,23 @@ export default function EventDetail() {
                             ))}
                           </motion.div>
 
-                          {/* RSVP / Cancel RSVP - questionnaire shown after RSVP when event has one */}
+                          {/* RSVP / hosting — hosts are treated as already in; no attendee questionnaire */}
                           <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
-                            className="flex flex-col sm:flex-row gap-3"
+                            className="flex flex-col gap-3"
                           >
-                            {!isRSVPd ? (
+                            {isHost ? (
+                              <>
+                                <Badge className="w-fit px-4 py-2 text-sm bg-primary/15 text-primary border border-primary/30">
+                                  You're hosting this event
+                                </Badge>
+                                <p className="text-sm text-muted-foreground">
+                                  You're already in. Attendees who RSVP complete the match questionnaire to be paired.
+                                </p>
+                              </>
+                            ) : !isRSVPd ? (
                               <Button
                                 className="w-full sm:w-auto rounded-full h-12 font-bold bg-success text-success-foreground hover:bg-success/90"
                                 disabled={rsvpMutation.isPending}
@@ -430,7 +509,7 @@ export default function EventDetail() {
                                 {rsvpMutation.isPending ? "RSVPing…" : "RSVP"}
                               </Button>
                             ) : (
-                              <>
+                              <div className="flex flex-col sm:flex-row gap-3">
                                 <Badge className="w-fit px-4 py-2 text-sm bg-success/20 text-success border border-success/40">
                                   You're going
                                 </Badge>
@@ -442,11 +521,11 @@ export default function EventDetail() {
                                 >
                                   {cancelRsvpMutation.isPending ? "Cancelling…" : "Cancel RSVP"}
                                 </Button>
-                              </>
+                              </div>
                             )}
                           </motion.div>
 
-                          {event.hasQuestionnaire && !questionnaireCompleted && (
+                          {event.hasQuestionnaire && !questionnaireCompleted && !isHost && (
                             <motion.div
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
@@ -496,7 +575,7 @@ export default function EventDetail() {
                     </TabsContent>
                   )}
 
-                  {activeTab === "questionnaire" && event.hasQuestionnaire && (
+                  {activeTab === "questionnaire" && event.hasQuestionnaire && !isHost && (
                     <TabsContent value="questionnaire" key="questionnaire">
                       <AnimatePresence mode="wait">
                         {questionnaireCompleted && !isEditingAnswers ? (
@@ -608,7 +687,7 @@ export default function EventDetail() {
                     </TabsContent>
                   )}
 
-                  {activeTab === "admin" && event.isHost && (
+                  {activeTab === "admin" && isHost && (
                     <TabsContent value="admin" key="admin">
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}

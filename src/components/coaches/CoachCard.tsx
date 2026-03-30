@@ -20,7 +20,7 @@ interface CoachCardProps {
 }
 
 const SPECIALTY_COLORS: Record<string, string> = {
-  "Pre-marriage": "from-rose-400 to-pink-500",
+  "Pre-marriage": "from-red-800 to-primary",
   "Communication": "from-blue-400 to-indigo-500",
   "Conflict": "from-orange-400 to-amber-500",
   "Intimacy": "from-purple-400 to-violet-500",

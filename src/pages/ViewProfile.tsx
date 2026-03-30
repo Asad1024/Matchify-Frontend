@@ -2,51 +2,41 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import Header from "@/components/common/Header";
 import BottomNav from "@/components/common/BottomNav";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   MapPin,
   Heart,
-  Users,
-  Calendar,
   CheckCircle,
   MessageCircle,
   ArrowLeft,
   Share2,
   MoreVertical,
   Sparkles,
-  Award,
   Flag,
   Ban,
-  X,
-  Crown,
   Ruler,
   Baby,
-  Check,
+  Briefcase,
+  UserRound,
+  Globe2,
+  Flame,
+  Brain,
+  GraduationCap,
+  Languages as LanguagesIcon,
+  AlignLeft,
 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LoadingState } from "@/components/common/LoadingState";
-import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { BlockReportDialog } from "@/components/common/BlockReportDialog";
 import { MatchInsights } from "@/components/matches/MatchInsights";
 import MatchReveal from "@/components/matches/MatchReveal";
-import { MuzzMarriageTimeline } from "@/components/muzz/MuzzMarriageTimeline";
+import { ProfileMarriageIntentBar } from "@/components/profile/ProfileMarriageIntentBar";
+import { ProfilePreviewCard } from "@/components/profile/ProfilePreviewCard";
 import { useToast } from "@/hooks/use-toast";
-import {
-  pushExploreHistory,
-  hasRevealedFilters,
-  revealFiltersFor,
-  getBoosts,
-  setBoosts,
-  isGoldMember,
-} from "@/lib/muzzEconomy";
-import { getReligionLabel } from "@/lib/religionOptions";
+import { pushExploreHistory } from "@/lib/muzzEconomy";
+import { getReligionLabel, MEET_PREFERENCE_OPTIONS } from "@/lib/religionOptions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +46,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { buildApiUrl } from "@/services/api";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { ShareProfileDialog } from "@/components/profile/ShareProfileDialog";
+import { labelLoveLanguage, membershipBadgeLabel, splitLocation } from "@/lib/profileLabels";
+import { labelAlcohol, labelEthnicity, labelSmoking } from "@/lib/profileDemographics";
 
 type User = {
   id: string;
@@ -73,12 +66,36 @@ type User = {
   values?: string[] | null;
   commitmentIntention?: string | null;
   marriageTimeline?: string | null;
+  marriageApproach?: string | null;
+  wantsChildren?: string | null;
   religion?: string | null;
   height?: string | null;
   heightCm?: number | null;
   maritalStatus?: string | null;
   hasChildren?: string | boolean | null;
+  profileBanner?: string | null;
+  privacy?: { showOnlineStatus?: boolean } | null;
+  lastActiveAt?: string | null;
+  createdAt?: string | null;
+  career?: string | null;
+  meetPreference?: string | null;
+  loveLanguage?: string | null;
+  lifestyle?: string[] | null;
+  education?: string | null;
+  incomeRange?: string | null;
+  languages?: string | string[] | null;
+  extraBio?: string | null;
+  nationality?: string | null;
+  ethnicity?: string | null;
+  smoking?: string | null;
+  drinksAlcohol?: string | null;
 };
+
+function formatLanguages(raw: string | string[] | null | undefined): string {
+  if (!raw) return "";
+  if (Array.isArray(raw)) return raw.filter(Boolean).join(" · ");
+  return raw;
+}
 
 function hashId(id: string) {
   let sum = 0;
@@ -113,22 +130,6 @@ function aboutMeRows(user: User): { label: string; value: string }[] {
   ];
 }
 
-function faithChipsFor(user: User): string[] {
-  const tags: string[] = [];
-  if (user.religion && user.religion !== "prefer_not_say") {
-    tags.push(getReligionLabel(user.religion));
-  }
-  if (user.values?.length) {
-    tags.push(...user.values.filter(Boolean).slice(0, 4));
-  }
-  if (!tags.length) {
-    const h = hashId(user.id || "x");
-    const pool = ["Values-led", "Family-oriented", "Open-minded", "Community-minded"];
-    tags.push(pool[h % pool.length], pool[(h + 1) % pool.length]);
-  }
-  return Array.from(new Set(tags)).slice(0, 5);
-}
-
 function hashPairScore(a: string, b: string): number {
   const s = `${a}:${b}`;
   let h = 0;
@@ -142,12 +143,11 @@ export default function ViewProfile() {
   const [activePage, setActivePage] = useState('explore');
   const [, params] = useRoute('/profile/:id');
   const [, setLocation] = useLocation();
-  const { logout } = useAuth();
   const { userId: currentUserId } = useCurrentUser();
   const { toast } = useToast();
   const [blockReportOpen, setBlockReportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [blockReportType, setBlockReportType] = useState<'block' | 'report' | 'both'>('both');
-  const [filtersUnlocked, setFiltersUnlocked] = useState(false);
   const [likeRevealMatch, setLikeRevealMatch] = useState<{
     id: string;
     compatibility: number;
@@ -175,7 +175,6 @@ export default function ViewProfile() {
   useEffect(() => {
     if (!user?.id) return;
     pushExploreHistory(user.id);
-    if (hasRevealedFilters(user.id)) setFiltersUnlocked(true);
   }, [user?.id]);
 
   const sharedInterests = useMemo(() => {
@@ -187,29 +186,6 @@ export default function ViewProfile() {
   const sameCommitment =
     Boolean(me?.commitmentIntention && user?.commitmentIntention) &&
     me?.commitmentIntention === user?.commitmentIntention;
-
-  const handleRevealFilters = () => {
-    if (!user?.id) return;
-    if (isGoldMember()) {
-      revealFiltersFor(user.id);
-      setFiltersUnlocked(true);
-      toast({ title: "Filters revealed", description: "Included with Gold." });
-      return;
-    }
-    const b = getBoosts();
-    if (b < 1) {
-      toast({
-        title: "No boosts left",
-        description: "Open Menu → Buy more (demo) to refill.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setBoosts(b - 1);
-    revealFiltersFor(user.id);
-    setFiltersUnlocked(true);
-    toast({ title: "Filters revealed", description: "Used 1 boost." });
-  };
 
   const compatibilityScore = useMemo(() => {
     if (!currentUserId || !params?.id) return 82;
@@ -282,551 +258,475 @@ export default function ViewProfile() {
     setLikeRevealMatch(null);
   };
 
-  const activityStats = useMemo(() => {
-    const base = hashPairScore(user?.id || "x", "activity");
-    return {
-      matches: 8 + (base % 15),
-      events: 3 + (base % 12),
-      groups: 2 + (base % 8),
-    };
-  }, [user?.id]);
-
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#faf8f5] pb-24">
-        <Header 
-          showSearch={false} 
-          unreadNotifications={3}
-          onNotifications={() => setLocation('/notifications')}
-          onCreate={() => setLocation('/')}
-          onSettings={() => setLocation('/profile')}
-          onLogout={logout} 
-        />
+      <div className="min-h-screen bg-gray-50 pb-24">
+        <div className="sticky top-0 z-40 border-b border-stone-200/80 bg-background/95 backdrop-blur">
+          <div className="mx-auto flex h-12 max-w-lg items-center px-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={() => setLocation("/explore")}
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
         <div className="flex items-center justify-center py-20">
           <LoadingState message="Loading profile..." showMascot={true} />
         </div>
+        <BottomNav active={activePage} onNavigate={setActivePage} />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#faf8f5] pb-24">
-        <Header 
-          showSearch={false} 
-          unreadNotifications={3}
-          onNotifications={() => setLocation('/notifications')}
-          onCreate={() => setLocation('/')}
-          onSettings={() => setLocation('/profile')}
-          onLogout={logout} 
-        />
+      <div className="min-h-screen bg-gray-50 pb-24">
+        <div className="sticky top-0 z-40 border-b border-stone-200/80 bg-background/95 backdrop-blur">
+          <div className="mx-auto flex h-12 max-w-lg items-center px-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={() => setLocation("/explore")}
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <p className="text-muted-foreground mb-4">Profile not found</p>
-            <Button onClick={() => setLocation('/explore')}>
+            <Button onClick={() => setLocation("/explore")}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Explore
             </Button>
           </div>
         </div>
+        <BottomNav active={activePage} onNavigate={setActivePage} />
       </div>
     );
   }
 
   const aboutRows = aboutMeRows(user);
-  const faithChips = faithChipsFor(user);
-  const firstName = user.name.split(/\s+/)[0] || user.name;
+  const { city, country } = splitLocation(user.location);
+  const profileAvatarUrl = user.avatar?.trim() || "";
+  const isOwnProfile = user.id === currentUserId;
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] pb-28">
-      <Header showSearch={false} unreadNotifications={3} onLogout={logout} />
-
-      <div className="max-w-4xl mx-auto">
-        {/* Back Button */}
-        <div className="p-3 sm:p-4 sticky top-16 bg-background/95 backdrop-blur-sm z-30">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-          <Button 
-            variant="ghost" 
-                  size="icon" 
-            onClick={() => setLocation('/explore')}
-                  className="rounded-full hover-elevate"
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="sticky top-0 z-40 border-b border-stone-200/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto flex h-12 max-w-lg items-center gap-2 px-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0 rounded-full hover-elevate"
+            onClick={() => setLocation("/explore")}
             data-testid="button-back"
+            aria-label="Back to Explore"
           >
-                  <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="h-5 w-5" />
           </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Back to Explore</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        {/* Profile Hero */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative"
-        >
-          {/* Cover gradient */}
-          <div className="h-48 bg-gradient-to-br from-primary/20 via-chart-1/20 to-chart-4/20 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
-          </div>
-
-          {/* Profile Info */}
-          <div className="px-3 sm:px-4 -mt-16 sm:-mt-20 relative z-10">
-            <div className="flex flex-col md:flex-row gap-4 sm:gap-6 items-start md:items-end">
-              {/* Avatar */}
-              <div className="relative">
-                <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-background shadow-2xl">
-                  <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                  <AvatarFallback className="text-3xl sm:text-4xl bg-gradient-to-br from-primary/20 to-chart-1/20">
-                    {user.name.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                {user.verified && (
-                  <div className="absolute -bottom-1 -right-1 w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-full flex items-center justify-center border-4 border-background">
-                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-                  </div>
-                )}
-              </div>
-
-              {/* Name and Actions */}
-              <div className="flex-1 min-w-0 w-full md:w-auto">
-                <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground flex items-center gap-2 flex-wrap">
-                      {user.name}{user.age ? `, ${user.age}` : ''}
-                      {user.membershipTier && user.membershipTier !== 'free' && (
-                        <Badge className="bg-gradient-to-r from-chart-4 to-chart-1 border-0">
-                          <Award className="w-3 h-3 mr-1" />
-                          {user.membershipTier.charAt(0).toUpperCase() + user.membershipTier.slice(1)}
-                        </Badge>
-                      )}
-                    </h1>
-                    {user.location && (
-                      <div className="flex items-center gap-2 text-muted-foreground mt-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{user.location}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button size="icon" variant="outline" className="rounded-full hover-elevate">
-                      <Share2 className="w-4 h-4" />
-                    </Button>
-                    {user.id !== currentUserId && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                    <Button size="icon" variant="outline" className="rounded-full hover-elevate">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setBlockReportType('report');
-                              setBlockReportOpen(true);
-                            }}
-                          >
-                            <Flag className="w-4 h-4 mr-2" />
-                            Report User
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setBlockReportType('block');
-                              setBlockReportOpen(true);
-                            }}
-                            className="text-destructive"
-                          >
-                            <Ban className="w-4 h-4 mr-2" />
-                            Block User
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-              <Button
-                className="flex-1 gap-2 h-10 sm:h-11 bg-primary hover:bg-primary/90 text-sm sm:text-base"
-                data-testid="button-message"
-                onClick={() => setLocation(`/chat?user=${encodeURIComponent(user.id)}`)}
-              >
-                <MessageCircle className="w-4 h-4" />
-                Message
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1 gap-2 h-10 sm:h-11 hover-elevate text-sm sm:text-base"
-                data-testid="button-like"
-                onClick={() => toast({ title: "Like sent", description: `You liked ${user.name.split(/\s+/)[0] || user.name}.` })}
-              >
-                <Heart className="w-4 h-4" />
-                Like
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Compatibility Score & Match Insights */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="px-3 sm:px-4 mt-4 sm:mt-6 space-y-3 sm:space-y-4"
-        >
-          <Card className="bg-gradient-to-br from-primary/10 to-chart-1/10 border-primary/20">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-primary-foreground" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-display font-semibold text-lg sm:text-xl text-foreground mb-1">
-                    {compatibilityScore}% Match
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    You have great compatibility based on shared interests
-                  </p>
-                </div>
-              </div>
-              
-              {/* Progress Bar */}
-              <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
-                <motion.div 
-                  className="h-full bg-gradient-to-r from-primary to-chart-1"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${compatibilityScore}%` }}
-                  transition={{ duration: 1, delay: 0.3 }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* AI compatibility (uses /ai-matches when available) */}
-          {currentUserId && user.id !== currentUserId && (
-            <MatchInsights targetUserId={user.id} />
-          )}
-        </motion.div>
-
-        {/* Premium filter reveal — Muzz-style gold banner */}
-        {user.id !== currentUserId && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-            className="px-3 sm:px-4 mt-4"
-          >
-            <div
-              className={`rounded-2xl border shadow-sm overflow-hidden ${
-                filtersUnlocked
-                  ? "bg-white border-stone-200/80"
-                  : "bg-[#f0e8dc] border-amber-200/60"
-              }`}
+          <h1 className="min-w-0 flex-1 truncate text-center text-sm font-bold text-foreground">{user.name}</h1>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="rounded-full hover-elevate"
+              aria-label="Share profile"
+              onClick={() => setShareOpen(true)}
             >
-              {filtersUnlocked ? (
-                <div className="px-4 sm:px-5 pt-4 pb-3 flex items-center gap-2 border-b border-stone-100">
-                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <div>
-                    <p className="font-display font-bold text-stone-900 text-sm">Their filters</p>
-                    <p className="text-[11px] text-stone-500">What they look for in Discover</p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="px-4 sm:px-5 pt-5 pb-4 text-center">
-                    <Crown className="w-9 h-9 mx-auto text-amber-600 mb-3 drop-shadow-sm" strokeWidth={1.5} />
-                    <p className="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] text-amber-950/75 uppercase leading-snug">
-                      Reveal {firstName.toUpperCase()}&apos;s filters
-                    </p>
-                    <p className="text-[11px] text-amber-950/55 mt-2 max-w-xs mx-auto">
-                      See if you match what they’re looking for — Gold or 1 boost.
-                    </p>
-                  </div>
-                  <div className="px-4 sm:px-5 pb-5">
-                    <Button
-                      className="w-full h-12 sm:h-14 rounded-xl font-bold text-amber-950 bg-gradient-to-b from-amber-300 via-amber-400 to-amber-600 hover:from-amber-200 hover:to-amber-500 border border-amber-300/80 shadow-md shadow-amber-900/10"
-                      onClick={handleRevealFilters}
-                    >
-                      Check if you match their filters
-                    </Button>
-                  </div>
-                </>
-              )}
-              <div
-                className={`px-4 sm:px-5 pb-5 ${filtersUnlocked ? "pt-4" : "-mt-1 border-t border-amber-200/40 bg-white/50"}`}
-              >
-                <div
-                  className={`relative rounded-xl border p-3 min-h-[64px] ${
-                    filtersUnlocked
-                      ? "border-stone-200 bg-stone-50/80 mt-0"
-                      : "border-amber-100/80 bg-white/80 mt-3 select-none"
-                  }`}
-                >
-                  {!filtersUnlocked && (
-                    <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-[#faf8f5]/70 flex items-center justify-center rounded-xl">
-                      <span className="text-[11px] font-semibold text-amber-950/50">Unlocked after reveal</span>
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    {["Faith & values", "Marriage-minded", "Same city", "Age range match"].map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="secondary"
-                        className={
-                          filtersUnlocked
-                            ? "bg-white text-stone-800 border-stone-200 font-medium"
-                            : "bg-amber-50 text-amber-950 border-amber-200/80 font-medium"
-                        }
-                      >
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Similarities */}
-        {user.id !== currentUserId && (sharedInterests.length > 0 || sameCommitment) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.14 }}
-            className="px-3 sm:px-4 mt-4"
-          >
-            <Card>
-              <CardContent className="p-4 sm:p-5">
-                <h3 className="font-display font-semibold text-base mb-3 text-foreground">Your similarities</h3>
-                <div className="flex flex-wrap gap-2">
-                  {sameCommitment && user.commitmentIntention && (
-                    <Badge className="bg-chart-4/15 text-chart-4 border-chart-4/30">
-                      Same marriage intention ·{" "}
-                      {user.commitmentIntention.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </Badge>
-                  )}
-                  {sharedInterests.map((interest) => (
-                    <Badge key={interest} variant="outline" className="border-primary/30 text-primary">
-                      {interest}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* About me — Muzz-style fact rows */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.18 }}
-          className="px-3 sm:px-4 mt-4"
-        >
-          <Card className="border-stone-200/80 bg-white shadow-sm">
-            <CardContent className="p-4 sm:p-5">
-              <h3 className="font-display font-semibold text-base mb-4 text-foreground">About me</h3>
-              <div className="space-y-3">
-                {aboutRows.map((row, i) => {
-                  const Icon = i === 0 ? Ruler : i === 1 ? Heart : Baby;
-                  return (
-                    <div
-                      key={row.label}
-                      className="flex items-center gap-3 rounded-xl bg-stone-50/90 border border-stone-100 px-3 py-2.5"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-white border border-stone-200 flex items-center justify-center shrink-0 text-stone-600">
-                        <Icon className="w-4 h-4" strokeWidth={2} />
-                      </div>
-                      <div className="min-w-0 flex-1 flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-semibold text-stone-500">{row.label}</span>
-                        <Badge
-                          variant="secondary"
-                          className="font-semibold bg-white text-stone-800 border-stone-200 shadow-sm"
-                        >
-                          {row.value}
-                        </Badge>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Marriage intentions — Muzz-style timeline */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.22 }}
-          className="px-3 sm:px-4 mt-4"
-        >
-          <MuzzMarriageTimeline
-            firstName={firstName}
-            commitmentIntention={user.commitmentIntention}
-            marriageTimeline={user.marriageTimeline}
-          />
-        </motion.div>
-
-        {/* My faith / values — Muzz-style tags */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.24 }}
-          className="px-3 sm:px-4 mt-4"
-        >
-          <Card className="border-stone-200/80 bg-white shadow-sm">
-            <CardContent className="p-4 sm:p-5">
-              <h3 className="font-display font-semibold text-base mb-3 text-foreground">My faith & values</h3>
-              <div className="flex flex-wrap gap-2">
-                {faithChips.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="px-3 py-1.5 text-sm font-medium bg-stone-100 text-stone-800 border-stone-200/80 rounded-full"
+              <Share2 className="h-4 w-4" />
+            </Button>
+            {!isOwnProfile && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="icon" variant="ghost" className="rounded-full hover-elevate" aria-label="More options">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setBlockReportType("report");
+                      setBlockReportOpen(true);
+                    }}
                   >
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Bio */}
-        {user.bio && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.26 }}
-            className="px-4 mt-6"
-          >
-            <Card className="border-stone-200/80 bg-white shadow-sm">
-              <CardContent className="p-4 sm:p-6">
-                <h2 className="font-display font-semibold text-lg mb-3 text-foreground">In their own words</h2>
-                <p className="text-foreground leading-relaxed">{user.bio}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Interests */}
-        {user.interests && Array.isArray(user.interests) && user.interests.length > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="px-4 mt-6"
-          >
-            <Card>
-              <CardContent className="p-4 sm:p-6">
-                <h2 className="font-display font-semibold text-lg mb-4 text-foreground">Interests</h2>
-                <div className="flex flex-wrap gap-2">
-                  {user.interests.map((interest) => (
-                    <Badge 
-                      key={interest} 
-                      variant="secondary"
-                      className="bg-primary/10 text-primary border-primary/20 px-4 py-1.5"
-                    >
-                      {interest}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Stats */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="px-4 mt-6 mb-6"
-        >
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <h2 className="font-display font-semibold text-lg mb-4 text-foreground">Activity</h2>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 text-xl sm:text-2xl font-bold text-foreground">
-                    <Heart className="w-5 h-5 text-chart-2" />
-                    <span>{activityStats.matches}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">Matches</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 text-xl sm:text-2xl font-bold text-foreground">
-                    <Calendar className="w-5 h-5 text-chart-3" />
-                    <span>{activityStats.events}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">Events</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 text-xl sm:text-2xl font-bold text-foreground">
-                    <Users className="w-5 h-5 text-chart-4" />
-                    <span>{activityStats.groups}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">Groups</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+                    <Flag className="mr-2 h-4 w-4" />
+                    Report User
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setBlockReportType("block");
+                      setBlockReportOpen(true);
+                    }}
+                    className="text-destructive"
+                  >
+                    <Ban className="mr-2 h-4 w-4" />
+                    Block User
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
       </div>
 
-      <BottomNav active={activePage} onNavigate={setActivePage} />
+      <motion.div
+        className="mx-auto max-w-lg space-y-3 px-3 pb-10 pt-2"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="overflow-hidden rounded-3xl border border-stone-200/90 bg-white shadow-[0_12px_40px_-20px_rgba(55,30,40,0.25)]">
+          <div className="relative isolate aspect-[3/4] w-full min-h-[300px] max-h-[min(520px,78vh)] bg-muted">
+            {profileAvatarUrl ? (
+              <img
+                src={profileAvatarUrl}
+                alt=""
+                loading="eager"
+                decoding="async"
+                className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover [filter:none]"
+                style={{ transform: "translateZ(0)", WebkitBackfaceVisibility: "hidden" }}
+              />
+            ) : (
+              <div
+                className="absolute inset-0 z-0 bg-gradient-to-br from-primary/45 via-primary/20 to-background"
+                aria-hidden
+              />
+            )}
+            <div
+              className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-t from-black/78 via-black/10 to-transparent"
+              aria-hidden
+            />
+            <div className="absolute left-3 top-3 z-[3] flex flex-wrap items-center gap-2">
+              <Badge className="rounded-full border-0 bg-white/95 px-2.5 py-1 text-[10px] font-bold text-gray-900 shadow-md sm:text-xs">
+                {membershipBadgeLabel(user.createdAt)}
+              </Badge>
+              {user.verified ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground shadow-md">
+                  <CheckCircle className="h-3 w-3" />
+                  Verified
+                </span>
+              ) : null}
+            </div>
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[3] p-4 text-white">
+              <h2 className="font-display text-2xl font-black leading-tight tracking-tight drop-shadow-sm">
+                {user.name}
+                {user.age != null ? <span className="font-bold text-white/90"> · {user.age}</span> : null}
+              </h2>
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-white/92">
+                {(city || country) && (
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 opacity-90" />
+                    {[city, country].filter(Boolean).join(", ")}
+                  </span>
+                )}
+                {user.career ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Briefcase className="h-3.5 w-3.5 opacity-90" />
+                    {user.career}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          {user.membershipTier && user.membershipTier !== "free" ? (
+            <div className="border-t border-stone-100 bg-stone-50/90 px-4 py-2.5">
+              <p className="text-center text-[11px] font-bold uppercase tracking-wide text-primary">
+                {user.membershipTier} member
+              </p>
+            </div>
+          ) : null}
+        </div>
 
-      {/* Floating quick actions (Muzz-style) */}
-      {user.id !== currentUserId && (
-        <div
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full bg-white/95 backdrop-blur-md border border-stone-200/90 shadow-xl px-3 py-2.5 safe-bottom"
-          style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.14)" }}
-        >
+        <div className="flex gap-2 sm:gap-3">
           <Button
-            size="icon"
-            className="rounded-full h-12 w-12 bg-zinc-700 text-white hover:bg-zinc-800 shadow-md"
-            aria-label="Pass"
-            onClick={() => {
-              toast({ title: "Passed", description: "We’ll show you fewer similar profiles." });
-              setLocation("/explore");
-            }}
+            className="h-10 flex-1 gap-2 bg-primary text-sm hover:bg-primary/90 sm:h-11 sm:text-base"
+            data-testid="button-message"
+            disabled={isOwnProfile}
+            onClick={() => setLocation(`/chat?user=${encodeURIComponent(user.id)}`)}
           >
-            <X className="w-6 h-6 stroke-[2.5]" />
+            <MessageCircle className="h-4 w-4" />
+            Message
           </Button>
           <Button
-            size="icon"
-            className="rounded-full h-11 w-11 bg-violet-600 text-white hover:bg-violet-700 shadow-md border border-violet-500/30"
-            aria-label="Instant match"
-            onClick={() => toast({ title: "Instant match", description: "Demo — opens boosts / Gold from Menu." })}
-          >
-            <Sparkles className="w-5 h-5" />
-          </Button>
-          <Button
-            size="icon"
-            className="rounded-full h-[3.75rem] w-[3.75rem] bg-primary hover:bg-primary/92 shadow-lg shadow-primary/35 border-2 border-white"
-            aria-label="Like"
-            disabled={likeProfileMutation.isPending}
+            variant="outline"
+            className="h-10 flex-1 gap-2 text-sm hover-elevate sm:h-11 sm:text-base"
+            data-testid="button-like"
+            disabled={!currentUserId || isOwnProfile || likeProfileMutation.isPending}
             onClick={() => {
-              if (!currentUserId) return;
+              if (!currentUserId) {
+                toast({
+                  title: "Sign in",
+                  description: "Sign in to like profiles.",
+                  variant: "destructive",
+                });
+                return;
+              }
               likeProfileMutation.mutate();
             }}
           >
-            <Check className="w-8 h-8 text-white stroke-[3]" />
+            <Heart className="h-4 w-4" />
+            Like
           </Button>
         </div>
-      )}
+
+        {!isOwnProfile && currentUserId && (
+          <ProfilePreviewCard
+            icon={Sparkles}
+            title="Compatibility"
+            description="How well you may align on paper."
+          >
+            <div className="space-y-4">
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-foreground">Match score</span>
+                  <span className="text-lg font-black text-primary">{compatibilityScore}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-primary to-chart-1"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${compatibilityScore}%` }}
+                    transition={{ duration: 0.8, delay: 0.15 }}
+                  />
+                </div>
+              </div>
+              <MatchInsights targetUserId={user.id} />
+            </div>
+          </ProfilePreviewCard>
+        )}
+
+        {!isOwnProfile && (sharedInterests.length > 0 || sameCommitment) && (
+          <ProfilePreviewCard icon={Heart} title="Your similarities" description="">
+            <div className="flex flex-wrap gap-2">
+              {sameCommitment && user.commitmentIntention && (
+                <span className="rounded-full border border-chart-4/30 bg-chart-4/10 px-3 py-1.5 text-xs font-bold text-chart-4">
+                  Same marriage intention ·{" "}
+                  {user.commitmentIntention.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                </span>
+              )}
+              {sharedInterests.map((interest) => (
+                <span
+                  key={interest}
+                  className="rounded-full border border-primary/20 bg-primary/[0.07] px-3 py-1.5 text-xs font-bold text-primary"
+                >
+                  {interest}
+                </span>
+              ))}
+            </div>
+          </ProfilePreviewCard>
+        )}
+
+        <ProfilePreviewCard
+          icon={UserRound}
+          title="About me"
+          description="A quick hello in their own words."
+        >
+          <p className="text-sm font-medium leading-relaxed text-foreground/90">
+            {user.bio?.trim() || "They haven’t added an intro yet."}
+          </p>
+        </ProfilePreviewCard>
+
+        <ProfilePreviewCard icon={Ruler} title="Basics" description="At-a-glance details.">
+          <div className="space-y-3">
+            {aboutRows.map((row, i) => {
+              const Icon = i === 0 ? Ruler : i === 1 ? Heart : Baby;
+              return (
+                <div
+                  key={row.label}
+                  className="flex items-center gap-3 rounded-2xl border border-stone-100 bg-stone-50/90 px-3 py-2.5"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600">
+                    <Icon className="h-4 w-4" strokeWidth={2} />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-muted-foreground">{row.label}</span>
+                    <Badge variant="secondary" className="font-semibold">
+                      {row.value}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </ProfilePreviewCard>
+
+        <div className="space-y-3">
+          <ProfileMarriageIntentBar
+            user={{
+              name: user.name,
+              commitmentIntention: user.commitmentIntention ?? null,
+              marriageTimeline: user.marriageTimeline ?? null,
+              marriageApproach: user.marriageApproach ?? null,
+              wantsChildren: user.wantsChildren != null ? String(user.wantsChildren) : null,
+            }}
+            variant="other"
+          />
+        </div>
+
+        <ProfilePreviewCard
+          icon={Globe2}
+          title="Faith & communities"
+          description="Background and community preferences."
+        >
+          <div className="space-y-3">
+            <div className="rounded-2xl bg-stone-50/90 px-3.5 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background</p>
+              <p className="mt-1 text-sm font-bold text-foreground">
+                {user.religion ? getReligionLabel(user.religion) : "—"}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-stone-50/90 px-3.5 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Community</p>
+              <p className="mt-1 text-sm font-bold text-foreground">
+                {user.meetPreference
+                  ? MEET_PREFERENCE_OPTIONS.find((m) => m.value === user.meetPreference)?.label
+                  : "Open to everyone"}
+              </p>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Everyone is welcome — this helps personalize matches.
+            </p>
+          </div>
+        </ProfilePreviewCard>
+
+        <ProfilePreviewCard icon={Flame} title="Interests" description="What they enjoy talking about.">
+          {user.interests && user.interests.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {user.interests.map((interest) => (
+                <span
+                  key={interest}
+                  className="rounded-full border border-primary/20 bg-primary/[0.07] px-3 py-1.5 text-xs font-bold text-primary"
+                >
+                  {interest}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No interests listed yet.</p>
+          )}
+        </ProfilePreviewCard>
+
+        <ProfilePreviewCard
+          icon={Brain}
+          title="Personality"
+          description="Love language, values, and lifestyle."
+        >
+          <div className="space-y-4">
+            {user.loveLanguage ? (
+              <div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.06] to-transparent px-3.5 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Love language</p>
+                <p className="mt-1 text-sm font-bold text-foreground">{labelLoveLanguage(user.loveLanguage)}</p>
+              </div>
+            ) : null}
+            {user.values && user.values.length > 0 ? (
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Values</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {user.values.map((v) => (
+                    <span
+                      key={v}
+                      className="rounded-lg bg-muted px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                    >
+                      {v}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {user.lifestyle && user.lifestyle.length > 0 ? (
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Lifestyle
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {user.lifestyle.map((v) => (
+                    <span
+                      key={v}
+                      className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                    >
+                      {v}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {!user.loveLanguage &&
+            !(user.values && user.values.length) &&
+            !(user.lifestyle && user.lifestyle.length) ? (
+              <p className="text-sm text-muted-foreground">They haven’t shared this yet.</p>
+            ) : null}
+          </div>
+        </ProfilePreviewCard>
+
+        <ProfilePreviewCard
+          icon={GraduationCap}
+          title="Education & career"
+          description="Their path and work life."
+        >
+          <div className="grid gap-2 sm:grid-cols-1">
+            {[
+              { k: "Education", v: user.education || "—" },
+              { k: "Career", v: user.career || "—" },
+              ...(user.incomeRange ? [{ k: "Income", v: user.incomeRange }] : []),
+            ].map((row) => (
+              <div
+                key={row.k}
+                className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50/90 px-3.5 py-3"
+              >
+                <span className="text-xs font-bold text-muted-foreground">{row.k}</span>
+                <span className="max-w-[60%] text-right text-sm font-bold text-foreground">{row.v}</span>
+              </div>
+            ))}
+          </div>
+        </ProfilePreviewCard>
+
+        <ProfilePreviewCard
+          icon={LanguagesIcon}
+          title="Languages & background"
+          description="Nationality, ethnicity, languages, habits."
+        >
+          <div className="grid gap-2">
+            {[
+              { k: "Nationality", v: user.nationality?.trim() || "—" },
+              { k: "Ethnicity", v: labelEthnicity(user.ethnicity) || "—" },
+              { k: "Languages", v: formatLanguages(user.languages as string | string[] | null) || "—" },
+              { k: "Smoking", v: labelSmoking(user.smoking) || "—" },
+              { k: "Alcohol", v: labelAlcohol(user.drinksAlcohol) || "—" },
+            ].map((row) => (
+              <div
+                key={row.k}
+                className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50/90 px-3.5 py-3"
+              >
+                <span className="text-xs font-bold text-muted-foreground">{row.k}</span>
+                <span className="max-w-[65%] text-right text-sm font-semibold text-foreground">{row.v}</span>
+              </div>
+            ))}
+          </div>
+        </ProfilePreviewCard>
+
+        {typeof user.extraBio === "string" && user.extraBio.trim() ? (
+          <ProfilePreviewCard icon={AlignLeft} title="More about them" description="">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{user.extraBio.trim()}</p>
+          </ProfilePreviewCard>
+        ) : null}
+      </motion.div>
+
+      <BottomNav active={activePage} onNavigate={setActivePage} />
+
+      <ShareProfileDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        profileId={user.id}
+        displayName={user.name}
+      />
 
       {likeRevealMatch && (
         <MatchReveal

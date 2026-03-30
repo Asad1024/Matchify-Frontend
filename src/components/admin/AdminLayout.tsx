@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   LayoutDashboard, Users, BarChart3, FileText, Calendar,
   UsersRound, MessageSquare, Shield, Settings, TrendingUp,
-  Heart, BookOpen, GraduationCap, LogOut, Menu, X, ListChecks,
+  Heart, BookOpen, GraduationCap, LogOut, Menu, X, ListChecks, ClipboardList,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,12 @@ const adminMenuItems = [
   { id: 'posts', label: 'Posts', icon: FileText, path: '/admin/posts' },
   { id: 'events', label: 'Events', icon: Calendar, path: '/admin/events' },
   { id: 'questions', label: 'Setup Questions', icon: ListChecks, path: '/admin/questions' },
+  {
+    id: 'onboarding-q',
+    label: 'Onboarding Q&A',
+    icon: ClipboardList,
+    path: '/admin/onboarding-questionnaire',
+  },
   { id: 'groups', label: 'Groups', icon: UsersRound, path: '/admin/groups' },
   { id: 'courses', label: 'Courses', icon: BookOpen, path: '/admin/courses' },
   { id: 'coaches', label: 'Coaches', icon: GraduationCap, path: '/admin/coaches' },

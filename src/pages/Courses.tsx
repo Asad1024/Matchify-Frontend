@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
+import { PageBackBar } from "@/components/common/PageBackBar";
 import CourseCard from "@/components/courses/CourseCard";
 import BottomNav from "@/components/common/BottomNav";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -117,6 +118,8 @@ export default function Courses() {
         onSettings={() => setLocation('/profile')}
         onLogout={logout} 
       />
+
+      <PageBackBar fallback="/menu" />
 
       <div className="max-w-7xl mx-auto p-4">
         <div className="mb-6">

@@ -188,7 +188,7 @@ export default function Dashboard() {
                   <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="tips" stroke="#f94272" name="Tips" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="tips" stroke="#8B2942" name="Tips" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="dates" stroke="#f97316" name="Date Nights" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="appreciations" stroke="#22d3ee" name="Appreciations" strokeWidth={2} dot={false} />
                 </LineChart>

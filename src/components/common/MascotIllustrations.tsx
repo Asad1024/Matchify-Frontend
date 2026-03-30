@@ -2,11 +2,11 @@ import { useId } from "react";
 import { motion } from "framer-motion";
 import { MATCHIFY_PINK_HEX } from "@/lib/matchifyBranding";
 
-/** Matchify brand pinks for SVGs (mascots must not use legacy purple/green). */
+/** Matchify red-wine brand tones for SVGs. */
 const PINK = MATCHIFY_PINK_HEX;
-const PINK_DEEP = "#c42352";
-const PINK_LIGHT = "#ffb3c6";
-const PINK_ACCENT = "#ff6b9d";
+const PINK_DEEP = "#4a1a26";
+const PINK_LIGHT = "#dcb8c4";
+const PINK_ACCENT = "#a84860";
 
 // Matchify Mascot - A friendly heart character
 export function MatchifyMascot({ className = "w-48 h-48", animated = true }: { className?: string; animated?: boolean }) {
@@ -22,7 +22,7 @@ export function MatchifyMascot({ className = "w-48 h-48", animated = true }: { c
       <motion.path
         d="M100,180 C100,180 40,120 40,80 C40,50 60,30 100,30 C140,30 160,50 160,80 C160,120 100,180 100,180 Z"
         fill={`url(#${heartGradient})`}
-        stroke="rgba(249, 66, 114, 0.35)"
+        stroke="rgba(139, 41, 66, 0.4)"
         strokeWidth="2"
         initial={animated ? { scale: 0.8, opacity: 0 } : {}}
         animate={animated ? { scale: 1, opacity: 1 } : {}}
@@ -250,7 +250,7 @@ export function LunaMascot({ className = "w-48 h-48" }: { className?: string }) 
         <path
           d="M100,170 C100,170 40,110 40,70 C40,40 60,20 100,20 C140,20 160,40 160,70 C160,110 100,170 100,170 Z"
           fill={`url(#${emmaGradient})`}
-          stroke="rgba(249, 66, 114, 0.35)"
+          stroke="rgba(139, 41, 66, 0.4)"
           strokeWidth="2"
         />
         

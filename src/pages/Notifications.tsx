@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
@@ -10,15 +10,21 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  isMarriageSyntheticNotificationId,
+  markMarriageSenderEventRead,
+  marriageNotificationsForUser,
+} from "@/lib/marriageChatRequests";
+import { notificationCreatedAtMs } from "@/lib/utils";
 
 type Notification = {
   id: string;
   userId: string;
-  type: "match" | "message" | "event" | "system";
+  type: "match" | "message" | "event" | "system" | "curated_match";
   title: string;
   message: string;
   read: boolean | null;
-  createdAt: Date | null;
+  createdAt: Date | string | null;
   relatedUserId?: string | null;
   relatedEntityId?: string | null;
 };
@@ -28,6 +34,13 @@ export default function Notifications() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
+  const [marriageEpoch, setMarriageEpoch] = useState(0);
+
+  useEffect(() => {
+    const onUpd = () => setMarriageEpoch((e) => e + 1);
+    window.addEventListener("matchify-marriage-chat-updated", onUpd);
+    return () => window.removeEventListener("matchify-marriage-chat-updated", onUpd);
+  }, []);
 
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ["/api/users", userId, "notifications"],
@@ -47,13 +60,43 @@ export default function Notifications() {
 
   const safeNotifications = Array.isArray(notifications) ? notifications : [];
 
-  const matchNotifications = safeNotifications.filter((n) => n.type === "match");
-  const messageNotifications = safeNotifications.filter((n) => n.type === "message");
-  const eventNotifications = safeNotifications.filter((n) => n.type === "event");
-  const systemNotifications = safeNotifications.filter((n) => n.type === "system");
+  const mergedNotifications = useMemo(() => {
+    void marriageEpoch;
+    if (!userId) return safeNotifications;
+    const marriageRows: Notification[] = marriageNotificationsForUser(userId).map((m) => ({
+      id: m.id,
+      userId: m.userId,
+      type: m.type,
+      title: m.title,
+      message: m.message,
+      read: m.read,
+      createdAt: m.createdAt ? new Date(m.createdAt) : null,
+      relatedUserId: m.relatedUserId ?? undefined,
+    }));
+    return [...marriageRows, ...safeNotifications].sort(
+      (a, b) => notificationCreatedAtMs(b.createdAt) - notificationCreatedAtMs(a.createdAt),
+    );
+  }, [userId, marriageEpoch, safeNotifications]);
+
+  const matchNotifications = mergedNotifications.filter(
+    (n) => n.type === "match" || n.type === "curated_match",
+  );
+  const messageNotifications = mergedNotifications.filter((n) => n.type === "message");
+  const eventNotifications = mergedNotifications.filter((n) => n.type === "event");
+  const systemNotifications = mergedNotifications.filter((n) => n.type === "system");
 
   const handleNotificationClick = useCallback(
     (n: Notification) => {
+      if (userId && isMarriageSyntheticNotificationId(n.id)) {
+        if (!n.read) {
+          markMarriageSenderEventRead(userId, n.id);
+          setMarriageEpoch((e) => e + 1);
+        }
+        if (n.relatedUserId) {
+          setLocation(`/chat?user=${encodeURIComponent(n.relatedUserId)}`);
+        }
+        return;
+      }
       if (!n.read) {
         markReadMutation.mutate(n.id);
       }
@@ -67,6 +110,9 @@ export default function Notifications() {
           } else {
             setLocation("/directory");
           }
+          break;
+        case "curated_match":
+          setLocation("/directory?tab=curated");
           break;
         case "message":
           if (other) {
@@ -88,7 +134,7 @@ export default function Notifications() {
           break;
       }
     },
-    [markReadMutation, setLocation],
+    [markReadMutation, setLocation, userId],
   );
 
   const formatRow = (n: Notification) => ({
@@ -96,14 +142,14 @@ export default function Notifications() {
     read: n.read || false,
     timestamp: n.createdAt ? new Date(n.createdAt).toLocaleString() : "Just now",
     user:
-      n.type === "match" || n.type === "message"
+      n.type === "match" || n.type === "curated_match" || n.type === "message"
         ? { name: n.title?.replace(/^New match:?\s*/i, "").trim() || "Member" }
         : undefined,
   });
 
   const tabRows =
     notificationTab === "all"
-      ? safeNotifications.map(formatRow)
+      ? mergedNotifications.map(formatRow)
       : notificationTab === "matches"
         ? matchNotifications.map(formatRow)
         : notificationTab === "messages"
@@ -122,7 +168,7 @@ export default function Notifications() {
             <div className="py-12">
               <LoadingState message="Loading notifications..." showMascot={true} />
             </div>
-          ) : safeNotifications.length === 0 ? (
+          ) : mergedNotifications.length === 0 ? (
             <div className="py-12">
               <EmptyNotifications />
             </div>
@@ -131,7 +177,7 @@ export default function Notifications() {
               <div className="bg-white border-b border-gray-100 px-4 py-3">
                 <div className="flex gap-2 overflow-x-auto scrollbar-hide">
                   {[
-                    { value: "all", label: `All (${safeNotifications.length})` },
+                    { value: "all", label: `All (${mergedNotifications.length})` },
                     { value: "matches", label: `Matches (${matchNotifications.length})` },
                     { value: "messages", label: `Messages (${messageNotifications.length})` },
                     { value: "events", label: `Events (${eventNotifications.length})` },
@@ -165,7 +211,7 @@ export default function Notifications() {
                     timestamp={row.timestamp}
                     user={row.user}
                     onClick={(id) => {
-                      const raw = safeNotifications.find((x) => x.id === id);
+                      const raw = mergedNotifications.find((x) => x.id === id);
                       if (raw) handleNotificationClick(raw);
                     }}
                   />

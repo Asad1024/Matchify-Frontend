@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useRef, useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useLocation, useSearchParams } from "wouter";
 import { motion } from "framer-motion";
 import Header from "@/components/common/Header";
 import BottomNav from "@/components/common/BottomNav";
@@ -13,18 +13,57 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Calendar, MapPin, Clock, DollarSign, Users, Image as ImageIcon, ClipboardList } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Clock,
+  DollarSign,
+  Users,
+  ClipboardList,
+  ImagePlus,
+  Loader2,
+} from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { buildApiUrl } from "@/services/api";
+import { uploadPostPhoto } from "@/services/upload.service";
 import { DEFAULT_EVENT_QUESTIONS, type EventQuestionItem } from "@/lib/eventQuestionnaireDefaults";
 import { Plus, Trash2 } from "lucide-react";
 
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
+function apiErrorMessage(err: unknown): string {
+  if (!(err instanceof Error)) return "Something went wrong. Try again.";
+  const raw = err.message;
+  const m = raw.match(/^\d+:\s*([\s\S]+)$/);
+  const payload = m?.[1] ?? raw;
+  try {
+    const j = JSON.parse(payload) as { message?: string };
+    if (j?.message && typeof j.message === "string") return j.message;
+  } catch {
+    /* plain text */
+  }
+  return payload.length > 200 ? `${payload.slice(0, 197)}…` : payload;
+}
+
 export default function CreateEvent() {
   const [, setLocation] = useLocation();
+  const [searchParams] = useSearchParams();
+  const fromAdmin = searchParams.get("from") === "admin";
+  const editEventId = searchParams.get("edit")?.trim() || "";
+  const eventsBackPath = fromAdmin
+    ? "/admin/events"
+    : searchParams.get("from") === "explore"
+      ? "/explore?tab=events"
+      : "/events";
+  const returnFromExploreRef = useRef(false);
+  returnFromExploreRef.current = searchParams.get("from") === "explore";
   const { toast } = useToast();
   const { userId: currentUserId } = useCurrentUser();
   const { logout } = useAuth();
-  const [activePage, setActivePage] = useState('explore');
+  const [activePage, setActivePage] = useState("explore");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageFileRef = useRef<HTMLInputElement>(null);
 
   // Redirect if not logged in
   if (!currentUserId) {
@@ -38,7 +77,7 @@ export default function CreateEvent() {
           onSettings={() => setLocation('/profile')}
           onLogout={logout}
         />
-        <div className="max-w-3xl mx-auto p-4 sm:p-6">
+        <div className="mx-auto max-w-lg px-4 pb-6 pt-2">
           <Card>
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground mb-4">You must be logged in to create an event.</p>
@@ -64,42 +103,180 @@ export default function CreateEvent() {
     questionnaireQuestions: [...DEFAULT_EVENT_QUESTIONS] as EventQuestionItem[],
   });
 
-  const createEventMutation = useMutation({
+  const editHydratedRef = useRef(false);
+
+  const { data: existingEvent, isLoading: loadingExistingEvent } = useQuery({
+    queryKey: ["/api/events", editEventId],
+    enabled: !!editEventId,
+    queryFn: async () => {
+      const res = await fetch(buildApiUrl(`/api/events/${editEventId}`), {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to load event");
+      return (await res.json()) as Record<string, unknown>;
+    },
+  });
+
+  useEffect(() => {
+    if (!editEventId || !existingEvent || editHydratedRef.current) return;
+    editHydratedRef.current = true;
+    let questions: EventQuestionItem[] = [...DEFAULT_EVENT_QUESTIONS];
+    const raw = existingEvent.questionnaireQuestions;
+    if (typeof raw === "string" && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw) as EventQuestionItem[];
+        if (Array.isArray(parsed) && parsed.length > 0) questions = parsed;
+      } catch {
+        /* keep defaults */
+      }
+    }
+    setFormData({
+      title: String(existingEvent.title ?? ""),
+      description: String(existingEvent.description ?? ""),
+      date: String(existingEvent.date ?? ""),
+      time: String(existingEvent.time ?? ""),
+      location: String(existingEvent.location ?? ""),
+      type: existingEvent.type === "online" ? "online" : "offline",
+      capacity: Math.max(1, Number(existingEvent.capacity) || 50),
+      price: String(existingEvent.price ?? "Free"),
+      image: String(existingEvent.image ?? ""),
+      hasQuestionnaire: existingEvent.hasQuestionnaire !== false,
+      questionnaireQuestions: questions,
+    });
+  }, [editEventId, existingEvent]);
+
+  const saveEventMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       if (!currentUserId) {
-        throw new Error('You must be logged in to create an event');
+        throw new Error("You must be logged in to create an event");
       }
-      const res = await apiRequest('POST', '/api/events', {
-        ...data,
-        capacity: Number(data.capacity),
-        userId: currentUserId,
-        hasQuestionnaire: data.hasQuestionnaire !== false,
-        questionnaireQuestions: data.hasQuestionnaire && data.questionnaireQuestions?.length
+      const imageTrim = data.image?.trim() || "";
+      let hasBearer = false;
+      try {
+        hasBearer = !!localStorage.getItem("authToken");
+      } catch {
+        /* ignore */
+      }
+      const questionnaireQuestions =
+        data.hasQuestionnaire && data.questionnaireQuestions?.length
           ? JSON.stringify(data.questionnaireQuestions)
-          : undefined,
-      });
+          : undefined;
+      const baseBody: Record<string, unknown> = {
+        title: data.title,
+        description: data.description,
+        date: data.date,
+        time: data.time,
+        location: data.location,
+        type: data.type,
+        capacity: Number(data.capacity),
+        price: data.price,
+        image: imageTrim || undefined,
+        hasQuestionnaire: data.hasQuestionnaire !== false,
+        questionnaireQuestions,
+      };
+      if (!editEventId && !hasBearer) {
+        baseBody.userId = currentUserId;
+      }
+
+      let res: Response;
+      if (editEventId) {
+        res = await apiRequest("PATCH", `/api/events/${editEventId}`, baseBody);
+      } else if (fromAdmin) {
+        res = await apiRequest("POST", "/api/admin/events", baseBody);
+      } else {
+        res = await apiRequest("POST", "/api/events", baseBody);
+      }
+
       if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: 'Failed to create event' }));
-        throw new Error(error.message || 'Failed to create event');
+        const text = await res.text().catch(() => "");
+        let message = editEventId ? "Failed to update event" : "Failed to create event";
+        try {
+          const j = JSON.parse(text) as { message?: string };
+          if (j?.message) message = j.message;
+        } catch {
+          if (text) message = text.length > 200 ? `${text.slice(0, 197)}…` : text;
+        }
+        throw new Error(message);
+      }
+      if (res.status === 204) {
+        return { id: editEventId };
       }
       return res.json();
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+    onSuccess: (data: { id?: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
+      if (editEventId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/events/${editEventId}`] });
+      }
+      if (fromAdmin) {
+        toast({
+          title: editEventId ? "Event updated" : "Event created",
+          description: editEventId
+            ? "Changes are saved and visible in the app."
+            : "The event is live (approved) in demo mode.",
+        });
+        setLocation("/admin/events");
+        return;
+      }
       toast({
-        title: "Event Created! 🎉",
-        description: "Your event has been submitted for approval. You'll be notified once it's approved.",
+        title: "Event created",
+        description:
+          "Your event has been submitted for approval. You'll be notified once it's approved.",
       });
-      setLocation(`/event/${data.id}`);
+      const id = data?.id ?? editEventId;
+      if (id) {
+        setLocation(
+          returnFromExploreRef.current ? `/event/${id}?from=explore` : `/event/${id}`,
+        );
+      }
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to Create Event",
-        description: error.message || "Please try again",
+        title: editEventId ? "Failed to save event" : "Failed to Create Event",
+        description: apiErrorMessage(error),
         variant: "destructive",
       });
     },
   });
+
+  const handlePickEventImage = () => imageFileRef.current?.click();
+
+  const handleEventImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Not an image",
+        description: "Choose a photo (JPEG, PNG, WebP, etc.).",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast({
+        title: "File too large",
+        description: "Photos must be 8 MB or smaller.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const url = await uploadPostPhoto(file);
+      setFormData((prev) => ({ ...prev, image: url }));
+      toast({ title: "Cover photo ready", description: "Preview below — it will be saved with your event." });
+    } catch (err) {
+      toast({
+        title: "Upload failed",
+        description: apiErrorMessage(err),
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,8 +327,27 @@ export default function CreateEvent() {
       return;
     }
 
-    createEventMutation.mutate(formData);
+    saveEventMutation.mutate(formData);
   };
+
+  if (editEventId && loadingExistingEvent) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <Header
+          showSearch={false}
+          unreadNotifications={0}
+          onNotifications={() => setLocation("/notifications")}
+          onCreate={() => {}}
+          onSettings={() => setLocation("/profile")}
+          onLogout={logout}
+        />
+        <div className="mx-auto max-w-lg px-4 py-12 text-center text-muted-foreground">
+          Loading event…
+        </div>
+        {!fromAdmin ? <BottomNav active={activePage} onNavigate={setActivePage} /> : null}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -168,26 +364,34 @@ export default function CreateEvent() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-3xl mx-auto p-4 sm:p-6"
+        className="mx-auto w-full min-w-0 max-w-lg px-4 pb-6 pt-2"
       >
         <Button
           variant="ghost"
-          onClick={() => setLocation('/events')}
-          className="mb-6"
+          onClick={() => setLocation(eventsBackPath)}
+          className="mb-4 -ml-2"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Events
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {fromAdmin
+            ? "Back to Admin Events"
+            : searchParams.get("from") === "explore"
+              ? "Back to Explore"
+              : "Back to Events"}
         </Button>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl font-display">Create New Event</CardTitle>
-            <CardDescription>
-              Share your event with the community. All events require admin approval before going live.
+        <Card className="overflow-hidden rounded-2xl border border-gray-100/80 bg-white shadow-sm">
+          <CardHeader className="space-y-1 border-b border-gray-100/80 pb-4">
+            <CardTitle className="font-display text-xl sm:text-2xl">
+              {editEventId ? "Edit Event" : fromAdmin ? "Create Event (Admin)" : "Create New Event"}
+            </CardTitle>
+            <CardDescription className="text-sm leading-relaxed">
+              {fromAdmin
+                ? "Create or edit events directly. In demo mode, new events are approved immediately."
+                : "Share your event with the community. All events require admin approval before going live."}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <CardContent className="pt-6">
+            <form onSubmit={handleSubmit} className="min-w-0 space-y-6">
               {/* Title */}
               <div className="space-y-2">
                 <Label htmlFor="title">Event Title *</Label>
@@ -306,23 +510,69 @@ export default function CreateEvent() {
                 />
               </div>
 
-              {/* Image URL */}
-              <div className="space-y-2">
-                <Label htmlFor="image">
-                  <ImageIcon className="w-4 h-4 inline mr-2" />
-                  Image URL (Optional)
-                </Label>
+              {/* Cover image: upload + preview (same flow as posts) */}
+              <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+                <Label className="text-sm font-medium">Cover image (optional)</Label>
+                <input
+                  ref={imageFileRef}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleEventImageFile}
+                  aria-hidden
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    disabled={uploadingImage || saveEventMutation.isPending}
+                    onClick={handlePickEventImage}
+                  >
+                    {uploadingImage ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ImagePlus className="mr-2 h-4 w-4" />
+                    )}
+                    {uploadingImage ? "Uploading…" : "Upload image"}
+                  </Button>
+                  {formData.image.trim() ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full text-destructive hover:text-destructive"
+                      onClick={() => setFormData({ ...formData, image: "" })}
+                    >
+                      Remove photo
+                    </Button>
+                  ) : null}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Or paste an image URL (e.g. from the web).
+                </p>
                 <Input
                   id="image"
                   type="url"
-                  placeholder="https://example.com/image.jpg"
+                  placeholder="https://…"
                   value={formData.image}
                   onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  className="rounded-xl"
                 />
+                {formData.image.trim() ? (
+                  <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
+                    <img
+                      src={formData.image.trim()}
+                      alt=""
+                      className="max-h-52 w-full object-contain bg-black/[0.03]"
+                    />
+                  </div>
+                ) : null}
               </div>
 
               {/* Questionnaire when RSVP */}
-              <div className="space-y-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                 <div className="flex items-center gap-3">
                   <ClipboardList className="w-5 h-5 text-primary shrink-0" />
                   <div className="flex-1">
@@ -345,7 +595,10 @@ export default function CreateEvent() {
                   <div className="border-t border-primary/20 pt-4 space-y-4">
                     <p className="text-sm font-medium text-foreground">Set up questions (attendees answer these when they RSVP)</p>
                     {formData.questionnaireQuestions.map((q, index) => (
-                      <div key={q.id} className="rounded-lg border border-border bg-background p-4 space-y-2">
+                      <div
+                        key={q.id}
+                        className="space-y-2 rounded-xl border border-border/80 bg-background p-4 shadow-sm"
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs text-muted-foreground font-medium">Question {index + 1}</span>
                           <Button
@@ -421,22 +674,28 @@ export default function CreateEvent() {
                 )}
               </div>
 
-              {/* Submit Button */}
-              <div className="flex gap-4 pt-4">
+              {/* Submit */}
+              <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:gap-4">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setLocation('/events')}
-                  className="flex-1"
+                  onClick={() => setLocation(eventsBackPath)}
+                  className="h-11 flex-1 rounded-xl"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  disabled={createEventMutation.isPending}
-                  className="flex-1"
+                  disabled={saveEventMutation.isPending || uploadingImage}
+                  className="h-11 flex-1 rounded-xl font-semibold"
                 >
-                  {createEventMutation.isPending ? "Creating..." : "Create Event"}
+                  {saveEventMutation.isPending
+                    ? editEventId
+                      ? "Saving…"
+                      : "Creating…"
+                    : editEventId
+                      ? "Save changes"
+                      : "Create Event"}
                 </Button>
               </div>
             </form>
@@ -444,7 +703,7 @@ export default function CreateEvent() {
         </Card>
       </motion.div>
 
-      <BottomNav active={activePage} onNavigate={setActivePage} />
+      {!fromAdmin ? <BottomNav active={activePage} onNavigate={setActivePage} /> : null}
     </div>
   );
 }
