@@ -75,7 +75,7 @@ export default function SwipeableEventCard({
     >
       <Card
         className={cn(
-          "flex max-h-[min(82vh,640px)] flex-col overflow-hidden rounded-2xl border border-gray-100/80 bg-white shadow-lg",
+          "flex max-h-[min(82vh,640px)] flex-col overflow-hidden rounded-[28px] border border-[#F0F0F0] bg-white shadow-[0_18px_60px_-28px_rgba(15,23,42,0.35)]",
         )}
       >
         <div className="relative isolate min-h-[220px] shrink-0 basis-[min(42vh,300px)] overflow-hidden sm:min-h-[260px] sm:basis-[min(44vh,320px)]">
@@ -95,21 +95,21 @@ export default function SwipeableEventCard({
               <ThemeIcon className="relative z-[1] h-20 w-20 text-white/80 sm:h-24 sm:w-24" strokeWidth={1} />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/35" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/20" />
 
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-3 pt-3">
             <span
-              className="inline-flex max-w-[56%] shrink-0 items-center truncate rounded-full border border-white/25 bg-white/95 px-3 py-1.5 text-[11px] font-bold text-gray-900 shadow-[0_2px_16px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:text-xs"
+              className="inline-flex max-w-[56%] shrink-0 items-center truncate rounded-full border border-white/35 bg-white/20 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm backdrop-blur-md sm:text-xs"
               title={type === "online" ? "Online event" : "In person"}
             >
-              {type === "online" ? "Online" : "In person"}
+              {type === "online" ? "ONLINE" : "IN PERSON"}
             </span>
             {price ? (
               <span
-                className="inline-flex max-w-[56%] shrink-0 items-center truncate rounded-full border border-white/35 bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-[0_2px_16px_rgba(0,0,0,0.45)] sm:text-xs"
+                className="inline-flex max-w-[56%] shrink-0 items-center truncate rounded-full border border-white/35 bg-white/20 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm backdrop-blur-md sm:text-xs"
                 title={price}
               >
-                {price}
+                {/free/i.test(price) ? "FREE" : price}
               </span>
             ) : null}
           </div>
@@ -136,70 +136,53 @@ export default function SwipeableEventCard({
             <h3 className="font-display text-xl font-bold leading-tight tracking-tight text-white drop-shadow-sm sm:text-2xl">
               {title}
             </h3>
-            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-white/90">{description}</p>
-          </div>
-        </div>
-
-        <CardContent className="flex min-h-0 flex-1 flex-col space-y-3 overflow-y-auto p-4 sm:space-y-4 sm:p-5">
-          <div className="grid grid-cols-1 gap-2 text-sm sm:gap-2.5">
-            <div className="flex min-w-0 items-center gap-2.5 text-foreground">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15">
-                <Calendar className="h-4 w-4 text-primary" />
-              </div>
-              <span className="min-w-0 font-medium">{date}</span>
-            </div>
-            <div className="flex min-w-0 items-center gap-2.5 text-foreground">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15">
-                <Clock className="h-4 w-4 text-primary" />
-              </div>
-              <span className="min-w-0 font-medium">{time}</span>
-            </div>
-            <div className="flex min-w-0 items-center gap-2.5 text-foreground">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15">
-                <MapPin className="h-4 w-4 text-primary" />
-              </div>
-              <span className="min-w-0 truncate font-medium">{location}</span>
-            </div>
-            <div className="flex min-w-0 items-center gap-2.5 text-foreground">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15">
-                <Users className="h-4 w-4 text-primary" />
-              </div>
-              <span className="min-w-0 font-medium">
-                {attendees}/{capacity} attending
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] font-medium text-white/90">
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-white/85" strokeWidth={1.75} aria-hidden />
+                <span className="max-w-[18rem] truncate">{location}</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-white/85" strokeWidth={1.75} aria-hidden />
+                <span className="truncate">{date}</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-white/85" strokeWidth={1.75} aria-hidden />
+                <span className="truncate">{time}</span>
               </span>
             </div>
           </div>
+        </div>
 
-          <p className="text-center text-[11px] font-medium text-muted-foreground sm:text-xs">
-            Swipe right to RSVP · left to skip
-          </p>
+        <CardContent className="flex min-h-0 flex-1 flex-col justify-end p-4 sm:p-5">
+          <div className="pointer-events-none mb-2 text-center text-[11px] font-medium text-muted-foreground sm:text-xs">
+            Swipe right to like · left to pass
+          </div>
 
-          <div className="mt-auto flex gap-2.5 pt-1 sm:gap-3 sm:pt-2">
-            <Button
+          <div className="flex items-center justify-center gap-4">
+            <button
               type="button"
-              variant="outline"
-              className="h-11 flex-1 rounded-full border-2 border-stone-200 font-bold text-foreground hover:bg-stone-50 sm:h-12"
+              aria-label="Pass"
               onClick={() => {
                 setExitX(-200);
                 setTimeout(() => onSwipeLeft?.(id), 100);
               }}
+              className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-black text-white shadow-[0_18px_60px_-28px_rgba(0,0,0,0.55)] transition hover:bg-black/90 active:scale-95"
               data-testid="button-pass"
             >
-              <X className="mr-2 h-4 w-4 shrink-0" />
-              Skip
-            </Button>
-            <Button
+              <X className="h-6 w-6" strokeWidth={2.6} aria-hidden />
+            </button>
+            <button
               type="button"
-              className="h-11 flex-1 rounded-full bg-success font-bold text-success-foreground shadow-md shadow-success/20 hover:bg-success/90 sm:h-12"
+              aria-label="Like"
               onClick={() => {
                 setExitX(200);
                 setTimeout(() => onSwipeRight?.(id), 100);
               }}
+              className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_18px_60px_-28px_rgba(114,47,55,0.55)] transition hover:brightness-[0.98] active:scale-95"
               data-testid="button-interested"
             >
-              <Heart className="mr-2 h-4 w-4 shrink-0" />
-              RSVP
-            </Button>
+              <Heart className="h-6 w-6 fill-white/20" strokeWidth={2.6} aria-hidden />
+            </button>
           </div>
         </CardContent>
       </Card>

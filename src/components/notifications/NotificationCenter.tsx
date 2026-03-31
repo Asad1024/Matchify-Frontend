@@ -11,9 +11,10 @@ import {
 import NotificationItem from "./NotificationItem";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { queryClient } from "@/lib/queryClient";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import {
   isMarriageSyntheticNotificationId,
-  markMarriageSenderEventRead,
+  markMarriageSyntheticNotificationRead,
   marriageNotificationsForUser,
 } from "@/lib/marriageChatRequests";
 import { notificationCreatedAtMs } from "@/lib/utils";
@@ -21,12 +22,20 @@ import { notificationCreatedAtMs } from "@/lib/utils";
 type Notification = {
   id: string;
   userId: string;
-  type: "match" | "message" | "event" | "system" | "curated_match";
+  type:
+    | "match"
+    | "message"
+    | "event"
+    | "system"
+    | "curated_match"
+    | "marriage_chat_request"
+    | "marriage_chat_accepted";
   title: string;
   message: string;
   read: boolean | null;
   createdAt: Date | string | null;
   relatedUserId?: string | null;
+  relatedEntityId?: string | null;
 };
 
 export function NotificationCenter() {
@@ -34,6 +43,7 @@ export function NotificationCenter() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const [marriageEpoch, setMarriageEpoch] = useState(0);
+  const [actionNotificationId, setActionNotificationId] = useState<string | null>(null);
 
   useEffect(() => {
     const onUpd = () => setMarriageEpoch((e) => e + 1);
@@ -75,6 +85,24 @@ export function NotificationCenter() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+    },
+  });
+
+  const respondMarriageReqMutation = useMutation({
+    mutationFn: async (vars: { requestId: string; decision: "approved" | "rejected" }) => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await fetch(buildApiUrl(`/api/users/${userId}/marriage/chat-requests/${vars.requestId}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
+        credentials: "include",
+        body: JSON.stringify({ decision: vars.decision }),
+      });
+      if (!res.ok) throw new Error("Failed to respond");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "marriage-incoming"] });
     },
   });
 
@@ -131,9 +159,38 @@ export function NotificationCenter() {
                 {...n}
                 read={n.read ?? false}
                 timestamp={n.createdAt ? new Date(n.createdAt).toLocaleString() : "Just now"}
+                relatedUserId={n.relatedUserId ?? null}
+                relatedEntityId={(n as any).relatedEntityId ?? null}
+                onAccept={(id) => {
+                  if (actionNotificationId) return;
+                  const row = mergedNotifications.find((x) => x.id === id);
+                  const reqId = (row as any)?.relatedEntityId as string | undefined;
+                  const other = row?.relatedUserId || null;
+                  if (!reqId || !other) return;
+                  setActionNotificationId(id);
+                  respondMarriageReqMutation.mutate({ requestId: reqId, decision: "approved" }, {
+                    onSuccess: () => {
+                      // Recipient accepted → jump to chat with sender.
+                      setLocation(`/chat?user=${encodeURIComponent(other)}`);
+                    },
+                    onSettled: () => setActionNotificationId(null),
+                  });
+                }}
+                onDecline={(id) => {
+                  if (actionNotificationId) return;
+                  const row = mergedNotifications.find((x) => x.id === id);
+                  const reqId = (row as any)?.relatedEntityId as string | undefined;
+                  if (!reqId) return;
+                  setActionNotificationId(id);
+                  respondMarriageReqMutation.mutate(
+                    { requestId: reqId, decision: "rejected" },
+                    { onSettled: () => setActionNotificationId(null) },
+                  );
+                }}
+                actionsDisabled={actionNotificationId === n.id || respondMarriageReqMutation.isPending}
                 onClick={(id) => {
                   if (userId && isMarriageSyntheticNotificationId(id)) {
-                    markMarriageSenderEventRead(userId, id);
+                    markMarriageSyntheticNotificationRead(userId, id);
                     setMarriageEpoch((e) => e + 1);
                     const row = mergedNotifications.find((x) => x.id === id);
                     if (row?.relatedUserId) {
@@ -141,6 +198,16 @@ export function NotificationCenter() {
                     }
                   } else {
                     markReadMutation.mutate(id);
+                    const row = mergedNotifications.find((x) => x.id === id);
+                    if (row?.type === "curated_match") {
+                      setLocation("/directory?tab=curated");
+                    } else if (row?.type === "match" && row.relatedUserId) {
+                      setLocation(`/profile/${encodeURIComponent(row.relatedUserId)}`);
+                    } else if (row?.type === "marriage_chat_accepted" && row.relatedUserId) {
+                      setLocation(`/chat?user=${encodeURIComponent(row.relatedUserId)}`);
+                    } else if (row?.type === "message" && row.relatedUserId) {
+                      setLocation(`/chat?user=${encodeURIComponent(row.relatedUserId)}`);
+                    }
                   }
                   setOpen(false);
                 }}

@@ -569,12 +569,14 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
         ? Number(basicInfo.heightCm)
         : undefined;
 
+    const firstPhoto = photos.length > 0 ? photos[0] : undefined;
     const profileData = {
       ...basicInfo,
       heightCm: heightNum,
       height: heightNum != null ? `${heightNum} cm` : undefined,
       birthDate: calculatedBirthDate,
       photos,
+      ...(firstPhoto ? { avatar: firstPhoto } : {}),
       relationshipGoal: selectedGoal,
       commitmentIntention:
         (basicInfo.commitmentIntention && String(basicInfo.commitmentIntention).trim()) ||

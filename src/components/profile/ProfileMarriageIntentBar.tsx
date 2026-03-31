@@ -31,6 +31,7 @@ export function ProfileMarriageIntentBar({
     <MarriageIntentionStrip
       caption={caption}
       className={className}
+      variant="default"
       narration={variant === "self" ? "first" : "third"}
       commitmentIntention={user.commitmentIntention}
       marriageTimeline={user.marriageTimeline}

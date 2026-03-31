@@ -63,7 +63,7 @@ export function GlobalSearch() {
 
   const navigationItems = [
     { icon: Home, label: "Home", path: "/" },
-    { icon: Compass, label: "Directory", path: "/directory" },
+    { icon: Compass, label: "People", path: "/directory" },
     { icon: Globe, label: "Feed", path: "/community" },
     { icon: Calendar, label: "Events", path: "/events" },
     { icon: MessageCircle, label: "Chat", path: "/chat" },

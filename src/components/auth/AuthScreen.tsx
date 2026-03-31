@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SiGoogle, SiApple } from "react-icons/si";
@@ -9,12 +9,21 @@ import { MATCHIFY_LOGO_URL } from "@/lib/matchifyBranding";
 import { buildApiUrl } from "@/services/api";
 import { notifyHeaderUserUpdated } from "@/components/common/Header";
 
+export type GoogleSignupPrefill = {
+  code: string;
+  email: string;
+  name: string;
+  picture: string | null;
+};
+
 interface AuthScreenProps {
   onAuth?: (user: any, isNewUser: boolean) => void;
   defaultMode?: 'login' | 'signup';
   showBackToLanding?: boolean;
   onAdminLogin?: () => void;
   onEventAdminLogin?: () => void;
+  /** After Google OAuth for a new user: prefill email/name and require password (POST /api/auth/register-google). */
+  googleSignupPrefill?: GoogleSignupPrefill | null;
 }
 
 export default function AuthScreen({
@@ -23,6 +32,7 @@ export default function AuthScreen({
   showBackToLanding = false,
   onAdminLogin,
   onEventAdminLogin,
+  googleSignupPrefill = null,
 }: AuthScreenProps) {
   const [isSignUp, setIsSignUp] = useState(defaultMode === 'signup');
   const [email, setEmail] = useState("");
@@ -32,10 +42,44 @@ export default function AuthScreen({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!googleSignupPrefill) return;
+    setIsSignUp(true);
+    setEmail(googleSignupPrefill.email);
+    setName(googleSignupPrefill.name || "");
+  }, [googleSignupPrefill]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
+      if (googleSignupPrefill?.code && isSignUp) {
+        const response = await fetch(buildApiUrl("/api/auth/register-google"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            code: googleSignupPrefill.code,
+            password,
+            name: name.trim() || googleSignupPrefill.name,
+          }),
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error((err as { message?: string }).message || "Could not create account");
+        }
+        const user = await response.json();
+        if (user.token) localStorage.setItem("authToken", user.token);
+        if (user.id || user.userId) {
+          localStorage.setItem("currentUser", JSON.stringify(user));
+          notifyHeaderUserUpdated();
+          window.dispatchEvent(new Event("matchify-auth-changed"));
+          localStorage.removeItem("onboardingCompleted");
+        }
+        onAuth?.(user, true);
+        return;
+      }
+
       const endpoint = isSignUp ? '/api/auth/register' : '/api/auth/login';
       const body = isSignUp
         ? { email, password, name, username: email.split('@')[0] }
@@ -55,6 +99,7 @@ export default function AuthScreen({
       if (user.id || user.userId) {
         localStorage.setItem("currentUser", JSON.stringify(user));
         notifyHeaderUserUpdated();
+        window.dispatchEvent(new Event("matchify-auth-changed"));
         if (user.onboardingCompleted === true) localStorage.setItem("onboardingCompleted", "true");
         else if (user.onboardingCompleted === false) localStorage.removeItem("onboardingCompleted");
       }
@@ -81,6 +126,7 @@ export default function AuthScreen({
           localStorage.setItem("authToken", user.token || "demo-token");
           localStorage.setItem("currentUser", JSON.stringify(user));
           notifyHeaderUserUpdated();
+          window.dispatchEvent(new Event("matchify-auth-changed"));
           onAuth?.(user, false);
           setIsLoading(false);
           return;
@@ -197,7 +243,8 @@ export default function AuthScreen({
         transition={{ delay: 0.1, duration: 0.4 }}
         className="flex-1 px-6 pb-8 max-w-md mx-auto w-full"
       >
-        {/* Social login */}
+        {/* Social login — skip while finishing Google signup (password step). */}
+        {!googleSignupPrefill ? (
         <div className="grid grid-cols-2 gap-3 mb-5">
           <button
             type="button"
@@ -220,8 +267,17 @@ export default function AuthScreen({
             Apple
           </button>
         </div>
+        ) : (
+          <div className="mb-5 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-gray-800">
+            <p className="font-semibold text-primary">Almost there</p>
+            <p className="text-gray-600 mt-1">
+              We pulled your name and email from Google. Choose a password to secure your Matchify account.
+            </p>
+          </div>
+        )}
 
         {/* Divider */}
+        {!googleSignupPrefill ? (
         <div className="relative mb-5">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t border-gray-100" />
@@ -232,6 +288,7 @@ export default function AuthScreen({
             </span>
           </div>
         </div>
+        ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AnimatePresence>
@@ -266,6 +323,7 @@ export default function AuthScreen({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              readOnly={!!googleSignupPrefill}
               className="h-12 rounded-2xl border-gray-200 focus:border-primary bg-gray-50/60 focus:bg-white transition-colors text-[15px]"
               data-testid="input-email"
             />
@@ -308,11 +366,18 @@ export default function AuthScreen({
             className="w-full h-13 rounded-2xl bg-primary text-white font-bold text-[15px] shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-[0.98] transition-all mt-1"
             data-testid="button-auth-submit"
           >
-            {isLoading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+            {isLoading
+              ? "Please wait..."
+              : googleSignupPrefill && isSignUp
+                ? "Create account & continue"
+                : isSignUp
+                  ? "Create Account"
+                  : "Sign In"}
           </Button>
         </form>
 
         {/* Toggle mode */}
+        {!googleSignupPrefill ? (
         <div className="text-center mt-5">
           <span className="text-sm text-gray-500">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}
@@ -325,8 +390,10 @@ export default function AuthScreen({
             {isSignUp ? 'Sign In' : 'Sign Up'}
           </button>
         </div>
+        ) : null}
 
         {/* Quick Access */}
+        {!googleSignupPrefill ? (
         <div className="mt-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
           <p className="text-xs text-gray-400 text-center mb-3 font-semibold uppercase tracking-widest">
             Quick Access
@@ -356,6 +423,7 @@ export default function AuthScreen({
             </Button>
           </div>
         </div>
+        ) : null}
       </motion.div>
     </div>
   );

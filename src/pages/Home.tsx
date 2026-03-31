@@ -26,7 +26,10 @@ import {
   isMarriageFavorite,
   toggleMarriageFavorite,
 } from "@/lib/marriageDeckStore";
-import { getOutgoingChatRequest } from "@/lib/marriageChatRequests";
+import {
+  getOutgoingChatRequest,
+  getOutgoingChatRequestRemote,
+} from "@/lib/marriageChatRequests";
 import { resetMarriageTestingState } from "@/lib/marriageTestingReset";
 
 function hashPairScore(a: string, b: string): number {
@@ -85,9 +88,21 @@ export default function Home() {
     if (!currentUserId) return [];
     const passed = getMarriagePassedIds();
     const liked = getMarriageLikedIds();
-    const list = (Array.isArray(users) ? users : []).filter(
-      (u) => u.id !== currentUserId && !passed.has(u.id) && !liked.has(u.id),
-    );
+    const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+    const myGender = norm((me as any)?.gender);
+    const desired =
+      myGender === "male" || myGender === "man" || myGender === "m"
+        ? "female"
+        : myGender === "female" || myGender === "woman" || myGender === "f"
+          ? "male"
+          : null;
+
+    const list = (Array.isArray(users) ? users : []).filter((u) => {
+      if (!u || u.id === currentUserId) return false;
+      if (passed.has(u.id) || liked.has(u.id)) return false;
+      if (!desired) return true;
+      return norm((u as any)?.gender) === desired;
+    });
     const scored = list.map((u) => ({ u, score: deckScore(me ?? null, u) }));
     scored.sort((a, b) => b.score - a.score);
     return scored.map((x) => x.u);
@@ -97,8 +112,19 @@ export default function Home() {
   void marriageChatEpoch;
   const compatibilityScore =
     current && currentUserId ? hashPairScore(currentUserId, current.id) : 82;
+  const { data: outgoingRemote = null } = useQuery({
+    queryKey: ["/api/users", currentUserId, "marriage-outgoing", current?.id || ""],
+    enabled: !!currentUserId && !!current?.id,
+    queryFn: async () =>
+      currentUserId && current?.id ? getOutgoingChatRequestRemote(currentUserId, current.id) : null,
+    refetchInterval: 8000,
+  });
   const outgoing =
-    current && currentUserId ? getOutgoingChatRequest(currentUserId, current.id) : null;
+    outgoingRemote ||
+    (current && currentUserId ? getOutgoingChatRequest(currentUserId, current.id) : null);
+
+  // Note: do not auto-redirect into Chat on approval.
+  // The user should explicitly choose when to open chat from the profile UI.
 
   const likeMutation = useMutation({
     mutationFn: async (targetId: string) => {

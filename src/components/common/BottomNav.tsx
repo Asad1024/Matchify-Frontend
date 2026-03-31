@@ -57,8 +57,8 @@ const NAV_ITEMS: {
   center?: boolean;
 }[] = [
   { id: "marriage", icon: "wedding-ring", label: "Marriage", path: "/" },
-  { id: "explore", icon: "double-heart", label: "Explore", path: "/explore" },
-  { id: "community", icon: Globe, label: "Feed", path: "/community", center: true },
+  { id: "explore", icon: "double-heart", label: "Discover", path: "/explore" },
+  { id: "community", icon: Globe, label: "Explore", path: "/community", center: true },
   { id: "chat", icon: MessagesSquare, label: "Chat", path: "/chat" },
   { id: "menu", icon: UserCircle, label: "Menu", path: "/menu" },
 ];
@@ -70,6 +70,7 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
   const { data: unreadPayload } = useQuery<{ count: number }>({
     queryKey: ["/api/users", userId, "chat-unread-count"],
     enabled: !!userId,
+    refetchInterval: 2500,
   });
   const chatUnread = Math.min(99, Math.max(0, unreadPayload?.count ?? 0));
 
@@ -85,168 +86,195 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
     onNavigate?.(item.id);
   };
 
+  const renderGlyph = (item: (typeof NAV_ITEMS)[number], size: "center" | "tab") => {
+    if (item.icon === "double-heart") {
+      return (
+        <DoubleHeartIcon
+          className={size === "center" ? "h-7 w-7" : "h-[26px] w-[26px]"}
+          strokeWidth={1.75}
+        />
+      );
+    }
+    if (item.icon === "wedding-ring") {
+      return (
+        <WeddingRingIcon
+          className={size === "center" ? "h-7 w-7" : "h-[26px] w-[26px]"}
+          strokeWidth={1.75}
+        />
+      );
+    }
+    const Icon = item.icon;
+    return (
+      <Icon
+        className={size === "center" ? "h-7 w-7" : "h-[26px] w-[26px]"}
+        strokeWidth={1.75}
+        aria-hidden
+      />
+    );
+  };
+
+  const leftItems = NAV_ITEMS.filter((i) => !i.center).slice(0, 2);
+  const centerItem = NAV_ITEMS.find((i) => i.center);
+  const rightItems = NAV_ITEMS.filter((i) => !i.center).slice(2);
+
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-100 safe-bottom"
-      style={{
-        boxShadow: "0 -1px 0 0 rgba(0,0,0,0.06), 0 -8px 24px rgba(0,0,0,0.04)",
-      }}
-    >
-      <div className="flex items-end justify-around max-w-lg mx-auto px-4 pb-1 pt-1">
-        {NAV_ITEMS.map((item) => {
-          const isActive = active === item.id;
-
-          const renderGlyph = (size: "center" | "tab") => {
-            if (item.icon === "double-heart") {
+    <nav className="fixed inset-x-0 bottom-0 z-50 safe-bottom">
+      <div className="mx-auto max-w-lg px-4 pb-3 pt-2">
+        <div className="relative">
+          <div
+            className={cn(
+              "relative grid grid-cols-5 items-end rounded-[24px] border-2 border-primary/40 bg-white/65 px-2 pb-1 pt-3 shadow-[0_30px_80px_rgba(15,23,42,0.26)] ring-1 ring-primary/15 backdrop-blur-xl",
+              // Concave notch cut-out for the elevated center item (broad browser support via both mask props).
+              "[mask:radial-gradient(circle_34px_at_50%_0px,transparent_33px,black_34px)]",
+              "[-webkit-mask:radial-gradient(circle_34px_at_50%_0px,transparent_33px,black_34px)]"
+            )}
+          >
+            {/* Left two tabs */}
+            {leftItems.map((item) => {
+              const isActive = active === item.id;
               return (
-                <DoubleHeartIcon
-                  className={size === "center" ? "h-7 w-7" : "h-[22px] w-[22px]"}
-                  strokeWidth={2}
-                />
-              );
-            }
-            if (item.icon === "wedding-ring") {
-              return (
-                <WeddingRingIcon
-                  className={size === "center" ? "h-7 w-7" : "h-[22px] w-[22px]"}
-                  strokeWidth={2}
-                />
-              );
-            }
-            const Icon = item.icon;
-            return (
-              <Icon
-                className={size === "center" ? "w-6 h-6" : "w-[22px] h-[22px]"}
-                strokeWidth={2}
-                aria-hidden
-              />
-            );
-          };
-
-          if (item.center) {
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleNav(item)}
-                className="flex flex-col items-center gap-0.5 py-1 px-3 -mt-5 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-xl"
-                data-testid={`tab-${item.id}`}
-              >
-                <motion.div
-                  whileTap={{ scale: 0.88 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 22 }}
-                  className={`w-[52px] h-[52px] rounded-[18px] flex items-center justify-center transition-all ${
-                    isActive
-                      ? "bg-primary text-white shadow-lg shadow-primary/40"
-                      : "bg-gradient-to-b from-white to-primary/[0.08] border-2 border-primary/35 text-primary shadow-md shadow-primary/10"
-                  }`}
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleNav(item)}
+                  className="relative flex flex-col items-center gap-1.5 px-2 py-2 outline-none"
+                  data-testid={`tab-${item.id}`}
                 >
-                  <span className={isActive ? "text-white [&_svg]:stroke-white" : "text-primary [&_svg]:stroke-primary"}>
-                    {renderGlyph("center")}
+                  <motion.div whileTap={{ scale: 0.9 }} transition={{ type: "spring", stiffness: 520, damping: 28 }} className="relative">
+                    <span className={cn("relative z-10 transition-colors", isActive ? "text-white" : "text-slate-500")}>
+                      <span className="relative grid place-items-center">
+                        <AnimatePresence>
+                          {isActive && (
+                            <motion.span
+                              layoutId="bottomnav-active-circle"
+                              initial={{ opacity: 0, scale: 0.6 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.6 }}
+                              transition={{ type: "spring", stiffness: 520, damping: 32 }}
+                              className="absolute -inset-2 rounded-full bg-gradient-to-br from-primary to-[#1F2937] shadow-[0_10px_28px_-18px_rgba(15,23,42,0.50)]"
+                            />
+                          )}
+                        </AnimatePresence>
+                        <motion.span
+                          className="relative z-10 inline-flex"
+                          initial={false}
+                          animate={isActive ? { y: [0, -1, 0] } : { y: 0 }}
+                          transition={{ duration: 0.35, ease: "easeOut" }}
+                        >
+                          {renderGlyph(item, "tab")}
+                        </motion.span>
+                      </span>
+                    </span>
+                  </motion.div>
+                  <span className={cn("text-[10px] font-semibold transition-colors", isActive ? "text-primary" : "text-slate-600")}>
+                    {item.label}
                   </span>
-                </motion.div>
-                <span
-                  className={`text-[10px] font-semibold transition-colors ${
-                    isActive ? "text-primary font-bold" : "text-primary/80"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </button>
-            );
-          }
+                </button>
+              );
+            })}
 
-          return (
+            {/* Center spacer cell (the elevated button is absolutely positioned) */}
+            <div aria-hidden className="h-full" />
+
+            {/* Right two tabs */}
+            {rightItems.map((item) => {
+              const isActive = active === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleNav(item)}
+                  className="relative flex flex-col items-center gap-1.5 px-2 py-2 outline-none"
+                  data-testid={`tab-${item.id}`}
+                >
+                  <motion.div whileTap={{ scale: 0.9 }} transition={{ type: "spring", stiffness: 520, damping: 28 }} className="relative">
+                    {item.id === "menu" ? (
+                      <Avatar
+                        className={cn(
+                          "relative z-10 h-8 w-8 shrink-0 border-2 bg-white transition-all duration-200",
+                          isActive ? "border-primary ring-2 ring-primary/25" : "border-gray-200 hover:border-gray-300"
+                        )}
+                      >
+                        <AvatarImage
+                          src={menuAvatarUrl || undefined}
+                          alt={me?.name ? `${me.name} — open menu` : "Your profile — open menu"}
+                          className="object-cover"
+                        />
+                        <AvatarFallback
+                          className={cn("text-[10px] font-bold", isActive ? "bg-primary/15 text-primary" : "bg-gray-100 text-gray-600")}
+                        >
+                          {userId ? menuInitials : <UserCircle className="h-4 w-4 opacity-80" strokeWidth={1.75} aria-hidden />}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <span className={cn("relative z-10 transition-colors", isActive ? "text-white" : "text-slate-500")}>
+                        <span className="relative grid place-items-center">
+                          <AnimatePresence>
+                            {isActive && (
+                              <motion.span
+                                layoutId="bottomnav-active-circle"
+                                initial={{ opacity: 0, scale: 0.6 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.6 }}
+                                transition={{ type: "spring", stiffness: 520, damping: 32 }}
+                                className="absolute -inset-2 rounded-full bg-gradient-to-br from-primary to-[#1F2937] shadow-[0_10px_28px_-18px_rgba(15,23,42,0.50)]"
+                              />
+                            )}
+                          </AnimatePresence>
+                          <motion.span
+                            className="relative z-10 inline-flex"
+                            initial={false}
+                            animate={isActive ? { y: [0, -1, 0] } : { y: 0 }}
+                            transition={{ duration: 0.35, ease: "easeOut" }}
+                          >
+                            {renderGlyph(item, "tab")}
+                          </motion.span>
+                        </span>
+                      </span>
+                    )}
+
+                    {item.id === "chat" && chatUnread > 0 && (
+                      <span
+                        className={cn(
+                          "absolute -right-1 -top-1 z-20 grid place-items-center rounded-full border border-white bg-primary px-1 text-[9px] font-bold tabular-nums leading-none text-white shadow-sm",
+                          chatUnread > 9 ? "h-[18px] min-w-[22px]" : "size-[18px] text-[10px]"
+                        )}
+                      >
+                        {chatUnread > 9 ? "9+" : chatUnread}
+                      </span>
+                    )}
+                  </motion.div>
+
+                  <span className={cn("text-[10px] font-semibold transition-colors", isActive ? "text-primary" : "text-slate-600")}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Elevated center action (Explore) */}
+          {centerItem && (
             <button
-              key={item.id}
               type="button"
-              onClick={() => handleNav(item)}
-              className="relative flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] outline-none"
-              data-testid={`tab-${item.id}`}
+              onClick={() => handleNav(centerItem)}
+              className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-full"
+              data-testid={`tab-${centerItem.id}`}
+              aria-label={centerItem.label}
             >
-              <motion.div
-                whileTap={{ scale: 0.85 }}
-                transition={{ type: "spring", stiffness: 500, damping: 22 }}
-                className="relative"
-              >
-                <AnimatePresence>
-                  {isActive && (
-                    <motion.div
-                      layoutId="nav-active-bg"
-                      initial={{ opacity: 0, scale: 0.7 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.7 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                      className="absolute inset-[-6px] rounded-2xl bg-primary/10"
-                    />
-                  )}
-                </AnimatePresence>
-                {item.id === "menu" ? (
-                  <Avatar
-                    className={`relative z-10 h-7 w-7 shrink-0 border-2 bg-white transition-colors duration-200 ${
-                      isActive
-                        ? "border-primary ring-2 ring-primary/25 shadow-sm"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <AvatarImage
-                      src={menuAvatarUrl || undefined}
-                      alt={me?.name ? `${me.name} — open menu` : "Your profile — open menu"}
-                      className="object-cover"
-                    />
-                    <AvatarFallback
-                      className={`text-[9px] font-bold ${
-                        isActive ? "bg-primary/15 text-primary" : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {userId ? menuInitials : <UserCircle className="h-4 w-4 opacity-80" aria-hidden />}
-                    </AvatarFallback>
-                  </Avatar>
-                ) : item.icon === "double-heart" || item.icon === "wedding-ring" ? (
-                  <span
-                    className={`relative z-10 transition-colors duration-200 ${
-                      isActive ? "text-primary [&_svg]:stroke-primary" : "text-gray-500 [&_svg]:stroke-gray-500"
-                    }`}
-                  >
-                    {renderGlyph("tab")}
-                  </span>
-                ) : (
-                  (() => {
-                    const Icon = item.icon;
-                    return (
-                      <Icon
-                        className={`w-[22px] h-[22px] transition-colors duration-200 relative z-10 ${
-                          isActive ? "text-primary" : "text-gray-500"
-                        }`}
-                        strokeWidth={2}
-                        aria-hidden
-                      />
-                    );
-                  })()
-                )}
-                {item.id === "chat" && chatUnread > 0 && (
-                  <span
-                    className={
-                      chatUnread > 9
-                        ? "absolute -right-1 -top-1 z-20 grid h-[18px] min-w-[22px] place-items-center rounded-full border border-white bg-primary px-1 text-[9px] font-bold tabular-nums leading-none tracking-tight text-white shadow-sm"
-                        : "absolute -right-1 -top-1 z-20 grid size-[18px] place-items-center rounded-full border border-white bg-primary text-[10px] font-bold tabular-nums leading-none text-white shadow-sm"
-                    }
-                  >
-                    {chatUnread > 9 ? "9+" : chatUnread}
-                  </span>
-                )}
-              </motion.div>
-
-              <span
-                className={`text-[10px] font-semibold transition-colors duration-200 ${
-                  isActive ? "text-primary" : "text-gray-600"
-                }`}
-              >
-                {item.label}
-              </span>
+              <div className="flex flex-col items-center">
+                <motion.div
+                  whileTap={{ scale: 0.9 }}
+                  whileHover={{ y: -2 }}
+                  transition={{ type: "spring", stiffness: 520, damping: 26 }}
+                  className="relative grid size-[60px] place-items-center rounded-full border border-white/70 bg-gradient-to-br from-primary to-[#1F2937] text-primary-foreground shadow-[0_18px_40px_-22px_rgba(15,23,42,0.55)]"
+                >
+                  <span className="relative z-10">{renderGlyph(centerItem, "center")}</span>
+                </motion.div>
+              </div>
             </button>
-          );
-        })}
+          )}
+        </div>
       </div>
     </nav>
   );

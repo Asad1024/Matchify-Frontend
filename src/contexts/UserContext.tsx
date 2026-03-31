@@ -30,21 +30,30 @@ function getStoredUserId(): string | null {
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(getStoredUserId);
 
+  const syncUser = () => {
+    const id = getStoredUserId();
+    setUserId(id);
+    if (id) setCurrentUserId(id);
+  };
+
   // Keep in sync when another tab logs in/out or currentUser is updated
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === "currentUser" || e.key === "authToken") {
-        setUserId(getStoredUserId());
+        syncUser();
       }
     };
+    const onAuthChanged = () => syncUser();
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("matchify-auth-changed", onAuthChanged);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("matchify-auth-changed", onAuthChanged);
+    };
   }, []);
 
   useEffect(() => {
-    const id = getStoredUserId();
-    setUserId(id);
-    if (id) setCurrentUserId(id);
+    syncUser();
   }, []);
 
   return (

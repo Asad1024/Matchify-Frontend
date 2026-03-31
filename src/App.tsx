@@ -1,16 +1,21 @@
 import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserProvider, useCurrentUser } from "@/contexts/UserContext";
 import { CuratedMatchAutoClaim } from "@/components/curated/CuratedMatchAutoClaim";
 import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
+import { useToast } from "@/hooks/use-toast";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { LoadingState } from "@/components/common/LoadingState";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { pullClientStateFromBackend, pushClientStateToBackend } from "@/lib/clientStateSync";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import { useEffect, useState, lazy, Suspense, useRef } from "react";
 import type React from "react";
+import { LunaFab } from "@/components/assistant/LunaFab";
+import EventRevealWatcher from "@/components/events/EventRevealWatcher";
 
 // Lazy load pages for code splitting
 const Landing = lazy(() => import("@/pages/Landing"));
@@ -37,6 +42,7 @@ const FlowB = lazy(() => import("@/pages/FlowB"));
 const NextCuratedMatch = lazy(() => import("@/pages/NextCuratedMatch"));
 const EmpathyObserver = lazy(() => import("@/pages/EmpathyObserver"));
 const RelationshipCoaching = lazy(() => import("@/pages/RelationshipCoaching"));
+const LunaPage = lazy(() => import("@/pages/Luna"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const SettingsSocial = lazy(() => import("@/pages/SettingsSocial"));
 const SocialConnectionsPage = lazy(() => import("@/pages/SocialConnectionsPage"));
@@ -75,6 +81,68 @@ function AuthenticatedPresence() {
   return null;
 }
 
+type ConversationSummaryLite = {
+  id: string;
+  participant1Id: string;
+  participant2Id: string;
+  lastMessage: {
+    id: string;
+    senderId: string;
+    content: string;
+    deletedForEveryone?: boolean;
+    type?: string;
+    voiceUrl?: string | null;
+  } | null;
+};
+
+type UserLite = { id: string; name?: string | null };
+
+function GlobalMessageToaster({ userId, location }: { userId: string | null; location: string }) {
+  const { toast } = useToast();
+  const seenByConvRef = useRef<Record<string, string>>({});
+
+  const { data: summaries = [] } = useQuery<ConversationSummaryLite[]>({
+    queryKey: [`/api/users/${userId}/conversation-summaries`],
+    enabled: !!userId,
+    refetchInterval: 2500,
+  });
+  const { data: users = [] } = useQuery<UserLite[]>({
+    queryKey: ["/api/users"],
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  useEffect(() => {
+    if (!userId) return;
+    if (location.startsWith("/chat")) return;
+    const safeSummaries = Array.isArray(summaries) ? summaries : [];
+    const safeUsers = Array.isArray(users) ? users : [];
+    for (const conv of safeSummaries) {
+      const last = conv?.lastMessage;
+      if (!conv?.id || !last?.id) continue;
+      if (last.senderId === userId) continue;
+      if (seenByConvRef.current[conv.id] === last.id) continue;
+
+      const otherId = conv.participant1Id === userId ? conv.participant2Id : conv.participant1Id;
+      const other = safeUsers.find((u) => u?.id === otherId);
+      const preview =
+        last.deletedForEveryone
+          ? "Message deleted"
+          : last.voiceUrl || last.type === "voice"
+            ? "Voice message"
+            : String(last.content || "").slice(0, 120);
+
+      toast({
+        title: other?.name ? `New message from ${other.name}` : "New message",
+        description: preview || "Open Chat to reply.",
+      });
+      seenByConvRef.current[conv.id] = last.id;
+    }
+  }, [summaries, users, userId, location, toast]);
+
+  return null;
+}
+
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
     <LoadingState message="Loading..." showMascot={true} />
@@ -110,12 +178,24 @@ function readAuthState() {
   const onboardingFlag = localStorage.getItem("onboardingCompleted") === "true";
   let userId: string | null = null;
   let userOnboarded = onboardingFlag || isAdmin;
+  const inferOnboardedFromUser = (u: any): boolean => {
+    if (!u || typeof u !== "object") return false;
+    // Do NOT trust stale onboardingCompleted=true if core fields are missing.
+    const hasCoreProfile =
+      Boolean(String(u.name || "").trim()) &&
+      Boolean(String(u.location || "").trim()) &&
+      Boolean(String(u.bio || "").trim()) &&
+      Boolean(String(u.gender || "").trim()) &&
+      Number(u.age || 0) >= 18;
+    return hasCoreProfile;
+  };
   try {
     const raw = localStorage.getItem("currentUser");
     if (raw) {
       const u = JSON.parse(raw);
       userId = u.id || u.userId || null;
-      if (!userOnboarded && u.onboardingCompleted === true) {
+      if (!userOnboarded && inferOnboardedFromUser(u)) {
+        // Recover from stale onboarding flag if profile data is already complete.
         userOnboarded = true;
         localStorage.setItem("onboardingCompleted", "true");
       }
@@ -131,6 +211,20 @@ function AppContent() {
   const [showOnboarding, setShowOnboarding] = useState(init.showOnboarding);
   const [userId, setUserId] = useState<string | null>(init.userId);
 
+  const isLikelyOnboarded = (u: any): boolean => {
+    if (!u || typeof u !== "object") return false;
+    // Onboarding is only complete when core profile is present.
+    // Safety net for stale flag scenarios: if core profile exists,
+    // consider onboarding complete and sync it back to backend.
+    const hasCoreProfile =
+      Boolean(String(u.name || "").trim()) &&
+      Boolean(String(u.location || "").trim()) &&
+      Boolean(String(u.bio || "").trim()) &&
+      Boolean(String(u.gender || "").trim()) &&
+      Number(u.age || 0) >= 18;
+    return hasCoreProfile;
+  };
+
   // Re-check on route change and handle cross-tab updates
   useEffect(() => {
     const sync = () => {
@@ -143,6 +237,89 @@ function AppContent() {
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
   }, [location]);
+
+  // Validate onboarding status against backend on login/app-load.
+  // Prevents "asked again" if local flag is stale.
+  useEffect(() => {
+    if (!isAuthenticated || !userId) return;
+    let cancelled = false;
+    const verify = async () => {
+      try {
+        const res = await fetch(buildApiUrl(`/api/users/${userId}`), {
+          method: "GET",
+          headers: { ...getAuthHeaders(false) },
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const user = await res.json();
+        if (cancelled) return;
+        const onboarded = isLikelyOnboarded(user);
+        if (onboarded) {
+          localStorage.setItem("onboardingCompleted", "true");
+          try {
+            const raw = localStorage.getItem("currentUser");
+            const cur = raw ? JSON.parse(raw) : {};
+            localStorage.setItem(
+              "currentUser",
+              JSON.stringify({ ...cur, ...user, onboardingCompleted: true }),
+            );
+          } catch {
+            /* ignore parse failures */
+          }
+          setShowOnboarding(false);
+          // Sync backend if it still says false.
+          if (user.onboardingCompleted !== true) {
+            void fetch(buildApiUrl(`/api/users/${userId}`), {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
+              credentials: "include",
+              body: JSON.stringify({ onboardingCompleted: true }),
+            });
+          }
+        }
+      } catch {
+        /* offline/unavailable */
+      }
+    };
+    void verify();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, userId]);
+
+  // Keep selected localStorage-backed features in sync per user across browsers.
+  useEffect(() => {
+    if (!isAuthenticated || !userId) return;
+    let cancelled = false;
+
+    const pullOnce = async () => {
+      await pullClientStateFromBackend(userId);
+      if (!cancelled) {
+        try {
+          window.dispatchEvent(new Event("matchify-marriage-deck-updated"));
+          window.dispatchEvent(new Event("matchify-marriage-chat-updated"));
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+    void pullOnce();
+
+    const pushInterval = window.setInterval(() => {
+      void pushClientStateToBackend(userId);
+    }, 15000);
+
+    const onUnload = () => {
+      void pushClientStateToBackend(userId);
+    };
+    window.addEventListener("beforeunload", onUnload);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(pushInterval);
+      window.removeEventListener("beforeunload", onUnload);
+    };
+  }, [isAuthenticated, userId]);
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
@@ -208,6 +385,9 @@ function AppContent() {
     <AuthProvider onLogout={handleLogout}>
       <AuthenticatedPresence />
       <CuratedMatchAutoClaim />
+      <GlobalMessageToaster userId={userId} location={location} />
+      <EventRevealWatcher />
+      <LunaFab />
       <LazyErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Switch>
@@ -248,6 +428,7 @@ function AppContent() {
             </Route>
             <Route path="/empathy-observer" component={EmpathyObserver} />
             <Route path="/relationship-coaching" component={RelationshipCoaching} />
+            <Route path="/luna" component={LunaPage} />
             <Route path="/settings/social/connections" component={SocialConnectionsPage} />
             <Route path="/settings/social" component={SettingsSocial} />
             <Route path="/settings" component={Settings} />

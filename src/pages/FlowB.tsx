@@ -589,6 +589,42 @@ const buildFemaleQuestions = (): any[] => {
 const getQuestions = (userGender?: "male" | "female" | null): any[] =>
   userGender === "female" ? buildFemaleQuestions() : buildMaleQuestions();
 
+/** Map gender-specific question ids into canonical blueprint buckets. */
+function getAnswerBucket(questionId: string): string {
+  const map: Record<string, string> = {
+    m_her_personality: "personality_turn_on",
+    f_his_personality: "personality_turn_on",
+    m_her_energy: "energy_vibe",
+    f_his_energy: "energy_vibe",
+    m_her_physical: "physical_attraction",
+    f_his_physical: "physical_attraction",
+    m_her_face: "face_shape_preference",
+    f_his_face: "face_shape_preference",
+    m_her_eyes: "eye_shape_preference",
+    f_his_eyes: "eye_shape_preference",
+    m_her_lips: "lip_shape_preference",
+    f_his_lips: "lip_shape_preference",
+    m_her_values: "core_values",
+    f_his_values: "core_values",
+    m_her_style: "lifestyle",
+    m_how_connect: "communication",
+    f_how_connect: "communication",
+    m_conflict: "conflict_style",
+    f_conflict: "conflict_style",
+    m_future_vision: "future",
+    f_future_vision: "future",
+    m_his_career: "career",
+    f_his_career: "career",
+    m_hobbies: "hobbies",
+    f_hobbies: "hobbies",
+    m_social_life: "sociallife",
+    f_social_life: "sociallife",
+    m_food: "food",
+    f_food: "food",
+  };
+  return map[questionId] ?? questionId;
+}
+
 // ── FlowB component ───────────────────────────────────────────────────────────
 const _LEGACY_UNUSED = [
   {
@@ -1182,11 +1218,12 @@ export default function FlowB() {
 
   const toggleAnswer = (qId: string, optionId: string, max: number) => {
     setAnswers(prev => {
-      const current = prev[qId] || [];
+      const key = getAnswerBucket(qId);
+      const current = prev[key] || [];
       if (current.includes(optionId)) {
-        return { ...prev, [qId]: current.filter(id => id !== optionId) };
+        return { ...prev, [key]: current.filter(id => id !== optionId) };
       } else if (current.length < max) {
-        return { ...prev, [qId]: [...current, optionId] };
+        return { ...prev, [key]: [...current, optionId] };
       }
       return prev;
     });
@@ -1197,7 +1234,7 @@ export default function FlowB() {
   const canProceed = () => {
     if (currentQ < 0 || currentQ >= QUESTIONS.length) return true;
     const q = QUESTIONS[currentQ];
-    const selected = answers[q.id] || [];
+    const selected = answers[getAnswerBucket(q.id)] || [];
     return selected.length > 0;
   };
 
@@ -1383,6 +1420,8 @@ export default function FlowB() {
     const totalAnswers = Object.values(answers).flat();
     const dealbreakers = answers.dealbreakers || [];
     const coreValues = answers.core_values || [];
+    const coreValuesOptions =
+      QUESTIONS.find((qq: any) => getAnswerBucket(qq.id) === "core_values")?.options ?? [];
 
     if (isSaving || isLoadingMatches) {
       return (
@@ -1438,7 +1477,7 @@ export default function FlowB() {
             </div>
             <div className="flex flex-wrap gap-2">
               {coreValues.map((v, i) => {
-                const value = QUESTIONS.find((q: any) => q.id === 'core_values')?.options.find((o: any) => o.id === v);
+                const value = coreValuesOptions.find((o: any) => o.id === v);
                 return (
                   <Badge key={i} className="text-xs px-2 py-1 bg-white/20 text-white border border-white/30">
                     {value?.label || v}
@@ -1572,7 +1611,7 @@ export default function FlowB() {
   }
 
   const q = QUESTIONS[currentQ];
-  const selected = answers[q.id] || [];
+  const selected = answers[getAnswerBucket(q.id)] || [];
 
   return (
     <div className={`${FLOW_BG} relative flex flex-col overflow-hidden safe-top safe-bottom`}>

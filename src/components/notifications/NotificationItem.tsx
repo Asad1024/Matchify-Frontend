@@ -1,8 +1,16 @@
 import { motion } from "framer-motion";
-import { Bell, Heart, MessageCircle, Calendar, AlertCircle } from "lucide-react";
+import { Bell, Heart, MessageCircle, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
-type NotificationType = "match" | "message" | "event" | "system" | "curated_match";
+type NotificationType =
+  | "match"
+  | "message"
+  | "event"
+  | "system"
+  | "curated_match"
+  | "marriage_chat_request"
+  | "marriage_chat_accepted";
 
 interface NotificationItemProps {
   id: string;
@@ -12,7 +20,13 @@ interface NotificationItemProps {
   read: boolean;
   timestamp: string;
   user?: { name: string; avatar?: string };
+  /** For actions/navigation */
+  relatedUserId?: string | null;
+  relatedEntityId?: string | null;
   onClick?: (id: string) => void;
+  onAccept?: (id: string) => void;
+  onDecline?: (id: string) => void;
+  actionsDisabled?: boolean;
 }
 
 const ICON_MAP: Record<NotificationType, React.ElementType> = {
@@ -21,6 +35,8 @@ const ICON_MAP: Record<NotificationType, React.ElementType> = {
   message: MessageCircle,
   event: Calendar,
   system: Bell,
+  marriage_chat_request: MessageCircle,
+  marriage_chat_accepted: MessageCircle,
 };
 
 const COLOR_MAP: Record<NotificationType, string> = {
@@ -29,6 +45,8 @@ const COLOR_MAP: Record<NotificationType, string> = {
   message: "bg-primary/10 text-primary",
   event: "bg-amber-100 text-amber-500",
   system: "bg-gray-100 text-gray-500",
+  marriage_chat_request: "bg-primary/10 text-primary",
+  marriage_chat_accepted: "bg-primary/10 text-primary",
 };
 
 export default function NotificationItem({
@@ -39,19 +57,24 @@ export default function NotificationItem({
   read,
   timestamp,
   onClick,
+  onAccept,
+  onDecline,
+  actionsDisabled = false,
 }: NotificationItemProps) {
   const Icon = ICON_MAP[type] || Bell;
   const iconColor = COLOR_MAP[type] || COLOR_MAP.system;
+  const showActions = type === "marriage_chat_request" && (onAccept || onDecline);
 
   return (
     <motion.div
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
       className={cn(
-        "flex items-start gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors active:bg-gray-100",
-        !read && "bg-primary/5"
+        "flex items-start gap-3 px-4 py-3.5 transition-colors",
+        onClick && "cursor-pointer hover:bg-gray-50 active:bg-gray-100",
+        !read && "bg-primary/5",
       )}
-      onClick={() => onClick?.(id)}
+      onClick={onClick ? () => onClick(id) : undefined}
       data-testid={`notification-${id}`}
     >
       {/* Icon */}
@@ -71,6 +94,36 @@ export default function NotificationItem({
         </div>
         <p className="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{message}</p>
         <p className="text-[10px] text-gray-400 mt-1">{timestamp}</p>
+
+        {showActions ? (
+          <div
+            className="mt-2 flex gap-2"
+            onClick={(e) => {
+              // Prevent parent click (mark read + navigate).
+              e.stopPropagation();
+            }}
+          >
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 rounded-full px-3 text-xs font-bold"
+              disabled={actionsDisabled}
+              onClick={() => onAccept?.(id)}
+            >
+              Accept
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-full px-3 text-xs font-bold"
+              disabled={actionsDisabled}
+              onClick={() => onDecline?.(id)}
+            >
+              Decline
+            </Button>
+          </div>
+        ) : null}
       </div>
     </motion.div>
   );

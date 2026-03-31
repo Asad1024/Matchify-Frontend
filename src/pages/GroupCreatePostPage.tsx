@@ -186,6 +186,8 @@ export default function GroupCreatePostPage() {
   const previewSrc = imageUrl.trim() || undefined;
   const canPost =
     !!content.trim() && !!activeGroup && !!selectedGroupId && !createMutation.isPending && !uploading;
+  const charCount = content.length;
+  const greeting = `Salam, ${displayFirstName}`;
 
   if (!userId) {
     return null;
@@ -229,221 +231,259 @@ export default function GroupCreatePostPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
-      <div className="mx-auto w-full max-w-lg px-4">
-        <div className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-sm sm:p-5 sm:pt-[max(1rem,env(safe-area-inset-top))]">
-          <div className="-mx-4 flex min-h-[3.5rem] items-center justify-between gap-3 border-b border-gray-100 px-4 pb-4 sm:-mx-5 sm:px-5">
-            <Button
+    <div className="min-h-screen bg-[#F8F9FB] pb-28">
+      {/* Expressive Canvas backdrop */}
+      <div
+        className="fixed inset-0 z-50 bg-black/30 backdrop-blur-md"
+        style={{ transitionTimingFunction: "cubic-bezier(0.22,1,0.36,1)" }}
+        aria-hidden
+      />
+
+      <div className="fixed inset-0 z-[55] flex items-start justify-center overflow-y-auto px-4 pb-24 pt-[max(1rem,env(safe-area-inset-top))]">
+        <div
+          className="w-full max-w-lg overflow-hidden rounded-[28px] border border-[#F0F0F0] bg-white shadow-[0_18px_60px_-28px_rgba(15,23,42,0.55)]"
+          style={{ transitionTimingFunction: "cubic-bezier(0.22,1,0.36,1)" }}
+        >
+          {/* Header */}
+          <div className="relative px-4 pt-4 sm:px-5">
+            <button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 shrink-0 rounded-full text-stone-700 hover:bg-gray-100"
+              className="absolute left-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 shadow-sm transition hover:bg-slate-200"
               onClick={() =>
                 setLocation(
                   isCommunityComposer ? "/community" : `/group/${routeGroupId || selectedGroupId || ""}`,
                 )
               }
               aria-label="Close"
+              style={{ transitionTimingFunction: "cubic-bezier(0.22,1,0.36,1)" }}
             >
-              <X className="h-5 w-5" strokeWidth={2} />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className={cn(
-                "h-8 shrink-0 rounded-full px-3.5 text-xs font-semibold shadow-sm transition-all",
-                canPost
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-muted text-muted-foreground opacity-80",
-              )}
-              disabled={!canPost}
-              onClick={() =>
-                createMutation.mutate({ groupId: selectedGroupId.trim() || activeGroup?.id || "" })
-              }
-            >
-              {createMutation.isPending ? "Posting…" : "Post"}
-            </Button>
-          </div>
+              <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            </button>
 
-          <div className="space-y-4 pt-4">
-            <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-              <Sparkles className="h-4 w-4 shrink-0 text-primary" strokeWidth={2} />
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">New post</p>
-            </div>
+            <div className="flex items-center justify-between gap-3 pl-10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden />
+                <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">New post</p>
+              </div>
 
-          {/* Avatar + compact group selector */}
-          <div className="flex w-full items-center gap-2">
-            <Avatar className="h-9 w-9 shrink-0 border border-gray-100 bg-white shadow-sm">
-              <AvatarImage src={me?.avatar || undefined} alt="" />
-              <AvatarFallback className="bg-white text-[10px] font-bold text-primary">
-                {(me?.name || "Me").slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex h-8 w-auto max-w-[10.5rem] min-w-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2 py-0 text-left text-xs font-medium outline-none transition-all shadow-sm",
-                    "hover:border-primary/25 hover:bg-white",
-                    "focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white",
-                  )}
-                >
-                  <UsersRound className="h-3 w-3 shrink-0 text-primary" aria-hidden />
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate leading-tight",
-                      activeGroup ? "text-stone-900" : "text-stone-500",
-                    )}
-                  >
-                    {activeGroup?.name ?? (isCommunityComposer ? "Choose a group" : "Select group")}
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "h-3 w-3 shrink-0 text-stone-400 transition-transform duration-200",
-                      pickerOpen && "rotate-180",
-                    )}
-                  />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-[min(calc(100vw-2rem),20rem)] overflow-hidden rounded-2xl border border-stone-200/80 p-0 shadow-lg"
-                align="start"
-                sideOffset={8}
-              >
-                <p className="border-b border-stone-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
-                  Post in
-                </p>
-                <ul className="max-h-52 overflow-y-auto py-1">
-                  {joinedGroups.map((g) => (
-                    <li key={g.id}>
-                      <button
-                        type="button"
-                        className={cn(
-                          "flex w-full items-center px-3 py-2.5 text-left text-[13px] text-stone-800 transition-colors",
-                          "hover:bg-stone-50 active:bg-stone-100/80",
-                          selectedGroupId === g.id && "bg-primary/5 font-medium text-primary",
-                        )}
-                        onClick={() => {
-                          setSelectedGroupId(g.id);
-                          setPickerOpen(false);
-                        }}
-                      >
-                        {g.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="w-full">
-            <label className="sr-only" htmlFor="create-post-body">
-              Post content
-            </label>
-            <Textarea
-              id="create-post-body"
-              placeholder={`Salam, ${displayFirstName}, What's new with you?`}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="min-h-[200px] w-full resize-y rounded-2xl border border-gray-200 bg-gray-50/50 px-4 py-3.5 text-base leading-relaxed text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:border-primary/40 focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-primary/15"
-            />
-
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={handleFileChange}
-              aria-hidden
-            />
-
-            <div className="mt-3 flex w-full flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white px-2 py-2 shadow-sm">
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 shrink-0 rounded-xl text-primary hover:bg-primary/10 hover:text-primary"
-                disabled={uploading}
-                onClick={handlePickFile}
-                aria-label="Add photo"
+                disabled={!canPost}
+                onClick={() =>
+                  createMutation.mutate({ groupId: selectedGroupId.trim() || activeGroup?.id || "" })
+                }
+                className={cn(
+                  "inline-flex h-9 items-center justify-center rounded-full px-4 text-[12px] font-bold transition",
+                  canPost
+                    ? "bg-gradient-to-br from-[#722F37] to-[#8B2942] text-white shadow-[0_10px_30px_-14px_rgba(15,23,42,0.35)] hover:brightness-[0.98] active:scale-[0.99]"
+                    : "bg-slate-100 text-slate-400",
+                )}
+                style={{ transitionTimingFunction: "cubic-bezier(0.22,1,0.36,1)" }}
+                aria-label="Post"
               >
-                {uploading ? <Loader2 className="h-[1.125rem] w-[1.125rem] animate-spin" /> : <ImagePlus className="h-[1.125rem] w-[1.125rem]" strokeWidth={2} />}
-              </Button>
+                {createMutation.isPending ? "Posting…" : "Post"}
+              </button>
+            </div>
+          </div>
 
-              <Popover
-                open={linkPopoverOpen}
-                onOpenChange={(open) => {
-                  setLinkPopoverOpen(open);
-                  if (open) setUrlDraft(imageUrl.trim());
-                }}
-              >
+          <div className="space-y-4 px-4 pb-5 pt-4 sm:px-5">
+            {/* Avatar + compact group selector */}
+            <div className="flex w-full items-center gap-2">
+              <Avatar className="h-10 w-10 shrink-0 border-2 border-white bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.25)]">
+                <AvatarImage src={me?.avatar || undefined} alt="" />
+                <AvatarFallback className="bg-white text-[10px] font-bold text-primary">
+                  {(me?.name || "Me").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
                 <PopoverTrigger asChild>
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 shrink-0 rounded-xl text-primary hover:bg-primary/10 hover:text-primary"
-                    aria-label="Image from link"
+                    className={cn(
+                      "flex h-9 w-auto max-w-[12.5rem] min-w-0 items-center gap-2 rounded-full px-3 text-left text-[12px] font-semibold outline-none transition",
+                      "bg-[#F4F4F7] text-slate-700 hover:bg-[#ECECF2]",
+                      "focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white",
+                    )}
                   >
-                    <Link2 className="h-[1.125rem] w-[1.125rem]" strokeWidth={2} />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[min(calc(100vw-2rem),20rem)] p-3" align="start" sideOffset={8}>
-                  <p className="mb-2 text-xs font-medium text-stone-600">Image URL</p>
-                  <Input
-                    placeholder="https://…"
-                    value={urlDraft}
-                    onChange={(e) => setUrlDraft(e.target.value)}
-                    className="rounded-xl text-sm"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        applyImageUrl();
-                      }
-                    }}
-                  />
-                  <div className="mt-2 flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full"
-                      onClick={() => setLinkPopoverOpen(false)}
+                    <UsersRound className="h-4 w-4 shrink-0 text-slate-600" strokeWidth={1.75} aria-hidden />
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate leading-tight",
+                        activeGroup ? "text-slate-900" : "text-slate-500",
+                      )}
                     >
-                      Cancel
-                    </Button>
-                    <Button type="button" size="sm" className="rounded-full" onClick={applyImageUrl}>
-                      Use URL
-                    </Button>
-                  </div>
+                      {activeGroup?.name ?? (isCommunityComposer ? "Choose a group" : "Select group")}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200",
+                        pickerOpen && "rotate-180",
+                      )}
+                    />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[min(calc(100vw-2rem),20rem)] overflow-hidden rounded-2xl border border-stone-200/80 p-0 shadow-lg"
+                  align="start"
+                  sideOffset={8}
+                >
+                  <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+                    Post in
+                  </p>
+                  <ul className="max-h-52 overflow-y-auto py-1">
+                    {joinedGroups.map((g) => (
+                      <li key={g.id}>
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex w-full items-center px-3 py-2.5 text-left text-[13px] text-stone-800 transition-colors",
+                            "hover:bg-stone-50 active:bg-stone-100/80",
+                            selectedGroupId === g.id && "bg-primary/5 font-medium text-primary",
+                          )}
+                          onClick={() => {
+                            setSelectedGroupId(g.id);
+                            setPickerOpen(false);
+                          }}
+                        >
+                          {g.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </PopoverContent>
               </Popover>
-
-              {previewSrc ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto h-10 rounded-xl px-3 text-xs font-medium text-destructive hover:bg-destructive/10"
-                  onClick={() => setImageUrl("")}
-                >
-                  Remove image
-                </Button>
-              ) : null}
             </div>
 
-            {previewSrc ? (
-              <div className="mt-4 w-full overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm">
-                <img src={previewSrc} alt="" className="max-h-52 w-full object-contain" />
+            <div className="w-full">
+              <label className="sr-only" htmlFor="create-post-body">
+                Post content
+              </label>
+
+              <div className="rounded-[28px] bg-[#F4F4F7] px-4 py-4">
+                <p className="text-[13px] font-medium text-slate-500">{greeting}</p>
+
+                <Textarea
+                  id="create-post-body"
+                  placeholder="Share a win or ask a question…"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  className={cn(
+                    "mt-2 min-h-[180px] w-full resize-y rounded-2xl border-0 bg-transparent p-0 text-[18px] leading-relaxed text-slate-900 shadow-none",
+                    "placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0",
+                  )}
+                />
+
+                {/* Action bar */}
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={uploading}
+                      onClick={handlePickFile}
+                      className={cn(
+                        "inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-slate-600 shadow-sm ring-1 ring-black/[0.04] backdrop-blur-md transition",
+                        "hover:bg-white hover:text-primary",
+                        uploading && "opacity-60",
+                      )}
+                      aria-label="Add image"
+                      style={{ transitionTimingFunction: "cubic-bezier(0.22,1,0.36,1)" }}
+                    >
+                      {uploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      ) : (
+                        <ImagePlus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      )}
+                    </button>
+
+                    <Popover
+                      open={linkPopoverOpen}
+                      onOpenChange={(open) => {
+                        setLinkPopoverOpen(open);
+                        if (open) setUrlDraft(imageUrl.trim());
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-slate-600 shadow-sm ring-1 ring-black/[0.04] backdrop-blur-md transition hover:bg-white hover:text-primary"
+                          aria-label="Add image link"
+                          style={{ transitionTimingFunction: "cubic-bezier(0.22,1,0.36,1)" }}
+                        >
+                          <Link2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-[min(calc(100vw-2rem),20rem)] p-3"
+                        align="start"
+                        sideOffset={8}
+                      >
+                        <p className="mb-2 text-xs font-medium text-stone-600">Image URL</p>
+                        <Input
+                          placeholder="https://…"
+                          value={urlDraft}
+                          onChange={(e) => setUrlDraft(e.target.value)}
+                          className="rounded-xl text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              applyImageUrl();
+                            }
+                          }}
+                        />
+                        <div className="mt-2 flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-full"
+                            onClick={() => setLinkPopoverOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button type="button" size="sm" className="rounded-full" onClick={applyImageUrl}>
+                            Use URL
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="text-[11px] font-semibold text-slate-400 tabular-nums" aria-label="Character count">
+                    {charCount}
+                  </div>
+                </div>
+
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleFileChange}
+                  aria-hidden
+                />
+
+                {previewSrc ? (
+                  <div className="mt-4 w-full overflow-hidden rounded-2xl border border-white/60 bg-white/60 shadow-sm">
+                    <img src={previewSrc} alt="" className="max-h-52 w-full object-contain" />
+                    <div className="flex justify-end p-2">
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-full bg-white/70 px-3 py-1 text-[12px] font-semibold text-rose-700 shadow-sm ring-1 ring-black/[0.04] backdrop-blur-md hover:bg-white"
+                        onClick={() => setImageUrl("")}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
+            </div>
           </div>
         </div>
       </div>
-      <BottomNav active="community" />
+
+      {/* Bottom nav intentionally hidden behind composer overlay */}
     </div>
   );
 }

@@ -4,6 +4,21 @@ const P = "matchify_marriage_deck_";
 
 export type DeckEntry = { id: string; at: string };
 
+function currentUserScope(): string {
+  try {
+    const raw = localStorage.getItem("currentUser");
+    if (!raw) return "anon";
+    const j = JSON.parse(raw) as { id?: string };
+    return j?.id?.trim() || "anon";
+  } catch {
+    return "anon";
+  }
+}
+
+function scopedKey(suffix: "passed" | "liked" | "favorites" | "complimented"): string {
+  return `${P}${currentUserScope()}_${suffix}`;
+}
+
 function emitUpdate(): void {
   try {
     window.dispatchEvent(new Event("matchify-marriage-deck-updated"));
@@ -35,10 +50,10 @@ function pushEntry(list: DeckEntry[], id: string): DeckEntry[] {
   return next;
 }
 
-export const getMarriagePassed = (): DeckEntry[] => readList(`${P}passed`);
-export const getMarriageLiked = (): DeckEntry[] => readList(`${P}liked`);
-export const getMarriageFavorites = (): DeckEntry[] => readList(`${P}favorites`);
-export const getMarriageComplimented = (): DeckEntry[] => readList(`${P}complimented`);
+export const getMarriagePassed = (): DeckEntry[] => readList(scopedKey("passed"));
+export const getMarriageLiked = (): DeckEntry[] => readList(scopedKey("liked"));
+export const getMarriageFavorites = (): DeckEntry[] => readList(scopedKey("favorites"));
+export const getMarriageComplimented = (): DeckEntry[] => readList(scopedKey("complimented"));
 
 export function getMarriagePassedIds(): Set<string> {
   return new Set(getMarriagePassed().map((e) => e.id));
@@ -49,15 +64,15 @@ export function getMarriageLikedIds(): Set<string> {
 }
 
 export function addMarriagePassed(id: string): void {
-  writeList(`${P}passed`, pushEntry(getMarriagePassed(), id));
+  writeList(scopedKey("passed"), pushEntry(getMarriagePassed(), id));
 }
 
 export function addMarriageLiked(id: string): void {
-  writeList(`${P}liked`, pushEntry(getMarriageLiked(), id));
+  writeList(scopedKey("liked"), pushEntry(getMarriageLiked(), id));
 }
 
 export function addMarriageComplimented(id: string): void {
-  writeList(`${P}complimented`, pushEntry(getMarriageComplimented(), id));
+  writeList(scopedKey("complimented"), pushEntry(getMarriageComplimented(), id));
 }
 
 export function isMarriageFavorite(id: string): boolean {
@@ -69,18 +84,23 @@ export function toggleMarriageFavorite(id: string): boolean {
   const list = getMarriageFavorites();
   if (list.some((e) => e.id === id)) {
     writeList(
-      `${P}favorites`,
+      scopedKey("favorites"),
       list.filter((e) => e.id !== id),
     );
     return false;
   }
-  writeList(`${P}favorites`, pushEntry(list, id));
+  writeList(scopedKey("favorites"), pushEntry(list, id));
   return true;
 }
 
 /** Dev/testing: clear pass / like / favorite / compliment lists (Explore → My history + Marriage deck). */
 export function clearMarriageDeckListsForTesting(): void {
   try {
+    localStorage.removeItem(scopedKey("passed"));
+    localStorage.removeItem(scopedKey("liked"));
+    localStorage.removeItem(scopedKey("favorites"));
+    localStorage.removeItem(scopedKey("complimented"));
+    // Backward compat: clear legacy global keys if present.
     localStorage.removeItem(`${P}passed`);
     localStorage.removeItem(`${P}liked`);
     localStorage.removeItem(`${P}favorites`);

@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   isMarriageSyntheticNotificationId,
-  markMarriageSenderEventRead,
+  markMarriageSyntheticNotificationRead,
   marriageNotificationsForUser,
 } from "@/lib/marriageChatRequests";
 import { notificationCreatedAtMs } from "@/lib/utils";
@@ -20,7 +20,14 @@ import { notificationCreatedAtMs } from "@/lib/utils";
 type Notification = {
   id: string;
   userId: string;
-  type: "match" | "message" | "event" | "system" | "curated_match";
+  type:
+    | "match"
+    | "message"
+    | "event"
+    | "system"
+    | "curated_match"
+    | "marriage_chat_request"
+    | "marriage_chat_accepted";
   title: string;
   message: string;
   read: boolean | null;
@@ -89,7 +96,7 @@ export default function Notifications() {
     (n: Notification) => {
       if (userId && isMarriageSyntheticNotificationId(n.id)) {
         if (!n.read) {
-          markMarriageSenderEventRead(userId, n.id);
+          markMarriageSyntheticNotificationRead(userId, n.id);
           setMarriageEpoch((e) => e + 1);
         }
         if (n.relatedUserId) {
@@ -105,11 +112,8 @@ export default function Notifications() {
 
       switch (n.type) {
         case "match":
-          if (other) {
-            setLocation(`/profile/${other}`);
-          } else {
-            setLocation("/directory");
-          }
+          // Matches should open the curated area so users see the card immediately.
+          setLocation("/directory?tab=curated");
           break;
         case "curated_match":
           setLocation("/directory?tab=curated");

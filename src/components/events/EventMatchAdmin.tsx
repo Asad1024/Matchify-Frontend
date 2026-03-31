@@ -51,9 +51,11 @@ export default function EventMatchAdmin({ eventId, eventTitle }: EventMatchAdmin
     onSuccess: () => {
       toast({
         title: "Matches calculated! ✅",
-        description: "Matches have been generated for all participants",
+        description: "Matches have been generated. Reveal starts in ~20 seconds for attendees.",
       });
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/matches`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
     },
     onError: (error: Error) => {
       toast({

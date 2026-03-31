@@ -21,7 +21,7 @@ export const MATCHIFY_PINK_HEX = "#8B2942";
 
 /**
  * AI Matchmaker + Directory boost shared cooldown (ms).
- * - Default: 2 hours. Override with `VITE_AI_MATCH_COOLDOWN_MS` in `.env.local` (e.g. `300000` for 5 min while testing).
+ * - Default: 1 hour. Override with `VITE_AI_MATCH_COOLDOWN_MS` in `.env.local` (e.g. `3600000` for 1 hour).
  */
 function readAiMatchCooldownMs(): number {
   const raw =
@@ -32,7 +32,9 @@ function readAiMatchCooldownMs(): number {
     const n = Number(raw);
     if (Number.isFinite(n) && n > 0) return n;
   }
-  return 2 * 60 * 60 * 1000;
+  // Default: 1 hour.
+  // Override via `VITE_AI_MATCH_COOLDOWN_MS` in `.env.local`.
+  return 60 * 60 * 1000;
 }
 
 export const AI_MATCH_COOLDOWN_MS = readAiMatchCooldownMs();

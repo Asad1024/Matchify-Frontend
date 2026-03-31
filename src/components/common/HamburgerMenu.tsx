@@ -41,9 +41,9 @@ const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
     title: "Main",
     items: [
       { icon: HeartHandshake, label: "Marriage", path: "/" },
-      { icon: Compass, label: "Explore", path: "/explore" },
-      { icon: Globe, label: "Feed", path: "/community" },
-      { icon: Users, label: "Directory", path: "/directory" },
+      { icon: Compass, label: "Discover", path: "/explore" },
+      { icon: Globe, label: "Explore", path: "/community" },
+      { icon: Users, label: "People", path: "/directory" },
       { icon: Sparkles, label: "AI Matchmaker", path: "/ai-matchmaker", highlight: true },
       { icon: Calendar, label: "Events", path: "/events" },
       { icon: MessageCircle, label: "Chat", path: "/chat" },
@@ -64,7 +64,6 @@ const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
     items: [
       { icon: Eye, label: "Empathy Observer", path: "/empathy-observer" },
       { icon: Bell, label: "Notifications", path: "/notifications" },
-      { icon: Crown, label: "Upgrade", path: "/subscriptions" },
     ],
   },
 ];

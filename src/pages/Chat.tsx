@@ -113,6 +113,18 @@ type User = {
   privacy?: { showOnlineStatus?: boolean } | null;
 };
 
+function formatLastSeen(iso: string | null | undefined): string {
+  if (!iso?.trim()) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return "Last seen just now";
+  if (mins < 60) return `Last seen ${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `Last seen ${hrs}h ago`;
+  return `Last seen ${d.toLocaleDateString([], { month: "short", day: "numeric" })}`;
+}
+
 export default function Chat() {
   const [activePage, setActivePage] = useState('chat');
   const [location, setLocation] = useLocation();
@@ -135,11 +147,13 @@ export default function Chat() {
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
   const { toast } = useToast();
+  const lastToastMsgIdRef = useRef<Record<string, string>>({});
 
   // Inbox with last message preview + unread counts
   const { data: conversationSummaries = [] } = useQuery<ConversationSummary[]>({
     queryKey: [`/api/users/${userId}/conversation-summaries`],
     enabled: !!userId,
+    refetchInterval: 4000,
   });
 
   // Fetch all users
@@ -151,6 +165,7 @@ export default function Chat() {
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: chatMessagesQueryKey(selectedChat, userId),
     enabled: !!selectedChat && !!userId,
+    refetchInterval: 2500,
     queryFn: async () => {
       const url = buildApiUrl(
         `/api/messages/${selectedChat}?userId=${encodeURIComponent(userId!)}`,
@@ -171,6 +186,15 @@ export default function Chat() {
     content: string;
     type?: string;
     voiceUrl?: string | null;
+  };
+
+  const coerceOutgoingPayload = (payload: string | SendMessageBody): SendMessageBody => {
+    if (typeof payload === "string") return { content: payload, type: "text", voiceUrl: null };
+    return {
+      content: payload.content,
+      type: payload.type ?? "text",
+      voiceUrl: payload.voiceUrl ?? null,
+    };
   };
 
   const sendMutation = useMutation({
@@ -204,15 +228,78 @@ export default function Chat() {
       }
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (payload: string | SendMessageBody) => {
+      if (!selectedChat || !userId) return;
+      const outgoing = coerceOutgoingPayload(payload);
+      const now = new Date();
+      const tempId = `optimistic-${userId}-${now.getTime()}`;
+
+      const optimistic: Message = {
+        id: tempId,
+        conversationId: selectedChat,
+        senderId: userId,
+        content: outgoing.content,
+        type: (outgoing.type as Message["type"]) ?? "text",
+        voiceUrl: outgoing.voiceUrl ?? null,
+        read: false,
+        createdAt: now,
+      };
+
+      const key = chatMessagesQueryKey(selectedChat, userId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previousMessages = queryClient.getQueryData<Message[]>(key);
+      queryClient.setQueryData<Message[]>(key, (old) => {
+        const rows = Array.isArray(old) ? old : [];
+        if (rows.some((m) => m?.id === tempId)) return rows;
+        return [...rows, optimistic];
+      });
+
+      const summariesKey = [`/api/users/${userId}/conversation-summaries`] as const;
+      const previousSummaries = queryClient.getQueryData<ConversationSummary[]>(summariesKey);
+      queryClient.setQueryData<ConversationSummary[]>(summariesKey, (old) => {
+        const rows = Array.isArray(old) ? old : [];
+        const idx = rows.findIndex((r) => r?.id === selectedChat);
+        if (idx < 0) return rows;
+        const updated = [...rows];
+        const row = updated[idx]!;
+        updated.splice(idx, 1);
+        updated.unshift({
+          ...row,
+          lastMessage: {
+            id: tempId,
+            conversationId: selectedChat,
+            senderId: userId,
+            content: outgoing.content,
+            read: false,
+            createdAt: now.toISOString(),
+            type: outgoing.type,
+            voiceUrl: outgoing.voiceUrl ?? null,
+          },
+        });
+        return updated;
+      });
+
+      return { tempId, key, previousMessages, summariesKey, previousSummaries };
+    },
+    onSuccess: (serverMsg: unknown, _payload, ctx) => {
+      const created = serverMsg as Partial<Message> | undefined;
+      if (ctx?.key && ctx?.tempId && created?.id) {
+        queryClient.setQueryData<Message[]>(ctx.key, (old) => {
+          const rows = Array.isArray(old) ? old : [];
+          return rows.map((m) => (m?.id === ctx.tempId ? ({ ...m, ...created } as Message) : m));
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/conversations`] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/conversation-summaries`] });
       queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "chat-unread-count"] });
       setMessage("");
       setShowVoiceRecorder(false);
+      toast({ title: "Message sent" });
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _payload, ctx) => {
+      if (ctx?.key) queryClient.setQueryData(ctx.key, ctx.previousMessages);
+      if (ctx?.summariesKey) queryClient.setQueryData(ctx.summariesKey, ctx.previousSummaries);
       toast({
         title: "Could not send",
         description: err.message || "Failed to send message",
@@ -357,6 +444,66 @@ export default function Chat() {
   const safeUsers = Array.isArray(users) ? users : [];
   const safeMessages = Array.isArray(messages) ? messages : [];
 
+  // Toast on incoming messages when user isn't currently viewing that thread.
+  useEffect(() => {
+    if (!userId) return;
+    for (const conv of safeConversations) {
+      if (!conv?.id || !conv.lastMessage) continue;
+      const last = conv.lastMessage;
+      if (!last?.id || last.senderId === userId) continue; // only incoming
+      const alreadyToastedId = lastToastMsgIdRef.current[conv.id];
+      if (alreadyToastedId === last.id) continue;
+
+      // If currently viewing this conversation, don't toast (message is visible).
+      if (selectedChat && conv.id === selectedChat) {
+        lastToastMsgIdRef.current[conv.id] = last.id;
+        continue;
+      }
+
+      // If user is anywhere in the app and a new message arrives, toast once.
+      const otherId = conv.participant1Id === userId ? conv.participant2Id : conv.participant1Id;
+      const other = safeUsers.find((u) => u?.id === otherId);
+      const preview =
+        last.deletedForEveryone
+          ? "Message deleted"
+          : last.voiceUrl || last.type === "voice"
+            ? "Voice message"
+            : String(last.content || "").slice(0, 120);
+
+      toast({
+        title: other?.name ? `New message from ${other.name}` : "New message",
+        description: preview || "Open Chat to reply.",
+      });
+      lastToastMsgIdRef.current[conv.id] = last.id;
+    }
+  }, [safeConversations, safeUsers, selectedChat, toast, userId]);
+
+  // Mark incoming unread messages as read when chat is open.
+  useEffect(() => {
+    if (!selectedChat || !userId) return;
+    const unreadIncoming = safeMessages.filter(
+      (m) => m.senderId !== userId && !m.read && !m.deletedForEveryone,
+    );
+    if (!unreadIncoming.length) return;
+    void Promise.all(
+      unreadIncoming.map((m) =>
+        fetch(buildApiUrl(`/api/messages/${m.id}/read`), {
+          method: "PATCH",
+          headers: { ...getAuthHeaders(true) },
+          credentials: "include",
+        }).catch(() => null),
+      ),
+    ).then(() => {
+      void queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+      void queryClient.invalidateQueries({
+        queryKey: [`/api/users/${userId}/conversation-summaries`],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["/api/users", userId, "chat-unread-count"],
+      });
+    });
+  }, [selectedChat, userId, safeMessages]);
+
   const handleSend = () => {
     if (message.trim() && selectedChat) {
       sendMutation.mutate(message.trim());
@@ -493,6 +640,11 @@ export default function Chat() {
   const selectedOtherUser = selectedConversation ? getOtherUser(selectedConversation) : null;
   /** Used for outgoing message ticks: single = sent (they look offline), double gray = online, double blue = read. */
   const otherRecipientOnline = !!(selectedOtherUser && showOnlineDotForOther(selectedOtherUser));
+  const selectedStatusLabel = selectedOtherUser
+    ? otherRecipientOnline
+      ? "Online"
+      : formatLastSeen(selectedOtherUser.lastActiveAt)
+    : "";
 
   return (
     <PageWrapper className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-gray-50">
@@ -518,8 +670,8 @@ export default function Chat() {
         />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col w-full max-w-lg mx-auto px-4 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] rounded-b-2xl border border-gray-100 bg-white shadow-sm shadow-gray-200/40">
+      <div className="flex min-h-0 flex-1 flex-col w-full max-w-lg mx-auto px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] rounded-b-2xl border border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
         {/* Conversations List */}
         {!selectedChat ? (
           <div className="flex flex-col flex-1 overflow-hidden bg-white min-h-0">
@@ -541,7 +693,7 @@ export default function Chat() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+            <div className="flex-1 overflow-y-auto">
               {!userId ? (
                 <div className="p-4 text-center text-gray-400 text-sm">Loading...</div>
               ) : filteredConversations.length === 0 ? (
@@ -582,7 +734,51 @@ export default function Chat() {
                   )}
                 </div>
               ) : (
-                filteredConversations.map((conv) => {
+                <>
+                  {/* Matches / New interests row */}
+                  <div className="px-4 pt-4 pb-2">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      New interests
+                    </p>
+                    <div className="mt-2 flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+                      {filteredConversations
+                        .slice()
+                        .sort((a, b) => (b.unreadCount ?? 0) - (a.unreadCount ?? 0))
+                        .slice(0, 12)
+                        .map((conv) => {
+                          const otherUser = getOtherUser(conv);
+                          const unread = (conv as ConversationSummary).unreadCount ?? 0;
+                          const ring =
+                            unread > 0
+                              ? "bg-gradient-to-br from-primary via-[#7C3AED] to-[#06B6D4]"
+                              : "bg-[#F0F0F0]";
+                          return (
+                            <button
+                              key={`top-${conv.id}`}
+                              type="button"
+                              onClick={() => setSelectedChat(conv.id)}
+                              className="flex flex-col items-center gap-1 shrink-0"
+                              aria-label={otherUser?.name ? `Open chat with ${otherUser.name}` : "Open chat"}
+                            >
+                              <div className={`rounded-full p-[2px] ${ring}`}>
+                                <Avatar className="h-12 w-12 border-2 border-white bg-white">
+                                  <AvatarImage src={otherUser?.avatar || undefined} alt="" />
+                                  <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                    {otherUser?.name?.slice(0, 2).toUpperCase() || "??"}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </div>
+                              <span className="max-w-[3.5rem] truncate text-[11px] font-semibold text-slate-700">
+                                {otherUser?.name?.split(/\s+/)[0] || "Chat"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  <div className="divide-y divide-gray-50">
+                    {filteredConversations.map((conv) => {
                   const otherUser = getOtherUser(conv);
                   const summary = conv as ConversationSummary;
                   const last = summary.lastMessage;
@@ -599,7 +795,7 @@ export default function Chat() {
                     <button
                       key={conv.id}
                       onClick={() => setSelectedChat(conv.id)}
-                      className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                      className="w-full px-4 py-3.5 flex items-center gap-3 text-left transition-colors hover:bg-[#F9FAFB] active:bg-gray-100"
                       data-testid={`conversation-${conv.id}`}
                     >
                       <div className="relative flex-shrink-0">
@@ -626,16 +822,16 @@ export default function Chat() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-0.5">
-                          <p className="font-bold text-gray-900 text-sm truncate">
+                          <p className="text-[16px] font-semibold text-slate-900 truncate leading-tight">
                             {otherUser?.name || 'Unknown User'}
                           </p>
-                          <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                          <span className="text-[12px] text-slate-400 whitespace-nowrap flex-shrink-0">
                             {formatMsgTime(ts)}
                           </span>
                         </div>
                         <p
-                          className={`text-xs truncate ${
-                            unread > 0 ? "text-gray-800 font-semibold" : "text-gray-500"
+                          className={`text-[14px] truncate leading-snug ${
+                            unread > 0 ? "text-slate-800 font-semibold" : "text-slate-500"
                           }`}
                         >
                           {isFromMe ? `You: ${preview}` : preview}
@@ -643,7 +839,9 @@ export default function Chat() {
                       </div>
                     </button>
                   );
-                })
+                })}
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -651,10 +849,10 @@ export default function Chat() {
           /* Chat Area */
           <div className="flex flex-col flex-1 overflow-hidden bg-white min-h-0">
             {/* Chat Header */}
-            <div className="px-4 py-3.5 bg-white border-b border-gray-100 flex items-center gap-3 shrink-0">
+            <div className="px-4 py-3 bg-white border-b border-[#F0F0F0] flex items-center gap-3 shrink-0">
               <button
                 type="button"
-                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors touch-manipulation"
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors touch-manipulation"
                 aria-label="Back to inbox"
                 onClick={() => {
                   setSelectedChat(null);
@@ -663,7 +861,7 @@ export default function Chat() {
                   }
                 }}
               >
-                <ArrowLeft className="w-5 h-5 text-gray-700" />
+                <ArrowLeft className="w-5 h-5" strokeWidth={1.75} />
               </button>
               <div className="relative flex-shrink-0">
                 <Avatar className="h-10 w-10">
@@ -677,26 +875,28 @@ export default function Chat() {
                 ) : null}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-sm leading-tight">
+                <p className="font-semibold text-slate-900 text-[15px] leading-tight truncate">
                   {selectedOtherUser?.name || "Unknown User"}
                 </p>
-                <p className="text-xs text-gray-500 font-medium">Direct message</p>
+                <p className="text-[12px] text-slate-500 font-medium truncate">
+                  {selectedStatusLabel || "Direct message"}
+                </p>
               </div>
               <div className="flex items-center gap-1">
-                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors hidden sm:flex">
-                  <Phone className="w-4 h-4 text-gray-500" />
+                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors hidden sm:flex border border-transparent hover:border-[#F0F0F0]">
+                  <Phone className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
                 </button>
-                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors hidden sm:flex">
-                  <Video className="w-4 h-4 text-gray-500" />
+                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors hidden sm:flex border border-transparent hover:border-[#F0F0F0]">
+                  <Video className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
                 </button>
-                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors">
-                  <MoreVertical className="w-4 h-4 text-gray-500" />
+                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors border border-transparent hover:border-[#F0F0F0]">
+                  <MoreVertical className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
                 </button>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50/90 min-h-0">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#F8F9FB] min-h-0">
               <AnimatePresence initial={false}>
                 {safeMessages.map((msg, index) => {
                   if (!msg) return null;
@@ -745,10 +945,10 @@ export default function Chat() {
                         <ContextMenu>
                           <ContextMenuTrigger asChild disabled={isEditing}>
                             <div
-                              className={`px-3.5 py-2.5 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+                              className={`px-3.5 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
                                 isCurrentUser
-                                  ? "bg-primary text-white rounded-br-sm"
-                                  : "bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100"
+                                  ? "bg-primary text-white rounded-[18px] rounded-br-[6px]"
+                                  : "bg-[#F2F3F5] text-slate-900 rounded-[18px] rounded-bl-[6px]"
                               } ${!isEditing ? "cursor-context-menu touch-manipulation" : ""}`}
                             >
                           {isDeleted ? (
@@ -810,7 +1010,7 @@ export default function Chat() {
                               Voice message (no audio data)
                             </p>
                           ) : (
-                            <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
+                            <p className="text-sm leading-[1.5] break-words whitespace-pre-wrap">{msg.content}</p>
                           )}
                           {!isDeleted && !isEditing && msg.isIcebreaker && (
                             <Badge
@@ -901,20 +1101,20 @@ export default function Chat() {
                             <>
                               {msg.read ? (
                                 <CheckCheck
-                                  className="h-3.5 w-3.5 shrink-0 text-sky-500"
-                                  strokeWidth={2.5}
+                                  className="h-3 w-3 shrink-0 text-sky-500/90"
+                                  strokeWidth={2}
                                   aria-label="Read"
                                 />
                               ) : otherRecipientOnline ? (
                                 <CheckCheck
-                                  className="h-3.5 w-3.5 shrink-0 text-gray-400"
-                                  strokeWidth={2.5}
+                                  className="h-3 w-3 shrink-0 text-slate-400"
+                                  strokeWidth={2}
                                   aria-label="Delivered"
                                 />
                               ) : (
                                 <Check
-                                  className="h-3.5 w-3.5 shrink-0 text-gray-400"
-                                  strokeWidth={2.5}
+                                  className="h-3 w-3 shrink-0 text-slate-400"
+                                  strokeWidth={2}
                                   aria-label="Sent"
                                 />
                               )}
@@ -1055,7 +1255,7 @@ export default function Chat() {
             </AnimatePresence>
 
             {/* Input area — voice mode replaces the text row (WhatsApp-style inline bar) */}
-            <div className="px-4 pt-3 pb-5 bg-white border-t border-gray-100 flex items-center gap-2 shrink-0 min-h-[3.25rem]">
+            <div className="px-4 pt-3 pb-5 bg-white border-t border-[#F0F0F0] flex items-center gap-2 shrink-0 min-h-[3.25rem]">
               {showVoiceRecorder ? (
                 <VoiceNoteRecorder
                   layout="inline"
@@ -1066,12 +1266,12 @@ export default function Chat() {
                 />
               ) : (
                 <>
-                  <div className="flex-1 bg-gray-100 rounded-3xl px-3 py-2.5 flex items-center gap-1.5 min-w-0">
+                  <div className="flex-1 rounded-full border border-[#F0F0F0] bg-white/75 backdrop-blur-md px-3 py-2.5 flex items-center gap-1.5 min-w-0 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]">
                     <input
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       placeholder="Type a message..."
-                      className="flex-1 min-w-0 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none"
+                      className="flex-1 min-w-0 bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none py-0.5"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -1086,10 +1286,10 @@ export default function Chat() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 shrink-0 text-gray-500 hover:text-primary"
+                          className="h-8 w-8 shrink-0 text-slate-500 hover:text-primary"
                           aria-label="Emoji"
                         >
-                          <Smile className="w-4 h-4" />
+                          <Smile className="w-4 h-4" strokeWidth={1.75} />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent
@@ -1110,31 +1310,31 @@ export default function Chat() {
                     </Popover>
                     <button
                       type="button"
-                      className="p-1.5 rounded-full text-gray-400 hover:text-primary transition-colors shrink-0"
+                      className="p-1.5 rounded-full text-primary/80 hover:text-primary transition-colors shrink-0 drop-shadow-[0_0_12px_rgba(114,47,55,0.28)]"
                       onClick={() => setShowIcebreakers(!showIcebreakers)}
                       aria-label="Icebreakers"
                     >
-                      <Sparkles className="w-4 h-4" />
+                      <Sparkles className="w-4 h-4" strokeWidth={1.75} />
                     </button>
                     <button
                       type="button"
-                      className="p-1.5 rounded-full shrink-0 text-gray-400 hover:text-primary transition-colors"
+                      className="p-1.5 rounded-full shrink-0 text-slate-400 hover:text-primary transition-colors"
                       onClick={() => {
                         setShowIcebreakers(false);
                         setShowVoiceRecorder(true);
                       }}
                       aria-label="Record voice note"
                     >
-                      <Mic className="w-4 h-4" />
+                      <Mic className="w-4 h-4" strokeWidth={1.75} />
                     </button>
                   </div>
                   <button
                     onClick={handleSend}
                     disabled={!message.trim() || sendMutation.isPending}
-                    className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-md shadow-primary/20 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex-shrink-0"
+                    className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-[0_10px_30px_-14px_rgba(15,23,42,0.35)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex-shrink-0"
                     data-testid="button-send"
                   >
-                    <Send className="w-4 h-4 text-white" />
+                    <Send className="w-4 h-4 text-white" strokeWidth={1.75} />
                   </button>
                 </>
               )}

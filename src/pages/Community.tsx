@@ -33,6 +33,8 @@ import { setMockPostLiked } from "@/lib/mockLikesStore";
 import { postDisplayImageUrl } from "@/lib/postImage";
 import { cn } from "@/lib/utils";
 import { useSocialSummaryQuery } from "@/hooks/useSocialSummary";
+import FeedFilterPills from "@/components/feed/FeedFilterPills";
+import FeedQuickActions from "@/components/feed/FeedQuickActions";
 
 function apiErrorMessage(err: unknown): string {
   if (!(err instanceof Error)) return "Something went wrong. Try again.";
@@ -107,17 +109,10 @@ export default function Community() {
     initialIndex: number;
   } | null>(null);
   const [createStoryOpen, setCreateStoryOpen] = useState(false);
-  const [fabCompact, setFabCompact] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { userId: currentUserId } = useCurrentUser();
   const { logout } = useAuth();
-
-  useEffect(() => {
-    setFabCompact(false);
-    const t = window.setTimeout(() => setFabCompact(true), 3500);
-    return () => window.clearTimeout(t);
-  }, [feedFilter]);
 
   /** Legacy share links used `?post=`; normalize to `/community/post/:id`. */
   useEffect(() => {
@@ -251,10 +246,10 @@ export default function Community() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-[#F8F9FB] pb-28">
       <Header
         showSearch={true}
-        title="Feed"
+        title="Explore"
         subtitle="Stories, groups & discover"
         onSearch={(query) => {
           const q = query.trim();
@@ -275,47 +270,16 @@ export default function Community() {
       <div className="max-w-lg mx-auto">
         {/* One bar: feed filters + every group — same horizontal inset as stories + quick links (mx-4 rhythm) */}
         <div className="sticky top-16 z-20 px-4 pt-2">
-          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div
-            className="flex gap-2 overflow-x-auto px-3 py-2.5 scrollbar-hide"
-            aria-label="Feed and group filters"
-          >
-            {FEED_FILTERS.map((f) => {
-              const feedActive = feedFilter === f.id;
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => {
-                    setFeedFilter(f.id);
-                  }}
-                  className={`inline-flex min-w-[92px] flex-shrink-0 items-center justify-center rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
-                    feedActive
-                      ? "border-primary bg-primary text-white"
-                      : "border-gray-200 bg-white text-gray-600"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              );
-            })}
-            {sortedGroupChips.length > 0 ? (
-              <div className="flex shrink-0 items-center px-1" aria-hidden>
-                <div className="h-6 w-px bg-gray-200" />
-              </div>
-            ) : null}
-            {sortedGroupChips.map((group) => (
-              <button
-                key={group.id}
-                type="button"
-                onClick={() => setLocation(`/group/${group.id}?from=community`)}
-                className="max-w-[10rem] flex-shrink-0 truncate rounded-full border border-gray-200 bg-white px-4 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
-              >
-                {group.name}
-              </button>
-            ))}
-          </div>
-          </div>
+          <FeedFilterPills
+            pills={FEED_FILTERS}
+            activeId={feedFilter}
+            onChange={(id) => setFeedFilter(id)}
+            groups={sortedGroupChips.map((g) => ({
+              id: g.id,
+              name: g.name,
+              onClick: () => setLocation(`/group/${g.id}?from=community`),
+            }))}
+          />
         </div>
 
         {!aiMatchmakerComplete && (
@@ -341,7 +305,7 @@ export default function Community() {
               </div>
             )}
 
-            <div className="mx-4 mt-3 rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+            <div className="mx-4 mt-3 overflow-hidden rounded-[20px] border border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
               <div
                 className="overflow-x-auto scroll-smooth scrollbar-hide px-4 py-3"
                 aria-label="Stories"
@@ -367,25 +331,13 @@ export default function Community() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 px-4 py-3">
-              {[
-                { label: "Explore", icon: Users, path: "/explore", color: "bg-primary/10 text-primary" },
-                { label: "Events", icon: Calendar, path: "/events", color: "bg-amber-50 text-amber-600" },
-                { label: "AI Match", icon: Brain, path: "/ai-matchmaker", color: "bg-purple-50 text-purple-600" },
-              ].map(({ label, icon: Icon, path, color }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setLocation(path)}
-                  className="bg-white rounded-2xl p-3 flex flex-col items-center gap-2 border border-gray-100 shadow-sm active:scale-95 transition-transform"
-                >
-                  <div className={`w-11 h-11 rounded-xl ${color} flex items-center justify-center`}>
-                    <Icon className="w-6 h-6" strokeWidth={2} aria-hidden />
-                  </div>
-                  <span className="text-xs font-bold text-gray-900 leading-snug">{label}</span>
-                </button>
-              ))}
-            </div>
+            <FeedQuickActions
+              actions={[
+                { id: "people", label: "People", icon: Users, onClick: () => setLocation("/directory"), tone: "primary" },
+                { id: "events", label: "Events", icon: Calendar, onClick: () => setLocation("/explore?tab=events"), tone: "amber" },
+                { id: "ai", label: "AI Match", icon: Brain, onClick: () => setLocation("/ai-matchmaker"), tone: "violet" },
+              ]}
+            />
 
             {/* Onboarding banner */}
             {showOnboarding && (
@@ -460,33 +412,18 @@ export default function Community() {
       </div>
 
       <div className="pointer-events-none fixed inset-x-0 bottom-[5.5rem] z-30 flex justify-center sm:bottom-[5.75rem]">
-        <div className="pointer-events-auto flex w-full max-w-lg justify-end px-4">
+        <div className="flex w-full max-w-lg justify-end px-4">
           <motion.button
             type="button"
             layout
             transition={{ type: "spring", stiffness: 420, damping: 32 }}
             className={cn(
-              "flex items-center gap-2 overflow-hidden rounded-full border border-stone-200/80 bg-white py-3 text-sm font-semibold text-stone-900 shadow-[0_12px_40px_-16px_rgba(15,23,42,0.35)]",
-              fabCompact ? "px-3.5" : "px-4",
+              "pointer-events-auto flex items-center justify-center overflow-hidden rounded-full border border-stone-200/80 bg-white p-3 text-sm font-semibold text-stone-900 shadow-[0_12px_40px_-16px_rgba(15,23,42,0.35)]",
             )}
-            style={{
-              paddingLeft: fabCompact ? undefined : "1.1rem",
-              paddingRight: fabCompact ? undefined : "1.1rem",
-            }}
             onClick={() => setLocation("/community/create-post")}
             aria-label="Create post"
           >
             <PenSquare className="h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
-            {!fabCompact ? (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="whitespace-nowrap pr-0.5"
-              >
-                Create post
-              </motion.span>
-            ) : null}
           </motion.button>
         </div>
       </div>

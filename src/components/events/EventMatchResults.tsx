@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Sparkles, Zap, Star, RefreshCw } from "lucide-react";
+import { Heart, MessageCircle, Sparkles, Zap, Star, RefreshCw, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import { buildApiUrl } from "@/services/api";
@@ -27,9 +27,11 @@ interface EventMatchResultsProps {
   onMessage?: (userId: string) => void;
   /** When true, hides reshuffle button (e.g. for demo page) */
   isDemo?: boolean;
+  /** Current viewer userId (enables “Remove match”) */
+  viewerUserId?: string | null;
 }
 
-export default function EventMatchResults({ matches, eventTitle, eventId, onMessage, isDemo }: EventMatchResultsProps) {
+export default function EventMatchResults({ matches, eventTitle, eventId, onMessage, isDemo, viewerUserId }: EventMatchResultsProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -72,6 +74,31 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
         description: error.message || "Please try again",
         variant: "destructive",
       });
+    },
+  });
+
+  const hideMatchMutation = useMutation({
+    mutationFn: async (matchId: string) => {
+      if (!viewerUserId) throw new Error("User not found. Please log in again.");
+      const url = buildApiUrl(`/api/events/${eventId}/matches/${matchId}/hide`);
+      const res = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: viewerUserId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Failed to remove match" }));
+        throw new Error(err.message || "Failed to remove match");
+      }
+      return res.json();
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/matches`] });
+      toast({ title: "Removed", description: "This match won’t show for you anymore." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Remove failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -129,9 +156,9 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
             >
               <Heart className="w-20 h-20 mx-auto mb-4 text-muted-foreground" />
             </motion.div>
-            <h3 className="text-2xl font-bold mb-2">No Matches Yet</h3>
+            <h3 className="text-2xl font-bold mb-2">Sorry — no match right now</h3>
             <p className="text-muted-foreground text-lg">
-              Keep mingling! Matches will be calculated once more people complete the questionnaire.
+              More people need to join and complete the questionnaire. Try again soon.
             </p>
           </CardContent>
         </Card>
@@ -346,6 +373,21 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
                         Message
                       </Button>
                     </motion.div>
+
+                    {!isDemo && viewerUserId ? (
+                      <div className="mt-3">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="w-full text-destructive hover:bg-destructive/10"
+                          disabled={hideMatchMutation.isPending}
+                          onClick={() => hideMatchMutation.mutate(match.id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          {hideMatchMutation.isPending ? "Removing..." : "Remove match"}
+                        </Button>
+                      </div>
+                    ) : null}
                   </CardContent>
                 </Card>
               </motion.div>

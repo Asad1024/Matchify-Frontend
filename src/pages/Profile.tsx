@@ -246,9 +246,9 @@ export default function Profile() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50 pb-6">
+      <div className="min-h-screen bg-[#F9FAFB] pb-6">
         {/* Full-screen profile chrome (no app Header / BottomNav) */}
-        <div className="sticky top-0 z-50 bg-white">
+        <div className="sticky top-0 z-50 bg-white border-b border-[#F0F0F0]">
           <div className="max-w-lg mx-auto w-full pt-[env(safe-area-inset-top)]">
             <div className="flex items-center h-12 px-1">
               <div className="w-11 shrink-0 flex justify-start">
@@ -283,33 +283,42 @@ export default function Profile() {
                 )}
               </div>
             </div>
-            <div className="flex">
-              <button
-                type="button"
-                onClick={() => setProfileTab("preview")}
-                className={cn(
-                  "flex-1 py-3 text-sm font-bold relative transition-colors",
-                  profileTab === "preview" ? "text-gray-900" : "text-gray-400",
-                )}
-              >
-                Preview
-                {profileTab === "preview" && (
-                  <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-gray-900 rounded-full" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setProfileTab("edit")}
-                className={cn(
-                  "flex-1 py-3 text-sm font-bold relative transition-colors",
-                  profileTab === "edit" ? "text-gray-900" : "text-gray-400",
-                )}
-              >
-                Edit
-                {profileTab === "edit" && (
-                  <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-gray-900 rounded-full" />
-                )}
-              </button>
+            <div className="px-3 pb-3">
+              <div className="rounded-full bg-[#F1F2F4] p-1">
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setProfileTab("preview")}
+                    className={cn(
+                      "relative h-10 rounded-full text-[13px] font-semibold transition",
+                      profileTab === "preview"
+                        ? "text-slate-900"
+                        : "text-slate-500 hover:text-slate-700",
+                    )}
+                  >
+                    {profileTab === "preview" ? (
+                      <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
+                    ) : null}
+                    <span className="relative">Preview</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setProfileTab("edit")}
+                    className={cn(
+                      "relative h-10 rounded-full text-[13px] font-semibold transition",
+                      profileTab === "edit"
+                        ? "text-slate-900"
+                        : "text-slate-500 hover:text-slate-700",
+                    )}
+                  >
+                    {profileTab === "edit" ? (
+                      <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
+                    ) : null}
+                    <span className="relative">Edit</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

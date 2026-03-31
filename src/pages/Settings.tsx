@@ -1,19 +1,13 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { motion } from "framer-motion";
 import Header from "@/components/common/Header";
 import BottomNav from "@/components/common/BottomNav";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { 
   Bell, 
   Lock, 
-  Eye, 
-  EyeOff, 
   Shield, 
   Trash2, 
   Download, 
@@ -22,6 +16,11 @@ import {
   UserX,
   Ban,
   KeyRound,
+  ChevronRight,
+  Mail,
+  Phone,
+  HelpCircle,
+  UserRound,
 } from "lucide-react";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { apiRequestJson } from "@/services/api";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +45,7 @@ type User = {
   id: string;
   name: string;
   email: string;
+  phone?: string | null;
   privacy?: {
     profileVisible?: boolean;
     showOnlineStatus?: boolean;
@@ -173,6 +174,132 @@ export default function Settings() {
     });
   };
 
+  const maskedEmail = useMemo(() => {
+    const raw = String(me?.email || "").trim();
+    if (!raw.includes("@")) return raw || "—";
+    const [u, d] = raw.split("@");
+    if (!u || !d) return raw;
+    const keep = Math.min(2, u.length);
+    const masked = `${u.slice(0, keep)}***@${d}`;
+    return masked;
+  }, [me?.email]);
+
+  const maskedPhone = useMemo(() => {
+    const raw = String((me as any)?.phone || "").trim();
+    if (!raw) return "";
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length < 6) return raw;
+    return `${digits.slice(0, 2)}***${digits.slice(-2)}`;
+  }, [me]);
+
+  const messageAccessLabel = useMemo(() => {
+    switch (privacySettings.allowMessagesFrom) {
+      case "matches":
+        return "Matches only";
+      case "none":
+        return "No one";
+      case "everyone":
+      default:
+        return "Everyone";
+    }
+  }, [privacySettings.allowMessagesFrom]);
+
+  const cycleMessageAccess = () => {
+    const next: "everyone" | "matches" | "none" =
+      privacySettings.allowMessagesFrom === "everyone"
+        ? "matches"
+        : privacySettings.allowMessagesFrom === "matches"
+          ? "none"
+          : "everyone";
+    const newSettings = { ...privacySettings, allowMessagesFrom: next };
+    setPrivacySettings(newSettings);
+    updatePrivacyMutation.mutate(newSettings);
+  };
+
+  function SettingsSectionTitle({ children }: { children: string }) {
+    return (
+      <div className="px-1 pt-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          {children}
+        </p>
+      </div>
+    );
+  }
+
+  function SettingsCard({ children }: { children: React.ReactNode }) {
+    return (
+      <div className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+        <div className="px-4 py-2.5">{children}</div>
+      </div>
+    );
+  }
+
+  function IconBubble({ children }: { children: React.ReactNode }) {
+    return (
+      <div className="grid h-9 w-9 place-items-center rounded-full bg-[#F4F4F7] text-slate-600">
+        {children}
+      </div>
+    );
+  }
+
+  function Row({
+    icon,
+    label,
+    value,
+    right,
+    onClick,
+    danger,
+    badge,
+  }: {
+    icon: React.ReactNode;
+    label: string;
+    value?: string;
+    right?: React.ReactNode;
+    onClick?: () => void;
+    danger?: boolean;
+    badge?: { label: string; tone?: "help" | "new" };
+  }) {
+    const Comp: any = onClick ? "button" : "div";
+    return (
+      <Comp
+        type={onClick ? "button" : undefined}
+        onClick={onClick}
+        className={cn(
+          "flex w-full items-center justify-between gap-3 py-3 text-left",
+          onClick ? "hover:bg-slate-900/[0.02] -mx-4 px-4 rounded-2xl transition" : "",
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <IconBubble>{icon}</IconBubble>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className={cn("text-[15px] font-medium", danger ? "text-red-600" : "text-slate-900")}>
+                {label}
+              </p>
+              {badge ? (
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                    badge.tone === "help"
+                      ? "border-sky-200 bg-sky-50 text-sky-700"
+                      : "border-primary/20 bg-primary/[0.06] text-primary",
+                  )}
+                >
+                  {badge.label}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {value ? <span className="text-[12px] font-medium text-slate-500">{value}</span> : null}
+          {right ?? (onClick ? <ChevronRight className="h-5 w-5 text-slate-400" strokeWidth={1.75} /> : null)}
+        </div>
+      </Comp>
+    );
+  }
+
   const unblockMutation = useMutation({
     mutationFn: (blockedId: string) =>
       apiRequest("DELETE", `/api/users/${userId}/blocks/${encodeURIComponent(blockedId)}`),
@@ -187,313 +314,228 @@ export default function Settings() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-[#F8F9FB] pb-24">
       <Header
         showSearch={false}
         onLogout={logout}
-        title="Settings"
+        title="Marriage settings"
       />
 
-      <div className="max-w-lg mx-auto space-y-2 mt-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Feed preferences</CardTitle>
-            <CardDescription>
-              Followers, following, muted authors, and blocked accounts — all reversible here. Saved posts live on your
-              profile under the Saved tab.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button type="button" className="w-full font-semibold" variant="secondary" onClick={() => setLocation("/settings/social")}>
-              Manage feed preferences
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="mx-auto mt-2 max-w-lg space-y-3 px-3">
+        <SettingsSectionTitle>Account settings</SettingsSectionTitle>
+        <SettingsCard>
+          <Row
+            icon={<UserRound className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Profile"
+            onClick={() => setLocation("/profile?marriage=1&tab=edit")}
+          />
+          <Row
+            icon={<Mail className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Email"
+            value={maskedEmail}
+            onClick={() => toast({ title: "Email", description: "Email editing coming soon." })}
+          />
+          {maskedPhone ? (
+            <Row
+              icon={<Phone className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+              label="Phone"
+              value={maskedPhone}
+              onClick={() => toast({ title: "Phone", description: "Phone editing coming soon." })}
+            />
+          ) : null}
 
-        {/* Privacy Settings */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Lock className="w-5 h-5 text-primary" />
-              <CardTitle>Privacy Settings</CardTitle>
-            </div>
-            <CardDescription>Control who can see your profile and contact you</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5 flex-1 min-w-0">
-                <Label htmlFor="profile-visible" className="text-sm sm:text-base">Profile Visibility</Label>
-                <p className="text-xs sm:text-sm text-muted-foreground">Make your profile visible to others</p>
-              </div>
+          <div className="pt-2">
+            {userId ? <ChangePasswordForm userId={userId} /> : null}
+          </div>
+        </SettingsCard>
+
+        <SettingsSectionTitle>Discovery preferences</SettingsSectionTitle>
+        <SettingsCard>
+          <Row
+            icon={<Lock className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Show me on Matchify"
+            right={
               <Switch
-                id="profile-visible"
                 checked={privacySettings.profileVisible}
                 onCheckedChange={(checked) => {
                   const newSettings = { ...privacySettings, profileVisible: checked };
                   setPrivacySettings(newSettings);
                   updatePrivacyMutation.mutate(newSettings);
                 }}
+                aria-label="Show me on Matchify"
               />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="online-status">Show Online Status</Label>
-                <p className="text-sm text-muted-foreground">Let others see when you're online</p>
-              </div>
+            }
+          />
+          <Row
+            icon={<UserX className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Show online status"
+            right={
               <Switch
-                id="online-status"
                 checked={privacySettings.showOnlineStatus}
                 onCheckedChange={(checked) => {
                   const newSettings = { ...privacySettings, showOnlineStatus: checked };
                   setPrivacySettings(newSettings);
                   updatePrivacyMutation.mutate(newSettings);
                 }}
+                aria-label="Show online status"
               />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="show-location">Show Location</Label>
-                <p className="text-sm text-muted-foreground">Display your location on profile</p>
-              </div>
+            }
+          />
+          <Row
+            icon={<UserRound className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Show location on profile"
+            right={
               <Switch
-                id="show-location"
                 checked={privacySettings.showLocation}
                 onCheckedChange={(checked) => {
                   const newSettings = { ...privacySettings, showLocation: checked };
                   setPrivacySettings(newSettings);
                   updatePrivacyMutation.mutate(newSettings);
                 }}
+                aria-label="Show location"
               />
-            </div>
+            }
+          />
+          <Row
+            icon={<Shield className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Who can message you"
+            value={messageAccessLabel}
+            onClick={cycleMessageAccess}
+          />
+        </SettingsCard>
 
-            <Separator />
-
-            <div className="space-y-2">
-              <Label>Who can message you</Label>
-              <select
-                value={privacySettings.allowMessagesFrom}
-                onChange={(e) => {
-                  const newSettings = { ...privacySettings, allowMessagesFrom: e.target.value as any };
-                  setPrivacySettings(newSettings);
-                  updatePrivacyMutation.mutate(newSettings);
-                }}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="everyone">Everyone</option>
-                <option value="matches">Matches only</option>
-                <option value="none">No one</option>
-              </select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Security */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <KeyRound className="w-5 h-5 text-primary" />
-              <CardTitle>Security</CardTitle>
-            </div>
-            <CardDescription>Update the password for your account</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {userId ? <ChangePasswordForm userId={userId} /> : null}
-          </CardContent>
-        </Card>
-
-        {/* Notification Settings */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5 text-primary" />
-              <CardTitle>Notification Settings</CardTitle>
-            </div>
-            <CardDescription>Choose what notifications you want to receive</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="notif-matches">New Matches</Label>
-                <p className="text-sm text-muted-foreground">Get notified when you have a new match</p>
-              </div>
+        <SettingsSectionTitle>Notifications</SettingsSectionTitle>
+        <SettingsCard>
+          <Row
+            icon={<Bell className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="New matches"
+            right={
               <Switch
-                id="notif-matches"
                 checked={notificationSettings.newMatches}
                 onCheckedChange={(checked) => {
                   const newSettings = { ...notificationSettings, newMatches: checked };
                   setNotificationSettings(newSettings);
                   updateNotificationMutation.mutate(newSettings);
                 }}
+                aria-label="New matches notifications"
               />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="notif-messages">Messages</Label>
-                <p className="text-sm text-muted-foreground">Get notified of new messages</p>
-              </div>
+            }
+          />
+          <Row
+            icon={<Bell className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Messages"
+            right={
               <Switch
-                id="notif-messages"
                 checked={notificationSettings.messages}
                 onCheckedChange={(checked) => {
                   const newSettings = { ...notificationSettings, messages: checked };
                   setNotificationSettings(newSettings);
                   updateNotificationMutation.mutate(newSettings);
                 }}
+                aria-label="Messages notifications"
               />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="notif-events">Events</Label>
-                <p className="text-sm text-muted-foreground">Get notified about upcoming events</p>
-              </div>
+            }
+          />
+          <Row
+            icon={<Bell className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Events"
+            right={
               <Switch
-                id="notif-events"
                 checked={notificationSettings.events}
                 onCheckedChange={(checked) => {
                   const newSettings = { ...notificationSettings, events: checked };
                   setNotificationSettings(newSettings);
                   updateNotificationMutation.mutate(newSettings);
                 }}
+                aria-label="Events notifications"
               />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="notif-marketing">Marketing</Label>
-                <p className="text-sm text-muted-foreground">Receive promotional emails and updates</p>
-              </div>
+            }
+          />
+          <Row
+            icon={<Bell className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Marketing"
+            right={
               <Switch
-                id="notif-marketing"
                 checked={notificationSettings.marketing}
                 onCheckedChange={(checked) => {
                   const newSettings = { ...notificationSettings, marketing: checked };
                   setNotificationSettings(newSettings);
                   updateNotificationMutation.mutate(newSettings);
                 }}
+                aria-label="Marketing notifications"
               />
-            </div>
-          </CardContent>
-        </Card>
+            }
+          />
+        </SettingsCard>
 
-        {/* Blocked Users */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Ban className="w-5 h-5 text-primary" />
-              <CardTitle>Blocked Users</CardTitle>
-            </div>
-            <CardDescription>Manage users you've blocked</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {blockedUsers.length > 0 ? (
-              <div className="space-y-2">
-                {blockedUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-3 rounded-lg bg-muted">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                        <UserX className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">Blocked</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={unblockMutation.isPending}
-                      onClick={() => unblockMutation.mutate(user.id)}
-                    >
-                      Unblock
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No blocked users</p>
-            )}
-          </CardContent>
-        </Card>
+        <SettingsSectionTitle>Support</SettingsSectionTitle>
+        <SettingsCard>
+          <Row
+            icon={<HelpCircle className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Contact support"
+            badge={{ label: "Help", tone: "help" }}
+            onClick={() => toast({ title: "Support", description: "Support chat coming soon." })}
+          />
+          <Row
+            icon={<Shield className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Invite friends"
+            badge={{ label: "New", tone: "new" }}
+            onClick={() => toast({ title: "Invite friends", description: "Share link coming soon." })}
+          />
+          <Row
+            icon={<Download className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Export my data"
+            onClick={handleExportData}
+          />
+          <Row
+            icon={<Ban className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Manage blocked accounts"
+            onClick={() => setLocation("/settings/social")}
+          />
+        </SettingsCard>
 
-        {/* Data & Account */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary" />
-              <CardTitle>Data & Account</CardTitle>
-            </div>
-            <CardDescription>Manage your data and account settings</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={handleExportData}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export My Data
-            </Button>
-
-            <Separator />
-
-            <Button
-              variant="outline"
-              className="w-full justify-start border-red-200/90 font-semibold text-red-600 hover:bg-red-50 hover:text-red-700"
-              onClick={() => logout()}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
-            </Button>
-
-            <Separator />
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  className="w-full justify-start"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
+        <SettingsSectionTitle>Danger zone</SettingsSectionTitle>
+        <SettingsCard>
+          <Row
+            icon={<LogOut className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Logout"
+            onClick={() => logout()}
+          />
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button type="button" className="w-full">
+                <Row
+                  icon={<Trash2 className="h-4.5 w-4.5 text-red-600" strokeWidth={1.75} aria-hidden />}
+                  label="Delete account"
+                  danger
+                  onClick={() => {}}
+                  right={<ChevronRight className="h-5 w-5 text-slate-400" strokeWidth={1.75} aria-hidden />}
+                />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
                   Delete Account
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-destructive" />
-                    Delete Account
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete your account? This action cannot be undone. All your data, matches, and conversations will be permanently deleted.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteAccount}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Delete Account
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </CardContent>
-        </Card>
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete your account? This action cannot be undone. All your data, matches, and
+                  conversations will be permanently deleted.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAccount}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete Account
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </SettingsCard>
       </div>
 
       <BottomNav active="menu" />

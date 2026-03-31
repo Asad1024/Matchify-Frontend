@@ -20,6 +20,7 @@ export function CuratedMatchAutoClaim() {
   >({
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
+    refetchInterval: 10000,
   });
 
   const hasBlueprint = !!profile?.attractionBlueprint;
@@ -40,6 +41,15 @@ export function CuratedMatchAutoClaim() {
     void claimNextCuratedMatch(userId)
       .then((res) => {
         cycleStartedRef.current = true;
+        // Immediately reflect cooldown reset in UI (avoid waiting for polling/refetch).
+        try {
+          queryClient.setQueryData([`/api/users/${userId}`], (old: unknown) => {
+            if (!old || typeof old !== "object") return old;
+            return { ...(old as Record<string, unknown>), lastAiMatchClaimedAt: new Date().toISOString() };
+          });
+        } catch {
+          /* ignore */
+        }
         void queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
         void queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
         void queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/ai-matches`] });

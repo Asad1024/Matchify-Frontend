@@ -17,6 +17,7 @@ export function MuzzMarriageTimeline({
   return (
     <MarriageIntentionStrip
       caption={caption}
+      variant="compact"
       commitmentIntention={commitmentIntention}
       marriageTimeline={marriageTimeline}
       marriageApproach={marriageApproach}

@@ -3,6 +3,8 @@
  * Synced via localStorage + custom events for UI refresh.
  */
 
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
+
 const P = "matchify_marriage_chat_v1_";
 
 export type OutgoingChatStatus = "pending" | "cancelled" | "approved" | "rejected";
@@ -29,6 +31,7 @@ export type SenderChatEvent = {
   title: string;
   message: string;
   relatedUserId: string;
+  kind?: "sender_event" | "incoming_request" | "outgoing_request";
 };
 
 function emit(): void {
@@ -54,6 +57,25 @@ export function getOutgoingChatRequest(fromId: string, toId: string): OutgoingCh
     const j = JSON.parse(raw) as Record<string, OutgoingChatRecord>;
     const r = j?.[toId];
     return r && typeof r.requestId === "string" ? r : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getOutgoingChatRequestRemote(
+  fromId: string,
+  toId: string,
+): Promise<OutgoingChatRecord | null> {
+  if (!fromId || !toId) return null;
+  try {
+    const res = await fetch(buildApiUrl(`/api/users/${fromId}/marriage/chat-requests/outgoing/${toId}`), {
+      method: "GET",
+      headers: { ...getAuthHeaders(false) },
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as OutgoingChatRecord | null;
+    return data && typeof data.requestId === "string" ? data : null;
   } catch {
     return null;
   }
@@ -94,18 +116,36 @@ export function getIncomingChatRequests(recipientId: string): IncomingChatReques
   }
 }
 
+export async function getIncomingChatRequestsRemote(
+  recipientId: string,
+): Promise<IncomingChatRequest[]> {
+  if (!recipientId) return [];
+  try {
+    const res = await fetch(buildApiUrl(`/api/users/${recipientId}/marriage/chat-requests/incoming`), {
+      method: "GET",
+      headers: { ...getAuthHeaders(false) },
+      credentials: "include",
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as IncomingChatRequest[];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
 function writeIncoming(recipientId: string, list: IncomingChatRequest[]): void {
   localStorage.setItem(incomingKey(recipientId), JSON.stringify(list.slice(0, 80)));
   emit();
 }
 
-function senderEventsKey(fromId: string): string {
-  return `${P}sender_evt_${fromId}`;
+function userEventsKey(userId: string): string {
+  return `${P}user_evt_${userId}`;
 }
 
-export function getSenderChatEvents(fromId: string): SenderChatEvent[] {
+export function getUserChatEvents(userId: string): SenderChatEvent[] {
   try {
-    const raw = localStorage.getItem(senderEventsKey(fromId));
+    const raw = localStorage.getItem(userEventsKey(userId));
     if (!raw) return [];
     const j = JSON.parse(raw);
     return Array.isArray(j) ? j : [];
@@ -114,21 +154,22 @@ export function getSenderChatEvents(fromId: string): SenderChatEvent[] {
   }
 }
 
-function pushSenderEvent(fromId: string, ev: SenderChatEvent): void {
-  const prev = getSenderChatEvents(fromId);
+function pushUserEvent(userId: string, ev: SenderChatEvent): void {
+  const prev = getUserChatEvents(userId);
   prev.unshift(ev);
-  localStorage.setItem(senderEventsKey(fromId), JSON.stringify(prev.slice(0, 60)));
+  localStorage.setItem(userEventsKey(userId), JSON.stringify(prev.slice(0, 80)));
 }
 
 /**
  * After compliment: create outgoing pending + incoming for recipient.
  */
-export function createComplimentChatRequest(
+export async function createComplimentChatRequest(
   fromId: string,
   fromName: string,
   toId: string,
   toName: string,
-): string {
+  message?: string,
+): Promise<string> {
   const requestId = uid();
   const at = new Date().toISOString();
   setOutgoingChatRecord(fromId, {
@@ -146,16 +187,56 @@ export function createComplimentChatRequest(
     status: "pending",
   });
   writeIncoming(toId, incoming);
+
+  const safeTo = toName.trim() || "this member";
+  // Sender gets an immediate "sent" notification.
+  pushUserEvent(fromId, {
+    id: uid(),
+    at,
+    read: false,
+    title: "Compliment sent",
+    message: `You sent a compliment to ${safeTo}. You'll be notified when they respond.`,
+    relatedUserId: toId,
+    kind: "outgoing_request",
+  });
+  // Recipient gets a real notification row in bell/list.
+  pushUserEvent(toId, {
+    id: uid(),
+    at,
+    read: false,
+    title: "New compliment request",
+    message: `${fromName.trim() || "Someone"} sent you a compliment and chat request.`,
+    relatedUserId: fromId,
+    kind: "incoming_request",
+  });
+  // Mirror to backend for cross-browser consistency.
+  try {
+    const res = await fetch(buildApiUrl(`/api/users/${fromId}/marriage/chat-requests`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
+      credentials: "include",
+      body: JSON.stringify({ toId, message: (message || "").trim() || undefined }),
+    });
+    if (res.ok) {
+      const j = (await res.json()) as { requestId?: string };
+      if (j?.requestId) {
+        emit();
+        return j.requestId;
+      }
+    }
+  } catch {
+    /* fallback to local only */
+  }
   emit();
   return requestId;
 }
 
-export function respondToIncomingChatRequest(
+export async function respondToIncomingChatRequest(
   recipientId: string,
   requestId: string,
   decision: "approved" | "rejected",
   recipientName: string,
-): void {
+): Promise<void> {
   const list = getIncomingChatRequests(recipientId);
   const idx = list.findIndex((x) => x.id === requestId);
   if (idx < 0) return;
@@ -175,7 +256,7 @@ export function respondToIncomingChatRequest(
 
   const at = new Date().toISOString();
   const rn = recipientName.trim() || "They";
-  pushSenderEvent(req.fromId, {
+  pushUserEvent(req.fromId, {
     id: uid(),
     at,
     read: false,
@@ -185,7 +266,32 @@ export function respondToIncomingChatRequest(
         ? `${rn} accepted your chat request. Say hello in Chat.`
         : `${rn} declined your chat request.`,
     relatedUserId: recipientId,
+    kind: "sender_event",
   });
+  // Optional confirmation for recipient action history.
+  pushUserEvent(recipientId, {
+    id: uid(),
+    at,
+    read: true,
+    title: decision === "approved" ? "You approved a request" : "You declined a request",
+    message:
+      decision === "approved"
+        ? `You approved ${req.fromName}'s chat request.`
+        : `You declined ${req.fromName}'s chat request.`,
+    relatedUserId: req.fromId,
+    kind: "incoming_request",
+  });
+  // Mirror to backend for cross-browser consistency.
+  try {
+    await fetch(buildApiUrl(`/api/users/${recipientId}/marriage/chat-requests/${requestId}`), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
+      credentials: "include",
+      body: JSON.stringify({ decision }),
+    });
+  } catch {
+    /* fallback remains local */
+  }
   emit();
 }
 
@@ -199,9 +305,9 @@ export function marriageNotificationsForUser(userId: string): Array<{
   read: boolean | null;
   createdAt: string | null;
   relatedUserId?: string | null;
-  marriageMeta?: { kind: "sender_event" };
+  marriageMeta?: { kind: "sender_event" | "incoming_request" | "outgoing_request" };
 }> {
-  const events = getSenderChatEvents(userId);
+  const events = getUserChatEvents(userId);
   return events.map((e) => ({
     id: `marriage-sender-${e.id}`,
     userId,
@@ -211,15 +317,15 @@ export function marriageNotificationsForUser(userId: string): Array<{
     read: e.read,
     createdAt: e.at,
     relatedUserId: e.relatedUserId,
-    marriageMeta: { kind: "sender_event" },
+    marriageMeta: { kind: e.kind || "sender_event" },
   }));
 }
 
-export function markMarriageSenderEventRead(userId: string, syntheticId: string): void {
+export function markMarriageSyntheticNotificationRead(userId: string, syntheticId: string): void {
   const realId = syntheticId.replace(/^marriage-sender-/, "");
-  const list = getSenderChatEvents(userId);
+  const list = getUserChatEvents(userId);
   const next = list.map((x) => (x.id === realId ? { ...x, read: true } : x));
-  localStorage.setItem(senderEventsKey(userId), JSON.stringify(next));
+  localStorage.setItem(userEventsKey(userId), JSON.stringify(next));
   emit();
 }
 

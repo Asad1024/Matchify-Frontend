@@ -330,7 +330,7 @@ export default function PostCard({
       ref={cardRef}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+      className="w-full bg-white rounded-[20px] border border-[#F0F0F0] shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden"
       data-testid={`post-card-${id}`}
     >
       {/* Header */}
@@ -348,24 +348,16 @@ export default function PostCard({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-bold text-gray-900">{author.name}</span>
+              {groupId && groupName?.trim() ? (
+                <span className="ml-1 inline-flex max-w-[10rem] items-center truncate rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                  {groupName.trim()}
+                </span>
+              ) : null}
               {author.verified && (
                 <CheckCircle className="w-3.5 h-3.5 text-primary fill-primary/20" />
               )}
             </div>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
-              {groupId && groupName?.trim() ? (
-                <>
-                  <Link
-                    href={`/group/${groupId}`}
-                    className="max-w-[min(100%,14rem)] truncate font-semibold text-emerald-600 hover:text-emerald-700 hover:underline sm:max-w-[16rem]"
-                  >
-                    {groupName.trim()}
-                  </Link>
-                  <span className="shrink-0 text-gray-300" aria-hidden>
-                    ·
-                  </span>
-                </>
-              ) : null}
               <span className="text-gray-500">{timeLabel}</span>
               {category && categoryColor && (
                 <Badge className={`text-[10px] px-1.5 py-0 h-4 ${categoryColor} border-0`}>
@@ -476,7 +468,7 @@ export default function PostCard({
           className="block cursor-pointer transition-[opacity,filter] hover:opacity-[0.98] active:brightness-[0.99]"
         >
           <div className="px-4 pt-2 pb-3">
-            <p className="text-base text-gray-900 leading-7 whitespace-pre-wrap">{content}</p>
+            <p className="text-[16px] text-slate-900 leading-[1.6] whitespace-pre-wrap">{content}</p>
           </div>
           {image ? (
             <div className="mx-4 mb-3 rounded-xl border border-border overflow-hidden bg-muted/30">
@@ -493,7 +485,7 @@ export default function PostCard({
       ) : (
         <>
           <div className="px-4 pt-2 pb-3">
-            <p className="text-base text-gray-900 leading-7 whitespace-pre-wrap">{content}</p>
+            <p className="text-[16px] text-slate-900 leading-[1.6] whitespace-pre-wrap">{content}</p>
           </div>
           {image ? (
             <div className="mx-4 mb-3 rounded-xl border border-border overflow-hidden bg-muted/30">
@@ -509,7 +501,7 @@ export default function PostCard({
         </>
       )}
 
-      <div className="px-4 pb-3 pt-2 border-t border-gray-50">
+      <div className="px-4 pb-3 pt-2">
         <PostActions
           isLiked={liked}
           likes={likeCount}

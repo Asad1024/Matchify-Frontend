@@ -3,13 +3,25 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
 import PageWrapper from "@/components/common/PageWrapper";
-import ProfileCard from "@/components/profile/ProfileCard";
 import BottomNav from "@/components/common/BottomNav";
 import MatchReveal from "@/components/matches/MatchReveal";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Check, ArrowRight, Crown, Rocket, AlertCircle, Users, Compass } from "lucide-react";
+import {
+  Sparkles,
+  Check,
+  ArrowRight,
+  Crown,
+  Rocket,
+  AlertCircle,
+  Users,
+  Compass,
+  CheckCircle,
+  Heart,
+  MessageCircle,
+  UserRound,
+} from "lucide-react";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +30,7 @@ import { matchesService } from "@/services/matches.service";
 import type { User } from "@shared/schema";
 import { getAIMatches } from "@/services/aiMatchmaker.service";
 import type { AIMatch } from "@/services/aiMatchmaker.service";
-import { showOnlineDotForOther } from "@/lib/presence";
+import { LayoutGroup, motion } from "framer-motion";
 
 type Profile = {
   id: string;
@@ -40,6 +52,15 @@ type Profile = {
   profileBanner?: string | null;
   privacy?: { showOnlineStatus?: boolean } | null;
   lastActiveAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+type NotificationRow = {
+  id: string;
+  type: string;
+  relatedUserId?: string | null;
+  createdAt?: string | null;
 };
 
 type UnrevealedMatch = {
@@ -47,6 +68,129 @@ type UnrevealedMatch = {
   user: User;
   compatibility: number;
 };
+
+function cityCountryFromLocation(location: string | null | undefined): { city: string; country: string } {
+  if (!location?.trim()) return { city: "—", country: "—" };
+  const parts = location
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return { city: "—", country: "—" };
+  if (parts.length === 1) return { city: parts[0], country: "—" };
+  return { city: parts[0], country: parts[parts.length - 1] };
+}
+
+function DiscoverCard({
+  profile,
+  compatibility,
+  onViewProfile,
+  onLike,
+  onMessage,
+}: {
+  profile: Profile;
+  compatibility: number;
+  onViewProfile: (id: string) => void;
+  onLike: (id: string) => void;
+  onMessage: (id: string) => void;
+}) {
+  const { city, country } = cityCountryFromLocation(profile.location);
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]">
+      <button
+        type="button"
+        className="group relative block aspect-[3/4] w-full text-left"
+        onClick={() => onViewProfile(profile.id)}
+      >
+        {profile.avatar ? (
+          <>
+            <div
+              className="absolute inset-0 scale-110 bg-cover bg-center opacity-90 blur-md"
+              style={{ backgroundImage: `url(${profile.avatar})` }}
+            />
+            <img
+              src={profile.avatar}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              loading="lazy"
+            />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-stone-300 to-stone-200" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-black/10" />
+
+        {/* Match % as glass badge */}
+        <span className="absolute right-3 top-3 inline-flex items-center rounded-full border border-white/35 bg-white/20 px-3 py-1 text-[11px] font-bold tracking-wide text-white shadow-sm backdrop-blur-md">
+          {compatibility}%
+        </span>
+
+        {/* Bottom info overlay */}
+        <div className="absolute bottom-0 left-0 right-0 space-y-1 px-4 pb-14 pt-16">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="truncate font-display text-[16px] font-extrabold leading-tight text-white tracking-[0.2px]">
+              {profile.name}
+              {profile.age != null ? `, ${profile.age}` : ""}
+            </span>
+            {profile.verified ? <CheckCircle className="h-4 w-4 shrink-0 text-sky-200" /> : null}
+          </div>
+          <div className="truncate text-[12px] font-medium text-white/85">
+            {profile.career?.trim() || "—"}
+          </div>
+          <div className="truncate text-[12px] font-medium text-white/80">
+            {city !== "—" ? city : country}
+            {city !== "—" && country !== "—" ? ` · ${country}` : ""}
+          </div>
+        </div>
+
+        {/* Action bar (glass) */}
+        <div className="absolute inset-x-3 bottom-3 pointer-events-none">
+          <div className="pointer-events-auto grid grid-cols-3 gap-2 rounded-full border border-white/30 bg-white/15 p-1.5 shadow-[0_18px_60px_-28px_rgba(0,0,0,0.55)] backdrop-blur-md">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLike(profile.id);
+              }}
+              className="group/act inline-flex h-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
+              aria-label="Like"
+              title="Like"
+            >
+              <Heart
+                className="h-5 w-5 text-white transition group-hover/act:fill-primary group-hover/act:text-primary"
+                strokeWidth={1.75}
+                aria-hidden
+              />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMessage(profile.id);
+              }}
+              className="group/act inline-flex h-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
+              aria-label="Message"
+              title="Message"
+            >
+              <MessageCircle className="h-5 w-5 text-white/95 transition group-hover/act:text-white" strokeWidth={1.75} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewProfile(profile.id);
+              }}
+              className="group/act inline-flex h-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
+              aria-label="View profile"
+              title="View profile"
+            >
+              <UserRound className="h-5 w-5 text-white" strokeWidth={1.75} aria-hidden />
+            </button>
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
 
 export default function Directory() {
   const [activePage, setActivePage] = useState('explore');
@@ -147,6 +291,13 @@ export default function Directory() {
   }>({
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
+    refetchInterval: 10000,
+  });
+
+  const { data: notifications = [] } = useQuery<NotificationRow[]>({
+    queryKey: ["/api/users", userId, "notifications"],
+    enabled: !!userId,
+    refetchInterval: 15000,
   });
 
   const hasAttractionBlueprint = !!currentUser?.attractionBlueprint;
@@ -183,7 +334,18 @@ export default function Directory() {
   const curatedIdsRaw = Array.isArray(currentUser?.curatedMatchShownUserIds)
     ? currentUser.curatedMatchShownUserIds.map(String)
     : [];
-  const curatedIdsNewestFirst = [...curatedIdsRaw].reverse();
+  // Fallback: if profile field is stale, reconstruct curated picks from notifications.
+  const notifCuratedIds =
+    (Array.isArray(notifications) ? notifications : [])
+      .filter((n) => n?.type === "curated_match" && n.relatedUserId)
+      .map((n) => String(n.relatedUserId))
+      .filter((id, idx, arr) => arr.indexOf(id) === idx);
+  // Merge profile + notification sources so new notification IDs still appear
+  // even if profile.curatedMatchShownUserIds is temporarily stale.
+  const curatedIdsMerged = [...curatedIdsRaw, ...notifCuratedIds].filter(
+    (id, idx, arr) => arr.indexOf(id) === idx,
+  );
+  const curatedIdsNewestFirst = [...curatedIdsMerged].reverse();
   const curatedProfiles = curatedIdsNewestFirst
     .map((id) => safeProfiles.find((p) => p.id === id))
     .filter((p): p is Profile => p != null);
@@ -192,7 +354,7 @@ export default function Directory() {
   safeAiMatches.forEach(match => { if (match?.id) aiMatchMap.set(match.id, match); });
 
   const latestCuratedId =
-    curatedIdsRaw.length > 0 ? curatedIdsRaw[curatedIdsRaw.length - 1]! : null;
+    curatedIdsMerged.length > 0 ? curatedIdsMerged[curatedIdsMerged.length - 1]! : null;
   const latestCuratedProfile = latestCuratedId
     ? safeProfiles.find((p) => p.id === latestCuratedId)
     : undefined;
@@ -206,11 +368,32 @@ export default function Directory() {
     setLocation(`/chat?user=${encodeURIComponent(targetId)}`);
   };
 
+  const norm = (v: unknown): string => String(v ?? "").trim().toLowerCase();
+  const isTruthy = (v: unknown): boolean =>
+    v === true || v === 1 || v === "1" || norm(v) === "true" || norm(v) === "yes";
+
+  const inferredPreferredGender = (): string => {
+    const g = norm(currentUser?.gender);
+    if (g === "male" || g === "man" || g === "m") return "female";
+    if (g === "female" || g === "woman" || g === "f") return "male";
+    return "all";
+  };
+  const effectiveGenderFilter =
+    selectedGender !== "all" ? selectedGender : inferredPreferredGender();
+
   let filteredProfiles = safeProfiles.filter(p => p?.id !== userId);
-  if (selectedGender !== 'all') filteredProfiles = filteredProfiles.filter(p => p.gender === selectedGender);
-  if (selectedEducation !== 'all') filteredProfiles = filteredProfiles.filter(p => p.education === selectedEducation);
-  if (selectedLocation !== 'all') filteredProfiles = filteredProfiles.filter(p => p.location?.toLowerCase().includes(selectedLocation.toLowerCase()));
-  if (verifiedOnly) filteredProfiles = filteredProfiles.filter(p => p.verified === true);
+  if (effectiveGenderFilter !== "all") {
+    filteredProfiles = filteredProfiles.filter((p) => norm(p.gender) === norm(effectiveGenderFilter));
+  }
+  if (selectedEducation !== "all") {
+    filteredProfiles = filteredProfiles.filter((p) => norm(p.education) === norm(selectedEducation));
+  }
+  if (selectedLocation !== "all") {
+    filteredProfiles = filteredProfiles.filter((p) => norm(p.location).includes(norm(selectedLocation)));
+  }
+  if (verifiedOnly) {
+    filteredProfiles = filteredProfiles.filter((p) => isTruthy(p.verified));
+  }
   filteredProfiles = filteredProfiles.filter(p => { if (!p.age) return false; return p.age >= ageRange[0] && p.age <= ageRange[1]; });
 
   const calculateCompatibility = (profile: Profile): { score: number; reasons: string[] } => {
@@ -236,6 +419,14 @@ export default function Directory() {
 
   if (sortBy === 'compatibility') profilesWithCompatibility.sort((a, b) => b.compatibility - a.compatibility);
   else if (sortBy === 'age') profilesWithCompatibility.sort((a, b) => (a.age || 0) - (b.age || 0));
+  else if (sortBy === 'newest') {
+    const ts = (p: { updatedAt?: string | null; createdAt?: string | null; lastActiveAt?: string | null }) => {
+      const raw = p.updatedAt || p.createdAt || p.lastActiveAt || null;
+      const t = raw ? Date.parse(String(raw)) : 0;
+      return Number.isFinite(t) ? t : 0;
+    };
+    profilesWithCompatibility.sort((a, b) => ts(b) - ts(a));
+  }
   if (aiMatchmakerComplete) profilesWithCompatibility = profilesWithCompatibility.filter(p => p.compatibility >= 40).slice(0, 20);
 
   const browseProfileRows =
@@ -245,6 +436,7 @@ export default function Directory() {
 
   const uniqueLocations = Array.from(new Set(profiles.map(p => p.location).filter(Boolean))) as string[];
   const uniqueGenders = Array.from(new Set(profiles.map(p => p.gender).filter(Boolean))) as string[];
+  const uniqueEducations = Array.from(new Set(profiles.map(p => p.education).filter(Boolean))) as string[];
 
   const sortOptions = [
     { id: 'compatibility', label: 'Best Match' },
@@ -254,8 +446,8 @@ export default function Directory() {
 
   return (
     <PageWrapper>
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <Header showSearch={true} onLogout={logout} title="Discover" />
+    <div className="min-h-screen bg-[#F9FAFB] pb-24">
+      <Header showSearch={true} onLogout={logout} title="People" />
 
       <div className="max-w-lg mx-auto">
         {/* AI Matchmaker required — no AI matches / full list until 30 questions are finished */}
@@ -292,53 +484,68 @@ export default function Directory() {
 
         {/* AI Match banner */}
         {hasAttractionBlueprint && (
-          <div className="mx-4 mt-3 bg-primary/5 border border-primary/20 rounded-2xl px-4 py-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-gray-800">AI Matchmaker active</p>
-              <p className="text-xs text-gray-500 leading-snug">
-                Your <span className="font-semibold">timed pick</span> is one person per cycle on the AI
-                Matchmaker home. Here you can browse everyone; compatibility sort still uses AI scores where
-                available.
-              </p>
+          <div className="mx-4 mt-3 overflow-hidden rounded-[24px] border border-white/60 bg-gradient-to-br from-[#722F37]/10 via-white/70 to-[#F7D6DE]/60 px-4 py-3 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)] backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/50 bg-white/55 shadow-sm backdrop-blur-md">
+                <motion.div
+                  className="absolute inset-0 rounded-full"
+                  animate={{ opacity: [0.15, 0.28, 0.15] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ background: "radial-gradient(circle at 30% 20%, rgba(114,47,55,0.35), transparent 60%)" }}
+                />
+                <motion.div
+                  animate={{ scale: [1, 1.08, 1], rotate: [0, 6, 0] }}
+                  transition={{ duration: 2.6, repeat: Infinity, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <Sparkles className="h-4 w-4 text-primary drop-shadow-[0_0_12px_rgba(114,47,55,0.28)]" />
+                </motion.div>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800">AI Matchmaker active</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
+                  Your <span className="font-semibold text-slate-800">timed pick</span> is one person per cycle on the AI
+                  Matchmaker home. Here you can browse everyone; compatibility sort still uses AI scores where available.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
         {aiMatchmakerComplete && (
-          <div className="mx-4 mt-3 flex rounded-2xl border border-gray-200 bg-white p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => applyDiscoverTab("browse")}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-colors ${
-                discoverTab === "browse"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <Compass className="h-3.5 w-3.5" aria-hidden />
-              Browse
-            </button>
-            <button
-              type="button"
-              onClick={() => applyDiscoverTab("curated")}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-colors ${
-                discoverTab === "curated"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <Users className="h-3.5 w-3.5" aria-hidden />
-              Curated picks
-            </button>
-          </div>
+          <LayoutGroup id="discover-tabs">
+            <div className="mx-4 mt-3 flex rounded-[24px] border border-[#F0F0F0] bg-white/70 p-1 shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
+              {(
+                [
+                  ["browse", "Browse", Compass],
+                  ["curated", "Curated picks", Users],
+                ] as const
+              ).map(([id, label, Icon]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => applyDiscoverTab(id)}
+                  className={`relative flex flex-1 items-center justify-center gap-2 rounded-[20px] py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] transition ${
+                    discoverTab === id ? "text-slate-900" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden />
+                  <span className="leading-tight">{label}</span>
+                  {discoverTab === id ? (
+                    <motion.span
+                      layoutId="discover-tab-bg"
+                      className="absolute inset-0 -z-10 rounded-[20px] bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]"
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </LayoutGroup>
         )}
 
         {discoverTab === "curated" && aiMatchmakerComplete ? (
           <div className="px-4 mt-5 space-y-4">
-            <p className="text-xs text-gray-500 leading-relaxed">
+            <p className="text-center font-display text-[13px] leading-[1.8] text-slate-600">
               Everyone listed here was assigned as your timed AI pick. New names appear automatically after
               each cycle.
             </p>
@@ -353,35 +560,21 @@ export default function Directory() {
                 className="max-w-md mx-auto py-10"
               />
             ) : (
-              curatedProfiles.map((profile) => {
-                const aiMatch = aiMatchMap.get(profile.id);
-                return (
-                  <ProfileCard
-                    key={profile.id}
-                    id={profile.id}
-                    name={profile.name}
-                    age={profile.age || 0}
-                    image={aiMatch?.image ?? profile.avatar ?? undefined}
-                    onViewProfile={(id: string) => setLocation(`/profile/${id}`)}
-                    onLike={handleLikeProfile}
-                    onMessage={handleMessageProfile}
-                    location={profile.location || "Location not set"}
-                    bio={profile.bio || "No bio available"}
-                    tags={Array.isArray(profile.interests) ? profile.interests : []}
-                    compatibility={aiMatch?.compatibility || 70}
-                    matchReasons={aiMatch?.reasons || ["AI curated pick"]}
-                    mutualCompatibility={aiMatch?.mutualCompatibility}
-                    isAIMatch={true}
-                    lookingFor={
-                      profile.relationshipGoal
-                        ? `Looking for ${profile.relationshipGoal.toLowerCase()}`
-                        : "Looking for meaningful connection"
-                    }
-                    profileBanner={profile.profileBanner}
-                    showOnlineDot={showOnlineDotForOther(profile)}
-                  />
-                );
-              })
+              <div className="grid grid-cols-2 gap-3">
+                {curatedProfiles.map((profile) => {
+                  const aiMatch = aiMatchMap.get(profile.id);
+                  return (
+                    <DiscoverCard
+                      key={profile.id}
+                      profile={profile}
+                      compatibility={aiMatch?.compatibility || 70}
+                      onViewProfile={(id) => setLocation(`/profile/${id}`)}
+                      onLike={handleLikeProfile}
+                      onMessage={handleMessageProfile}
+                    />
+                  );
+                })}
+              </div>
             )}
           </div>
         ) : null}
@@ -389,81 +582,6 @@ export default function Directory() {
         {/* Filter chips + browse lists (hidden on Curated picks tab) */}
         {!(discoverTab === "curated" && aiMatchmakerComplete) && (
         <>
-        {aiMatchmakerComplete && discoverTab === "browse" && latestCuratedId && (
-          <div className="px-4 mt-4 space-y-2" data-testid="section-latest-curated-pick">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-gray-800">
-                <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                Latest curated pick
-              </h2>
-              <button
-                type="button"
-                className="shrink-0 text-xs font-semibold text-primary hover:underline"
-                onClick={() => applyDiscoverTab("curated")}
-              >
-                All picks
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Your most recent AI Matchmaker assignment — same list as Curated picks.
-            </p>
-            {latestCuratedProfile ? (
-              <ProfileCard
-                id={latestCuratedProfile.id}
-                name={latestCuratedProfile.name}
-                age={latestCuratedProfile.age || 0}
-                image={latestAiOnly?.image ?? latestCuratedProfile.avatar ?? undefined}
-                onViewProfile={(id: string) => setLocation(`/profile/${id}`)}
-                onLike={handleLikeProfile}
-                onMessage={handleMessageProfile}
-                location={latestCuratedProfile.location || "Location not set"}
-                bio={latestCuratedProfile.bio || "No bio available"}
-                tags={Array.isArray(latestCuratedProfile.interests) ? latestCuratedProfile.interests : []}
-                compatibility={latestAiOnly?.compatibility ?? 70}
-                matchReasons={latestAiOnly?.reasons ?? ["AI curated pick"]}
-                mutualCompatibility={latestAiOnly?.mutualCompatibility}
-                isAIMatch={true}
-                lookingFor={
-                  latestCuratedProfile.relationshipGoal
-                    ? `Looking for ${latestCuratedProfile.relationshipGoal.toLowerCase()}`
-                    : "Looking for meaningful connection"
-                }
-                profileBanner={latestCuratedProfile.profileBanner}
-                showOnlineDot={showOnlineDotForOther(latestCuratedProfile)}
-              />
-            ) : latestAiOnly ? (
-              <ProfileCard
-                id={latestAiOnly.id}
-                name={latestAiOnly.name}
-                age={latestAiOnly.age ?? 0}
-                image={latestAiOnly.image ?? undefined}
-                onViewProfile={(id: string) => setLocation(`/profile/${id}`)}
-                onLike={handleLikeProfile}
-                onMessage={handleMessageProfile}
-                location="Open profile for details"
-                bio={latestAiOnly.bio || latestAiOnly.emphasis || "Your latest curated match."}
-                tags={[]}
-                compatibility={latestAiOnly.compatibility}
-                matchReasons={latestAiOnly.reasons}
-                mutualCompatibility={latestAiOnly.mutualCompatibility}
-                isAIMatch={true}
-                lookingFor="AI curated pick"
-                showOnlineDot={false}
-              />
-            ) : (
-              <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-center">
-                <p className="text-sm font-medium text-gray-800">New curated match</p>
-                <Button
-                  size="sm"
-                  className="mt-2 rounded-full bg-primary text-primary-foreground"
-                  onClick={() => setLocation(`/profile/${latestCuratedId}`)}
-                >
-                  View profile
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
         <div className="px-4 mt-4">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
             {/* Sort chips */}
@@ -471,10 +589,10 @@ export default function Directory() {
               <button
                 key={opt.id}
                 onClick={() => setSortBy(opt.id)}
-                className={`flex-shrink-0 flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition ${
                   sortBy === opt.id
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-gray-600 border-gray-200'
+                    ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
+                    : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
                 }`}
               >
                 {sortBy === opt.id && <Check className="w-3 h-3" />}
@@ -487,10 +605,10 @@ export default function Directory() {
               <button
                 key={g}
                 onClick={() => setSelectedGender(selectedGender === g ? 'all' : g)}
-                className={`flex-shrink-0 flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors capitalize ${
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition capitalize ${
                   selectedGender === g
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-gray-600 border-gray-200'
+                    ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
+                    : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
                 }`}
               >
                 {selectedGender === g && <Check className="w-3 h-3" />}
@@ -501,8 +619,10 @@ export default function Directory() {
             {/* Verified chip */}
             <button
               onClick={() => setVerifiedOnly(!verifiedOnly)}
-              className={`flex-shrink-0 flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                verifiedOnly ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200'
+              className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition ${
+                verifiedOnly
+                  ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
+                  : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
               }`}
             >
               {verifiedOnly && <Check className="w-3 h-3" />}
@@ -514,101 +634,61 @@ export default function Directory() {
               <button
                 key={loc}
                 onClick={() => setSelectedLocation(selectedLocation === loc ? 'all' : loc)}
-                className={`flex-shrink-0 flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition ${
                   selectedLocation === loc
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-gray-600 border-gray-200'
+                    ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
+                    : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
                 }`}
               >
                 {selectedLocation === loc && <Check className="w-3 h-3" />}
                 {loc}
               </button>
             ))}
+
+            {/* Education chips */}
+            {uniqueEducations.slice(0, 5).map(ed => (
+              <button
+                key={ed}
+                onClick={() => setSelectedEducation(selectedEducation === ed ? 'all' : ed)}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition ${
+                  selectedEducation === ed
+                    ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
+                    : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
+                }`}
+              >
+                {selectedEducation === ed && <Check className="w-3 h-3" />}
+                {ed}
+              </button>
+            ))}
           </div>
 
           {/* Age range */}
-          <div className="mt-3 bg-white rounded-2xl px-4 py-3 border border-gray-100">
+          <div className="mt-3 rounded-[24px] border border-[#F0F0F0] bg-white/80 px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Age Range</span>
-              <span className="text-xs font-bold text-primary">{ageRange[0]} – {ageRange[1]}</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Age range</span>
+              <span className="font-display text-[14px] font-extrabold text-slate-900 tabular-nums">
+                {ageRange[0]} <span className="text-slate-400">–</span> {ageRange[1]}
+              </span>
             </div>
             <div className="flex gap-3 items-center">
-              <input type="range" min="18" max="100" value={ageRange[0]} onChange={(e) => setAgeRange([parseInt(e.target.value), ageRange[1]])} className="flex-1 accent-primary" />
-              <input type="range" min="18" max="100" value={ageRange[1]} onChange={(e) => setAgeRange([ageRange[0], parseInt(e.target.value)])} className="flex-1 accent-primary" />
+              <input
+                type="range"
+                min="18"
+                max="100"
+                value={ageRange[0]}
+                onChange={(e) => setAgeRange([parseInt(e.target.value), ageRange[1]])}
+                className="matchify-range flex-1"
+              />
+              <input
+                type="range"
+                min="18"
+                max="100"
+                value={ageRange[1]}
+                onChange={(e) => setAgeRange([ageRange[0], parseInt(e.target.value)])}
+                className="matchify-range flex-1"
+              />
             </div>
           </div>
-        </div>
-
-        {/* Likes in your filters — blurred profile card grid */}
-        <div className="px-4 mt-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-gray-800">Likes in your filters</h3>
-            <span className="text-xs text-primary font-semibold">Upgrade to see</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { loc: 'London', eth: 'British', job: 'Teacher', time: '2h ago' },
-              { loc: 'Manchester', eth: 'Pakistani', job: 'Engineer', time: '5h ago' },
-              { loc: 'Birmingham', eth: 'Somali', job: 'Doctor', time: '1d ago' },
-              { loc: 'Leeds', eth: 'Bengali', job: 'Nurse', time: '2d ago' },
-            ].map((card, i) => (
-              <div key={i} className="relative rounded-2xl overflow-hidden bg-gray-100 border border-gray-100 shadow-sm">
-                <div className="h-36 bg-gradient-to-br from-primary/20 to-chart-1/30 flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 backdrop-blur-xl bg-white/30" />
-                  <div className="relative z-10 flex flex-col items-center gap-1">
-                    <Crown className="w-7 h-7 text-primary/70" />
-                    {card.loc && (
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-[10px] text-gray-600 bg-white/80 rounded px-1.5 py-0.5">📍 {card.loc}</span>
-                        <span className="text-[10px] text-gray-600 bg-white/80 rounded px-1.5 py-0.5">🌍 {card.eth}</span>
-                        <span className="text-[10px] text-gray-600 bg-white/80 rounded px-1.5 py-0.5">💼 {card.job}</span>
-                        <span className="text-[10px] text-gray-500 mt-0.5">{card.time}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <button
-            className="mt-3 w-full py-2.5 rounded-2xl text-sm font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #722F37, #8B2942)' }}
-            onClick={() => setLocation('/subscriptions')}
-          >
-            See who liked you — Upgrade
-          </button>
-        </div>
-
-        {/* Boosted visits — blurred placeholder cards */}
-        <div className="px-4 mt-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-gray-800">Boosted visits</h3>
-            <span className="text-xs text-primary font-semibold">Boost your profile</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { loc: 'Bristol', job: 'Accountant', time: '3h ago' },
-              { loc: 'Cardiff', job: 'Designer', time: '6h ago' },
-            ].map((card, i) => (
-              <div key={i} className="relative rounded-2xl overflow-hidden bg-gray-100 border border-gray-100 shadow-sm">
-                <div className="h-36 bg-gradient-to-br from-chart-4/20 to-chart-1/30 flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 backdrop-blur-xl bg-white/30" />
-                  <div className="relative z-10 flex flex-col items-center gap-1">
-                    <Rocket className="w-7 h-7 text-chart-4/70" />
-                    <span className="text-[10px] text-gray-600 bg-white/80 rounded px-1.5 py-0.5">📍 {card.loc}</span>
-                    <span className="text-[10px] text-gray-600 bg-white/80 rounded px-1.5 py-0.5">💼 {card.job}</span>
-                    <span className="text-[10px] text-gray-500 mt-0.5">{card.time}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <button
-            className="mt-3 w-full py-2.5 rounded-2xl text-sm font-bold text-white bg-chart-4"
-            onClick={() => setLocation('/subscriptions')}
-          >
-            🚀 Get seen more — Boost Profile
-          </button>
         </div>
 
         {/* Profile list */}
@@ -650,31 +730,21 @@ export default function Directory() {
               />
             )
           ) : (
-            browseProfileRows.map((profile) => {
-              const aiMatch = aiMatchMap.get(profile.id);
-              return (
-                <ProfileCard
-                  key={profile.id}
-                  id={profile.id}
-                  name={profile.name}
-                  age={profile.age || 0}
-                  image={aiMatch?.image ?? profile.avatar ?? undefined}
-                  onViewProfile={(id: string) => setLocation(`/profile/${id}`)}
-                  onLike={handleLikeProfile}
-                  onMessage={handleMessageProfile}
-                  location={profile.location || 'Location not set'}
-                  bio={profile.bio || 'No bio available'}
-                  tags={profile.tags}
-                  compatibility={aiMatch?.compatibility || profile.compatibility}
-                  matchReasons={aiMatch?.reasons || profile.matchReasons}
-                  mutualCompatibility={aiMatch?.mutualCompatibility}
-                  isAIMatch={!!aiMatch}
-                  lookingFor={profile.relationshipGoal ? `Looking for ${profile.relationshipGoal.toLowerCase()}` : "Looking for meaningful connection"}
-                  profileBanner={profile.profileBanner}
-                  showOnlineDot={showOnlineDotForOther(profile)}
-                />
-              );
-            })
+            <div className="grid grid-cols-2 gap-3">
+              {browseProfileRows.map((profile) => {
+                const aiMatch = aiMatchMap.get(profile.id);
+                return (
+                  <DiscoverCard
+                    key={profile.id}
+                    profile={profile}
+                    compatibility={aiMatch?.compatibility || profile.compatibility}
+                    onViewProfile={(id) => setLocation(`/profile/${id}`)}
+                    onLike={handleLikeProfile}
+                    onMessage={handleMessageProfile}
+                  />
+                );
+              })}
+            </div>
           )}
         </div>
         </>

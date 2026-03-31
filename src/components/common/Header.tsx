@@ -1,7 +1,7 @@
 import { type ReactNode, useSyncExternalStore } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Settings, Plus } from "lucide-react";
+import { Bot, Search, Settings, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GlobalSearch, OPEN_GLOBAL_SEARCH_EVENT } from "./GlobalSearch";
@@ -107,7 +107,7 @@ export default function Header({
   subtitle,
   titleClassName,
 }: HeaderProps) {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { userId: headerUserId } = useCurrentUser();
   const tabVisible =
     useSyncExternalStore(subscribeTabVisible, getTabVisibleSnapshot, getTabVisibleSnapshot) === "1";
@@ -130,6 +130,8 @@ export default function Header({
     if (onSettings) onSettings();
     else setLocation("/profile");
   };
+  // Show Luna only on Feed page (Community).
+  const showLuna = location === "/community";
   const headerInitials = headerUser.name
     .split(/\s+/)
     .filter(Boolean)
@@ -154,7 +156,7 @@ export default function Header({
                 <div className="flex min-w-0 flex-col justify-center py-0.5">
                   <h1
                     className={cn(
-                      "truncate text-[17px] font-bold leading-tight text-gray-900",
+                      "truncate text-[17px] font-bold leading-tight text-gray-900 tracking-[0.5px]",
                       titleClassName,
                     )}
                   >
@@ -187,21 +189,39 @@ export default function Header({
                   aria-label="Open search"
                   onClick={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
                 >
-                  <Search className="h-5 w-5" strokeWidth={2} aria-hidden />
+                  <Search className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                 </Button>
               )}
 
-              {onCreate && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-10 w-10 shrink-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
-                  onClick={onCreate}
-                  data-testid="button-create-post"
-                  aria-label="Create post"
-                >
-                  <Plus className="h-5 w-5" strokeWidth={2} aria-hidden />
-                </Button>
+              {(onCreate || showLuna) && (
+                <div className="flex shrink-0 flex-col items-center justify-center gap-1">
+                  {showLuna ? (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-10 w-10 shrink-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+                      onClick={() => setLocation("/luna")}
+                      data-testid="button-luna"
+                      aria-label="Open Luna"
+                    >
+                      <Bot className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                    </Button>
+                  ) : null}
+
+                  {onCreate ? (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-10 w-10 shrink-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+                      onClick={onCreate}
+                      data-testid="button-create-post"
+                      aria-label="Create post"
+                    >
+                      <Plus className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                    </Button>
+                  ) : null}
+                </div>
               )}
 
               {rightAccessory}
@@ -222,7 +242,7 @@ export default function Header({
                     <AvatarImage src={headerUser.avatar || undefined} alt="" />
                     <AvatarFallback className="bg-primary/15 text-[10px] font-bold text-primary">
                       {headerInitials || (
-                        <Settings className="h-5 w-5 text-gray-500" strokeWidth={2} />
+                        <Settings className="h-5 w-5 text-gray-500" strokeWidth={1.75} />
                       )}
                     </AvatarFallback>
                   </Avatar>

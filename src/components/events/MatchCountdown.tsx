@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
 interface MatchCountdownProps {
@@ -31,15 +31,22 @@ const EXCITEMENT_TEXTS: Record<number, string> = {
 };
 
 function getExcitementText(seconds: number): string {
+  if (seconds > 20) return "Matches revealing soon";
+  if (seconds > 10 && seconds <= 20) return "Hang tight — almost time!";
   if (seconds <= 10 && seconds >= 0) return EXCITEMENT_TEXTS[seconds] ?? "Get ready!";
   return "Matches revealing soon";
 }
 
 export default function MatchCountdown({ targetTime, onComplete, eventTitle }: MatchCountdownProps) {
-  const [timeLeft, setTimeLeft] = useState<number>(10);
+  const [timeLeft, setTimeLeft] = useState<number>(20);
+  const [countdownDuration, setCountdownDuration] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const onCompleteCalled = useRef(false);
+
+  useEffect(() => {
+    setCountdownDuration(null);
+  }, [targetTime]);
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -51,7 +58,9 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
         setShowConfetti(true);
         return;
       }
-      setTimeLeft(Math.floor(difference / 1000));
+      const sec = Math.floor(difference / 1000);
+      setTimeLeft(sec);
+      setCountdownDuration((d) => (d === null ? sec : d));
     };
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 100);
@@ -68,8 +77,15 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
     return () => clearTimeout(t);
   }, [showConfetti, onComplete]);
 
-  const showReel = timeLeft <= 10;
+  const showReel = timeLeft <= 60;
   const excitementText = getExcitementText(timeLeft);
+
+  const progress = useMemo(() => {
+    const total = countdownDuration;
+    if (!total || total <= 0) return 0;
+    const t = Math.max(0, timeLeft);
+    return Math.min(1, Math.max(0, (total - t) / total));
+  }, [countdownDuration, timeLeft]);
 
   const reelItems = useMemo(() => {
     const formatLabel = (v: number) =>
@@ -148,89 +164,75 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
     );
   }
 
+  const ringR = 46;
+  const ringC = 2 * Math.PI * ringR;
+  const ringOffset = ringC * (1 - progress);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[200] flex flex-col min-h-dvh pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
-      style={{ background: "linear-gradient(180deg, #0a1628 0%, #0f2040 60%, #0d1a30 100%)" }}
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/35 backdrop-blur-[2px] pb-6 pt-[env(safe-area-inset-top)]"
     >
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/40 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-1 bg-primary/40 pointer-events-none" />
-      <div className="absolute top-6 left-0 right-0 z-10 text-center px-4">
-        <p className="text-white/90 text-xs font-semibold uppercase tracking-[0.2em]">{eventTitle}</p>
-      </div>
-      <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0">
-        <div
-          className="relative flex items-center justify-center overflow-hidden"
-          style={{ height: viewportHeight, width: "min(92vw, 340px)" }}
-        >
-          <motion.div
-            className="absolute left-3 top-0 flex flex-col pointer-events-none z-10"
-            style={{
-              height: reelItems.length * ROW_HEIGHT,
-              transform: `translateY(${listOffsetY}px)`,
-            }}
-            animate={{ transform: `translateY(${listOffsetY}px)` }}
-            transition={{ type: "spring", stiffness: 130, damping: 22 }}
-          >
-            {reelItems.map((_, i) => (
-              <div key={i} className="flex items-center shrink-0" style={{ height: ROW_HEIGHT }}>
-                <div className="w-1 h-0.5 rounded-full bg-white/35" />
-              </div>
-            ))}
-          </motion.div>
-          <motion.div
-            className="relative w-full"
-            style={{
-              height: reelItems.length * ROW_HEIGHT,
-              transform: `translateY(${listOffsetY}px)`,
-            }}
-            animate={{ transform: `translateY(${listOffsetY}px)` }}
-            transition={{ type: "spring", stiffness: 130, damping: 22 }}
-          >
-            {reelItems.map((item, index) => {
-              const offset = item.value - timeLeft;
-              const absOffset = Math.abs(offset);
-              const isCenter = offset === 0;
-              const scale = isCenter ? 1 : Math.max(0.4, 1 - absOffset * 0.2);
-              const opacity = isCenter ? 1 : Math.max(0.25, 1 - absOffset * 0.35);
-              return (
-                <div
-                  key={item.value}
-                  className="absolute left-0 right-0 flex items-center justify-center"
-                  style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT }}
-                >
-                  <span
-                    className={`font-black tabular-nums select-none leading-none text-center ${isCenter ? "text-primary" : ""}`}
-                    style={{
-                      fontSize: isCenter ? "clamp(4rem, 28vmin, 14rem)" : "clamp(1.5rem, 7vmin, 3.5rem)",
-                      ...(isCenter ? {} : { color: "rgba(255,255,255,0.45)" }),
-                      transform: `scale(${scale})`,
-                      opacity,
-                    }}
-                  >
-                    {item.label}
-                  </span>
-                </div>
-              );
-            })}
-          </motion.div>
+      <motion.div
+        initial={{ y: 18, opacity: 0, scale: 0.98 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 26 }}
+        className="w-[min(92vw,28rem)] overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl"
+      >
+        <div className="px-5 pt-5 pb-4 bg-gradient-to-r from-primary to-red-950 text-primary-foreground">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] opacity-90">
+            Match reveal
+          </p>
+          <p className="mt-1 font-display text-lg font-bold leading-tight">
+            {eventTitle}
+          </p>
+          <p className="mt-1 text-xs opacity-90">{excitementText}</p>
         </div>
-        <motion.p
-          key={`excite-${timeLeft}`}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          className="mt-4 text-xl md:text-2xl font-bold text-white text-center px-4 pb-2"
-        >
-          {excitementText}
-        </motion.p>
-      </div>
-      <p className="absolute bottom-20 left-0 right-0 text-center text-sm text-white/50 px-4">
-        Everyone sees their matches at the same time
-      </p>
+
+        <div className="px-5 py-5">
+          <div className="flex items-center justify-center">
+            <div className="relative h-32 w-32">
+              <svg className="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
+                <circle
+                  cx="60"
+                  cy="60"
+                  r={ringR}
+                  fill="none"
+                  stroke="rgba(114,47,55,0.12)"
+                  strokeWidth="10"
+                />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r={ringR}
+                  fill="none"
+                  stroke="hsl(349 52% 38%)"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeDasharray={ringC}
+                  strokeDashoffset={ringOffset}
+                />
+              </svg>
+              <div className="absolute inset-0 grid place-items-center">
+                <div className="text-center">
+                  <div className="text-5xl font-black tabular-nums text-primary leading-none">
+                    {Math.max(0, timeLeft)}
+                  </div>
+                  <div className="mt-1 text-[11px] font-semibold text-muted-foreground">
+                    seconds
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Everyone sees their matches at the same time.
+          </p>
+        </div>
+      </motion.div>
     </motion.div>
   );
 }

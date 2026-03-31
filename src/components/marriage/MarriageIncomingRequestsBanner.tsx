@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   getIncomingChatRequests,
+  getIncomingChatRequestsRemote,
   respondToIncomingChatRequest,
 } from "@/lib/marriageChatRequests";
+import { queryClient } from "@/lib/queryClient";
 
 type Props = {
   recipientId: string;
@@ -22,7 +25,15 @@ export function MarriageIncomingRequestsBanner({ recipientId, recipientName }: P
   }, []);
 
   void epoch;
-  const pending = getIncomingChatRequests(recipientId).filter((x) => x.status === "pending");
+  const { data: incomingRemote = [] } = useQuery({
+    queryKey: ["/api/users", recipientId, "marriage-incoming"],
+    enabled: !!recipientId,
+    queryFn: async () => getIncomingChatRequestsRemote(recipientId),
+    refetchInterval: 8000,
+  });
+  const pending = (incomingRemote.length ? incomingRemote : getIncomingChatRequests(recipientId)).filter(
+    (x) => x.status === "pending",
+  );
   if (!pending.length) return null;
 
   return (
@@ -47,7 +58,13 @@ export function MarriageIncomingRequestsBanner({ recipientId, recipientName }: P
                   size="sm"
                   className="rounded-full"
                   onClick={() =>
-                    respondToIncomingChatRequest(recipientId, req.id, "approved", recipientName)
+                    void respondToIncomingChatRequest(recipientId, req.id, "approved", recipientName).then(
+                      () => {
+                        void queryClient.invalidateQueries({
+                          queryKey: ["/api/users", recipientId, "marriage-incoming"],
+                        });
+                      },
+                    )
                   }
                 >
                   Approve
@@ -58,7 +75,13 @@ export function MarriageIncomingRequestsBanner({ recipientId, recipientName }: P
                   variant="outline"
                   className="rounded-full"
                   onClick={() =>
-                    respondToIncomingChatRequest(recipientId, req.id, "rejected", recipientName)
+                    void respondToIncomingChatRequest(recipientId, req.id, "rejected", recipientName).then(
+                      () => {
+                        void queryClient.invalidateQueries({
+                          queryKey: ["/api/users", recipientId, "marriage-incoming"],
+                        });
+                      },
+                    )
                   }
                 >
                   Decline

@@ -14,6 +14,10 @@ import {
   Heart,
   Bookmark,
   SlidersHorizontal,
+  Eye,
+  Pencil,
+  Instagram,
+  Linkedin,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -111,6 +115,8 @@ type MeUser = {
   name: string;
   username: string;
   avatar?: string | null;
+  bio?: string | null;
+  interests?: string[] | null;
   location?: string | null;
   verified?: boolean | null;
   createdAt?: string | null;
@@ -126,6 +132,7 @@ export default function SocialSelfProfile() {
   const { toast } = useToast();
   const [shareOpen, setShareOpen] = useState(false);
   const [profileTab, setProfileTab] = useState("posts");
+  const [socialGallery, setSocialGallery] = useState<string[]>([]);
 
   useEffect(() => {
     const t = consumeSocialProfileTab();
@@ -136,6 +143,19 @@ export default function SocialSelfProfile() {
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
   });
+
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      const raw = localStorage.getItem(`matchify:social:gallery:${userId}`);
+      const arr = raw ? (JSON.parse(raw) as unknown) : [];
+      if (Array.isArray(arr)) {
+        setSocialGallery(arr.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 18));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [userId]);
 
   const { data: posts = [] } = useQuery<Post[]>({
     queryKey: ["/api/posts", { viewer: userId ?? "" }],
@@ -208,6 +228,14 @@ export default function SocialSelfProfile() {
     if (!userId) return [];
     return allPosts.filter((p) => (p as Post & { userId?: string }).userId === userId);
   }, [allPosts, userId]);
+
+  const myPhotoPosts = useMemo(() => {
+    return myPosts.filter((p) => Boolean(postDisplayImageUrl(p as any)));
+  }, [myPosts]);
+
+  const myTextPosts = useMemo(() => {
+    return myPosts.filter((p) => !postDisplayImageUrl(p as any));
+  }, [myPosts]);
 
   const myLikedPosts = useMemo(() => {
     return allPosts.filter((p) => !!(p as Post & { likedByMe?: boolean }).likedByMe);
@@ -352,7 +380,7 @@ export default function SocialSelfProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-[#F8F9FB] pb-28">
       <GlobalSearch />
 
       <div className="sticky top-0 z-40 border-b border-stone-100/80 bg-white/90 shadow-[0_4px_24px_-8px_rgba(15,23,42,0.08)] backdrop-blur-xl">
@@ -395,91 +423,156 @@ export default function SocialSelfProfile() {
       </div>
 
       <div className="mx-auto w-full max-w-lg">
-        <div className="border-b border-stone-100/90 bg-gray-50 px-4 pb-4 pt-5">
-          <div className="flex items-start gap-4">
-            <div className="shrink-0">
-              <div className="rounded-full bg-gradient-to-br from-stone-100 via-white to-stone-100 p-[3px] shadow-[0_12px_40px_-12px_rgba(15,23,42,0.2)]">
-                <Avatar className="h-[5.5rem] w-[5.5rem] border-0 sm:h-24 sm:w-24">
-                  <AvatarImage src={user.avatar || undefined} alt="" className="object-cover" />
-                  <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-2xl font-semibold text-primary">
-                    {user.name?.slice(0, 2).toUpperCase() || "?"}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
+        {/* Cover + identity */}
+        <div className="px-4 pt-4">
+          <div className="relative overflow-hidden rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]">
+            <div className="relative h-44 w-full overflow-hidden">
+              {socialGallery[0] ? (
+                <img src={socialGallery[0]} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(114,47,55,0.18),transparent_45%),radial-gradient(circle_at_85%_18%,rgba(236,72,153,0.12),transparent_42%),radial-gradient(circle_at_40%_90%,rgba(248,113,113,0.12),transparent_48%)]" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />
             </div>
-            <div className="min-w-0 flex-1 space-y-2.5 pt-0.5">
-              <div>
-                <h1 className="truncate font-display text-[1.35rem] font-bold leading-snug tracking-tight text-stone-900 sm:text-2xl">
-                  {user.name}
-                </h1>
-                <p className="mt-0.5 truncate text-[0.9375rem] font-medium text-stone-500">@{user.username}</p>
+
+            <div className="relative px-4 pb-4">
+              <div className="-mt-10 flex items-end gap-4">
+                <div className="shrink-0">
+                  <div className="rounded-full bg-white p-1 shadow-[0_18px_60px_-28px_rgba(15,23,42,0.35)]">
+                    <Avatar className="h-20 w-20 border-4 border-white sm:h-24 sm:w-24">
+                      <AvatarImage src={user.avatar || undefined} alt="" className="object-cover" />
+                      <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-2xl font-semibold text-primary">
+                        {user.name?.slice(0, 2).toUpperCase() || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 pb-1">
+                  <h1 className="truncate font-display text-[24px] font-extrabold leading-tight text-slate-900">
+                    {user.name}
+                  </h1>
+                  <p className="mt-0.5 truncate text-[14px] font-medium text-slate-500">@{user.username}</p>
+                </div>
               </div>
-              <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  className="shrink-0 text-left transition-opacity hover:opacity-80 active:opacity-70"
                   onClick={() => openConnections("followers")}
+                  className="rounded-full border border-[#F0F0F0] bg-white/70 px-3 py-2 text-left shadow-sm backdrop-blur-md"
                 >
-                  <p className="text-lg font-bold tabular-nums leading-none tracking-tight text-stone-900">
+                  <p className="text-[14px] font-extrabold tabular-nums leading-none text-slate-900">
                     {statDisplay(followerCount)}
                   </p>
-                  <p className="mt-1 whitespace-nowrap text-[10px] font-medium uppercase tracking-wide text-stone-400">
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Followers
                   </p>
                 </button>
                 <button
                   type="button"
-                  className="shrink-0 text-left transition-opacity hover:opacity-80 active:opacity-70"
                   onClick={() => openConnections("following")}
+                  className="rounded-full border border-[#F0F0F0] bg-white/70 px-3 py-2 text-left shadow-sm backdrop-blur-md"
                 >
-                  <p className="text-lg font-bold tabular-nums leading-none tracking-tight text-stone-900">
+                  <p className="text-[14px] font-extrabold tabular-nums leading-none text-slate-900">
                     {statDisplay(followingCount)}
                   </p>
-                  <p className="mt-1 whitespace-nowrap text-[10px] font-medium uppercase tracking-wide text-stone-400">
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Following
                   </p>
                 </button>
+                <div className="rounded-full border border-[#F0F0F0] bg-white/70 px-3 py-2 text-left shadow-sm backdrop-blur-md">
+                  <p className="text-[14px] font-extrabold tabular-nums leading-none text-slate-900">
+                    {socialSummaryLoading ? "–" : String(myPosts.length)}
+                  </p>
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Posts</p>
+                </div>
               </div>
-              <div className="space-y-1.5 text-sm text-stone-600">
+
+              <div className="mt-3 space-y-1.5 text-sm text-slate-600">
                 {placeLine ? (
-                  <p className="flex items-start gap-1.5 font-medium text-stone-600">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" />
+                  <p className="flex items-start gap-1.5 font-medium text-slate-600">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.75} />
                     <span className="leading-snug">{placeLine}</span>
                   </p>
                 ) : null}
-                <p className="flex items-start gap-1.5 text-xs text-stone-400">
-                  <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" />
+                <p className="flex items-start gap-1.5 text-xs text-slate-500">
+                  <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.75} />
                   <span className="leading-snug">{joinedLabel}</span>
                 </p>
+              </div>
+
+              <div className="mt-4 rounded-full bg-[#F1F2F4] p-1 shadow-[inset_0_1px_4px_rgba(15,23,42,0.06)]">
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setLocation("/profile/social/edit")}
+                    className="relative h-10 rounded-full text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500 hover:text-slate-800"
+                  >
+                    <span className="relative inline-flex h-full w-full items-center justify-center gap-2">
+                      <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      Edit
+                    </span>
+                  </button>
+                  <div className="relative h-10 rounded-full text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-900">
+                    <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
+                    <span className="relative inline-flex h-full w-full items-center justify-center gap-2">
+                      <Eye className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      Preview
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F4F4F7] text-slate-700"
+                  aria-label="Instagram"
+                  title="Instagram"
+                >
+                  <Instagram className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F4F4F7] text-slate-700"
+                  aria-label="X"
+                  title="X"
+                >
+                  <span className="text-[12px] font-black">X</span>
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F4F4F7] text-slate-700"
+                  aria-label="LinkedIn"
+                  title="LinkedIn"
+                >
+                  <Linkedin className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-6 space-y-2 px-4">
-          <Button
-            type="button"
-            className="h-[3.25rem] w-full rounded-full border-0 bg-gradient-to-b from-primary to-primary/88 px-6 text-[15px] font-semibold tracking-wide text-primary-foreground shadow-[0_14px_44px_-14px_hsl(var(--primary)/0.38)] transition-all duration-300 ease-out hover:to-primary hover:shadow-[0_18px_52px_-16px_hsl(var(--primary)/0.45)] active:scale-[0.985]"
-            onClick={() => setLocation("/profile/social/edit")}
-          >
-            Edit my profile
-          </Button>
+        <div className="mt-4 space-y-3 px-4">
+          <div className="rounded-[24px] border border-[#F0F0F0] bg-white px-4 py-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">About</p>
+            <p className="mt-2 font-serif text-[15px] leading-[1.7] text-slate-800">
+              {user.bio?.trim() || "Tell the community what you’re about — add a short bio from Edit."}
+            </p>
+          </div>
+
           <Button
             type="button"
             variant="outline"
-            className="h-12 w-full rounded-2xl border-stone-200/90 bg-white text-[14px] font-semibold text-stone-800 shadow-sm"
+            className="h-11 w-full rounded-full border-[#F0F0F0] bg-white/70 text-[13px] font-semibold text-slate-800 shadow-sm backdrop-blur-md hover:bg-white"
             onClick={() => setLocation("/settings/social")}
           >
-            <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" />
+            <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" strokeWidth={1.75} />
             Follows, mutes &amp; blocks
           </Button>
-          <p className="px-1 text-center text-[11px] leading-snug text-stone-400">
-            Saved posts are in the <span className="font-medium text-stone-500">Saved</span> tab below. Tap Followers or
-            Following to manage lists in Settings.
-          </p>
         </div>
 
-        <div className="mt-7 px-4 pb-4">
+        <div className="mt-6 px-4 pb-4">
           <Tabs value={profileTab} onValueChange={setProfileTab} className="w-full">
             <TabsList className="flex h-auto w-full gap-1 overflow-x-auto rounded-full bg-stone-200/40 p-1.5 shadow-[inset_0_1px_4px_rgba(15,23,42,0.05)] scrollbar-hide">
               <TabsTrigger
@@ -522,8 +615,41 @@ export default function SocialSelfProfile() {
                   subtitle="You haven’t posted anything. Share an update from Community or home — your posts will show here."
                 />
               ) : (
-                <div className="space-y-4">
-                  {myPosts.map((post, i) => {
+                <div className="space-y-5">
+                  {myPhotoPosts.length > 0 ? (
+                    <div>
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Photo posts
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {myPhotoPosts.map((p) => {
+                          const url = postDisplayImageUrl(p as any);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setLocation(`/community/post/${encodeURIComponent(p.id)}`)}
+                              className="group relative aspect-square overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-black/[0.04]"
+                              aria-label="Open post"
+                            >
+                              {url ? (
+                                <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+                              ) : null}
+                              <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {myTextPosts.length > 0 ? (
+                    <div>
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Text posts
+                      </p>
+                      <div className="space-y-4">
+                        {myTextPosts.map((post, i) => {
                     const p = post as Post & {
                       user?: { name?: string; avatar?: string; verified?: boolean };
                       author?: { name?: string; avatar?: string | null; verified?: boolean };
@@ -596,7 +722,10 @@ export default function SocialSelfProfile() {
                         />
                       </motion.div>
                     );
-                  })}
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </TabsContent>

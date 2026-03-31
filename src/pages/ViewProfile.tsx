@@ -31,7 +31,6 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { BlockReportDialog } from "@/components/common/BlockReportDialog";
 import { MatchInsights } from "@/components/matches/MatchInsights";
-import MatchReveal from "@/components/matches/MatchReveal";
 import { ProfileMarriageIntentBar } from "@/components/profile/ProfileMarriageIntentBar";
 import { ProfilePreviewCard } from "@/components/profile/ProfilePreviewCard";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +48,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ShareProfileDialog } from "@/components/profile/ShareProfileDialog";
 import { labelLoveLanguage, membershipBadgeLabel, splitLocation } from "@/lib/profileLabels";
 import { labelAlcohol, labelEthnicity, labelSmoking } from "@/lib/profileDemographics";
+import { cn } from "@/lib/utils";
 
 type User = {
   id: string;
@@ -148,18 +148,7 @@ export default function ViewProfile() {
   const [blockReportOpen, setBlockReportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [blockReportType, setBlockReportType] = useState<'block' | 'report' | 'both'>('both');
-  const [likeRevealMatch, setLikeRevealMatch] = useState<{
-    id: string;
-    compatibility: number;
-    user: {
-      id: string;
-      name: string;
-      age?: number | null;
-      avatar?: string | null;
-      location?: string | null;
-      bio?: string | null;
-    };
-  } | null>(null);
+  const [hasLikedProfile, setHasLikedProfile] = useState(false);
 
   // Fetch user profile
   const { data: user, isLoading } = useQuery<User>({
@@ -177,6 +166,11 @@ export default function ViewProfile() {
     pushExploreHistory(user.id);
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id || !currentUserId || user.id === currentUserId) return;
+    void apiRequest("POST", "/api/profile-views", { profileUserId: user.id }).catch(() => {});
+  }, [user?.id, currentUserId]);
+
   const sharedInterests = useMemo(() => {
     if (!me?.interests?.length || !user?.interests?.length) return [];
     const mine = new Set(me.interests);
@@ -192,17 +186,14 @@ export default function ViewProfile() {
     return hashPairScore(currentUserId, params.id);
   }, [currentUserId, params?.id]);
 
-  const markMatchRevealedMutation = useMutation({
-    mutationFn: async (matchId: string) => {
-      return apiRequest("PATCH", `/api/matches/${matchId}/reveal`, {});
-    },
-    onSuccess: () => {
-      if (currentUserId) {
-        queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/unrevealed-matches`] });
-        queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/matches`] });
-      }
-    },
+  const { data: likeState } = useQuery<{ liked: boolean }>({
+    queryKey: [`/api/users/${currentUserId}/profile-like/${user?.id || ""}`],
+    enabled: !!currentUserId && !!user?.id && user.id !== currentUserId,
   });
+
+  useEffect(() => {
+    if (typeof likeState?.liked === "boolean") setHasLikedProfile(likeState.liked);
+  }, [likeState?.liked]);
 
   const likeProfileMutation = useMutation({
     mutationFn: async () => {
@@ -224,18 +215,10 @@ export default function ViewProfile() {
       return (await res.json()) as { id: string; compatibility: number; existing?: boolean };
     },
     onSuccess: (data) => {
-      if (!user) return;
-      setLikeRevealMatch({
-        id: data.id,
-        compatibility: data.compatibility ?? compatibilityScore,
-        user: {
-          id: user.id,
-          name: user.name,
-          age: user.age,
-          avatar: user.avatar,
-          location: user.location,
-          bio: user.bio,
-        },
+      setHasLikedProfile(true);
+      toast({
+        title: "Liked",
+        description: data.existing ? "Already liked." : "Heart saved.",
       });
       if (currentUserId) {
         queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/unrevealed-matches`] });
@@ -250,13 +233,6 @@ export default function ViewProfile() {
       });
     },
   });
-
-  const closeLikeReveal = () => {
-    if (likeRevealMatch) {
-      markMatchRevealedMutation.mutate(likeRevealMatch.id);
-    }
-    setLikeRevealMatch(null);
-  };
 
   if (isLoading) {
     return (
@@ -472,8 +448,11 @@ export default function ViewProfile() {
               likeProfileMutation.mutate();
             }}
           >
-            <Heart className="h-4 w-4" />
-            Like
+            <Heart
+              className={cn("h-4 w-4", hasLikedProfile ? "text-red-600" : "")}
+              fill={hasLikedProfile ? "currentColor" : "none"}
+            />
+            {hasLikedProfile ? "Liked" : "Like"}
           </Button>
         </div>
 
@@ -727,21 +706,6 @@ export default function ViewProfile() {
         profileId={user.id}
         displayName={user.name}
       />
-
-      {likeRevealMatch && (
-        <MatchReveal
-          match={{
-            id: likeRevealMatch.id,
-            compatibility: likeRevealMatch.compatibility,
-            user: likeRevealMatch.user,
-          }}
-          onClose={closeLikeReveal}
-          onMessage={(matchedUserId) => {
-            closeLikeReveal();
-            setLocation(`/chat?user=${encodeURIComponent(matchedUserId)}`);
-          }}
-        />
-      )}
 
       {/* Block/Report Dialog */}
       {user.id !== currentUserId && (

@@ -4,6 +4,7 @@ import {
   getDefaultOnboardingQuestionnaireItems,
   type OnboardingQuestionnaireItem,
 } from "./onboardingQuestionnaire";
+import { createSeedWorld, DEFAULT_SEED_GROUP_IDS } from "./seedWorld";
 
 /** Admin-edited onboarding questionnaire (demo / offline API). */
 let mockOnboardingQuestionnaireOverride: OnboardingQuestionnaireItem[] | null = null;
@@ -14,190 +15,19 @@ const generateId = () => nanoid();
 // Current user (will be set when user is created)
 let currentUserId: string | null = null;
 
-// Mock Users
-const mockUsers = [
-  {
-    id: generateId(),
-    username: "johndoe",
-    email: "john@example.com",
-    name: "John Doe",
-    age: 28,
-    location: "Dubai, UAE",
-    bio: "Tech enthusiast and traveler. Love exploring new places and meeting new people.",
-    interests: ["Technology", "Travel", "Coffee"],
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop",
-    membershipTier: "premium",
-    verified: true,
-    onboardingCompleted: true,
-    // Self-discovery data
-    selfDiscoveryCompleted: true,
-    commitmentIntention: "serious",
-    marriageTimeline: "1_2yr",
-    marriageApproach: "values_first",
-    wantsChildren: "open",
-    nationality: "American",
-    ethnicity: "white_european",
-    languages: ["English", "Arabic"],
-    smoking: "never",
-    drinksAlcohol: "socially",
-    loveLanguage: "time",
-    topPriorities: ["Shared Values", "Emotional Intelligence", "Communication Skills", "Adventurous", "Loyalty"],
-    dealbreakers: ["Smoking", "Unfaithfulness", "Poor Communication", "Dishonesty"],
-    pastRelationships: {
-      whatWorked: [
-        "Great communication and openness",
-        "Shared love for travel and adventure",
-        "Mutual respect for each other's careers"
-      ],
-      whatDidntWork: [
-        "Different life goals - she wanted kids immediately, I wanted to wait",
-        "Lack of emotional availability",
-        "Incompatible communication styles"
-      ],
-      lessons: [
-        "I need someone who values quality time together",
-        "Emotional intelligence is more important than I thought",
-        "Shared values matter more than shared interests"
-      ]
-    },
-    relationshipReadiness: {
-      score: 85,
-      blindSpots: [],
-      needsWork: []
-    },
-    empathyPatterns: {
-      victimizationScore: 20,
-      perspectiveTakingScore: 75,
-      emotionalIntelligence: 70
-    },
-    gender: "male",
-    religion: "christianity",
-    meetPreference: "open_to_all",
-    education: "Bachelor's Degree",
-    career: "Software Engineer",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    username: "sarahchen",
-    email: "sarah@example.com",
-    name: "Sarah Chen",
-    age: 26,
-    location: "Abu Dhabi, UAE",
-    bio: "Art lover and food enthusiast. Always looking for the next adventure.",
-    interests: ["Art", "Food", "Photography"],
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop",
-    membershipTier: "free",
-    verified: true,
-    onboardingCompleted: true,
-    // Self-discovery data
-    selfDiscoveryCompleted: true,
-    commitmentIntention: "marriage",
-    marriageTimeline: "within_6mo",
-    marriageApproach: "family_community",
-    wantsChildren: "yes",
-    nationality: "Chinese",
-    ethnicity: "asian",
-    languages: ["English", "Mandarin"],
-    smoking: "never",
-    drinksAlcohol: "never",
-    loveLanguage: "acts",
-    topPriorities: ["Kindness", "Shared Values", "Emotional Intelligence", "Family-Oriented", "Communication Skills"],
-    dealbreakers: ["Excessive Drinking", "Unfaithfulness", "Anger Issues", "Controlling Behavior", "Dishonesty"],
-    pastRelationships: {
-      whatWorked: [
-        "He was very thoughtful and showed love through actions",
-        "We shared similar family values",
-        "Great sense of humor and made me laugh"
-      ],
-      whatDidntWork: [
-        "He wasn't emotionally available when I needed support",
-        "Different priorities - he was too focused on work",
-        "Lack of quality time together"
-      ],
-      lessons: [
-        "I need someone who shows love through actions, not just words",
-        "Emotional availability is crucial for me",
-        "Family values must align for a long-term relationship"
-      ]
-    },
-    relationshipReadiness: {
-      score: 90,
-      blindSpots: [],
-      needsWork: []
-    },
-    empathyPatterns: {
-      victimizationScore: 15,
-      perspectiveTakingScore: 80,
-      emotionalIntelligence: 85
-    },
-    gender: "female",
-    religion: "christianity",
-    meetPreference: "same_faith",
-    education: "Master's Degree",
-    career: "Graphic Designer",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    username: "alexrivera",
-    email: "alex@example.com",
-    name: "Alex Rivera",
-    age: 30,
-    location: "Dubai, UAE",
-    bio: "Fitness coach and wellness advocate. Here to inspire and connect.",
-    interests: ["Fitness", "Health", "Nutrition"],
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
-    membershipTier: "elite",
-    verified: false,
-    onboardingCompleted: true,
-    // Self-discovery data
-    selfDiscoveryCompleted: true,
-    commitmentIntention: "serious",
-    marriageTimeline: "unsure",
-    marriageApproach: "actively_searching",
-    wantsChildren: "yes",
-    loveLanguage: "touch",
-    topPriorities: ["Physical Attraction", "Health & Fitness", "Adventurous", "Confidence", "Independence"],
-    dealbreakers: ["Smoking", "Drug Use", "Lack of Ambition", "Laziness"],
-    pastRelationships: {
-      whatWorked: [
-        "Physical chemistry and attraction",
-        "Shared passion for fitness and health",
-        "Both independent and respected each other's space"
-      ],
-      whatDidntWork: [
-        "She wasn't as ambitious about career goals",
-        "Different communication styles - she needed more words, I needed more touch",
-        "Incompatible long-term goals"
-      ],
-      lessons: [
-        "Physical touch is my primary love language",
-        "I need someone who values health and fitness as much as I do",
-        "Independence is important but so is emotional connection"
-      ]
-    },
-    relationshipReadiness: {
-      score: 75,
-      blindSpots: ["Could improve emotional communication"],
-      needsWork: ["Work on expressing emotions verbally"]
-    },
-    empathyPatterns: {
-      victimizationScore: 25,
-      perspectiveTakingScore: 65,
-      emotionalIntelligence: 60
-    },
-    gender: "male",
-    religion: "hinduism",
-    meetPreference: "open_to_all",
-    education: "Bachelor's Degree",
-    career: "Fitness Coach",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+// Seed world (200+ users, busy posts/groups/chats). New registrations stay fresh.
+const seedWorld = createSeedWorld({
+  seed: "matchify_world_v1",
+  userCount: 220,
+  groupCount: 20,
+  postCount: 160,
+  storyCount: 50,
+  conversationCount: 45,
+  notificationCount: 80,
+});
+
+// Mock Users (seeded)
+const mockUsers = seedWorld.users;
 
 // Set first user as current user if not set
 if (!currentUserId && mockUsers.length > 0) {
@@ -205,209 +35,16 @@ if (!currentUserId && mockUsers.length > 0) {
 }
 
 // Mock Stories
-const mockStories = [
-  {
-    id: generateId(),
-    userId: mockUsers[0].id,
-    name: "John Doe",
-    content: "Just landed in Bali! The beach views are absolutely stunning 🏝️",
-    hasUnread: true,
-    image: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=400&h=400&fit=crop",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[1].id,
-    name: "Sarah Chen",
-    content: "Amazing dinner at the new Italian restaurant downtown! 🍝",
-    hasUnread: true,
-    image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=400&fit=crop",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[2].id,
-    name: "Alex Rivera",
-    content: "Morning workout complete! Who's ready for leg day? 💪",
-    hasUnread: false,
-    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=400&fit=crop",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[0].id,
-    name: "John Doe",
-    content: "Tech conference was incredible! So many great ideas and connections",
-    hasUnread: true,
-    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=400&fit=crop",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[1].id,
-    name: "Sarah Chen",
-    content: "Gallery opening tonight! Come check out the amazing artwork 🎨",
-    hasUnread: false,
-    image: "https://images.unsplash.com/photo-1536924940846-227afb31e2a5?w=400&h=400&fit=crop",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const mockStories = seedWorld.stories;
 
 /**
  * Fixed IDs — must match `matchify-app-style1-backend/src/seedGroups.ts` (SEED_GROUP_DEFS).
  * Do not use random ids here or posts will not resolve group names.
  */
-const _MOCK_GROUP_IDS = [
-  "10000001-0000-4000-8000-000000000001",
-  "10000001-0000-4000-8000-000000000002",
-  "10000001-0000-4000-8000-000000000003",
-  "10000001-0000-4000-8000-000000000004",
-  "10000001-0000-4000-8000-000000000005",
-  "10000001-0000-4000-8000-000000000006",
-] as const;
+const _MOCK_GROUP_IDS = DEFAULT_SEED_GROUP_IDS;
 
 // Mock Posts — use top-level `image` / `imageUrl` for **post media** (not only author avatar).
-const mockPosts = [
-  {
-    id: generateId(),
-    userId: mockUsers[1].id,
-    groupId: _MOCK_GROUP_IDS[0],
-    content:
-      "New here — excited to learn from everyone in Matchify Welcome Circle. What’s one intentional habit that changed your dating life?",
-    likes: 0,
-    comments: 0,
-    likesCount: 0,
-    commentsCount: 0,
-    image: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=900&h=560&fit=crop",
-    author: {
-      name: mockUsers[1].name,
-      image: mockUsers[1].avatar,
-      verified: mockUsers[1].verified,
-    },
-    createdAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[2].id,
-    groupId: _MOCK_GROUP_IDS[2],
-    content:
-      "Who else gets nervous before a first date? Trying to stay curious instead of perfect — Intentional Dating Lab has been such a good reminder.",
-    likes: 8,
-    likesCount: 8,
-    commentsCount: 5,
-    image: "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=900&h=560&fit=crop",
-    author: {
-      name: mockUsers[2].name,
-      image: mockUsers[2].avatar,
-      verified: mockUsers[2].verified,
-    },
-    firstComment: {
-      id: generateId(),
-      userId: mockUsers[0].id,
-      content: "This is so relatable — thanks for sharing!",
-      createdAt: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
-      user: { name: mockUsers[0].name, avatar: mockUsers[0].avatar },
-    },
-    createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[0].id,
-    groupId: _MOCK_GROUP_IDS[1],
-    content:
-      "Workshop takeaway: marriage prep isn’t about rushing — it’s about clarity. Grateful for Meaningful Marriage Prep tonight. 💡",
-    likes: 0,
-    comments: 0,
-    likesCount: 0,
-    commentsCount: 0,
-    image: "https://images.unsplash.com/photo-1544531586-fde5298cdd40?w=900&h=560&fit=crop",
-    author: {
-      name: mockUsers[0].name,
-      image: mockUsers[0].avatar,
-      verified: mockUsers[0].verified,
-    },
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[1].id,
-    groupId: _MOCK_GROUP_IDS[3],
-    content:
-      "Faith & Values Lounge question: how do you gently bring up non‑negotiables without sounding like an interview? Still learning.",
-    likes: 3,
-    likesCount: 3,
-    comments: 0,
-    commentsCount: 0,
-    author: {
-      name: mockUsers[1].name,
-      image: mockUsers[1].avatar,
-      verified: mockUsers[1].verified,
-    },
-    createdAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[2].id,
-    groupId: _MOCK_GROUP_IDS[4],
-    content:
-      "Small win: journaled after a tough chat with a match. Wellness & Growth Together is reminding me that repair matters more than being right.",
-    likes: 2,
-    likesCount: 2,
-    comments: 0,
-    commentsCount: 0,
-    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=900&h=560&fit=crop",
-    author: {
-      name: mockUsers[2].name,
-      image: mockUsers[2].avatar,
-      verified: mockUsers[2].verified,
-    },
-    createdAt: new Date(Date.now() - 28 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[0].id,
-    groupId: _MOCK_GROUP_IDS[5],
-    content:
-      "Grateful for thoughtful replies in Interfaith Respect Table last week. Respectful disagreement + curiosity = actually energizing.",
-    likes: 5,
-    likesCount: 5,
-    comments: 1,
-    commentsCount: 1,
-    author: {
-      name: mockUsers[0].name,
-      image: mockUsers[0].avatar,
-      verified: mockUsers[0].verified,
-    },
-    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: mockUsers[1].id,
-    content: "Tip: refresh your profile photos this week — small updates make a big difference in quality matches. ✨",
-    likes: 3,
-    likesCount: 3,
-    comments: 0,
-    commentsCount: 0,
-    author: {
-      name: mockUsers[1].name,
-      image: mockUsers[1].avatar,
-      verified: mockUsers[1].verified,
-    },
-    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const mockPosts = seedWorld.posts;
 
 /** Default comment threads for mock posts (offline: not in localStorage until user adds). */
 const mockPostCommentsById: Record<
@@ -461,75 +98,7 @@ export function getMockPostCommentSeeds(postId: string) {
 }
 
 // Mock groups — same ids/names as backend `seedGroups.ts` (no orphan “demo-only” names).
-const mockGroups = [
-  {
-    id: _MOCK_GROUP_IDS[0],
-    name: "Matchify Welcome Circle",
-    description:
-      "Official welcome space — intros, app tips, and meeting others who are dating with intention.",
-    tags: ["welcome", "community", "introductions"],
-    image: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&h=400&fit=crop",
-    memberCount: 412,
-    religionFocus: "all" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: _MOCK_GROUP_IDS[1],
-    name: "Meaningful Marriage Prep",
-    description: "For members seriously preparing for marriage: values, communication, and clarity.",
-    tags: ["marriage", "values", "readiness"],
-    image: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&h=400&fit=crop",
-    memberCount: 268,
-    religionFocus: "all" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: _MOCK_GROUP_IDS[2],
-    name: "Intentional Dating Lab",
-    description: "Share date ideas, boundaries, and lessons learned while dating on purpose.",
-    tags: ["dating", "events", "stories"],
-    image: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&h=400&fit=crop",
-    memberCount: 326,
-    religionFocus: "all" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: _MOCK_GROUP_IDS[3],
-    name: "Faith & Values Lounge",
-    description: "Respectful conversations about faith, family, and what matters in a partnership.",
-    tags: ["faith", "family", "respect"],
-    image: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&h=400&fit=crop",
-    memberCount: 198,
-    religionFocus: "all" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: _MOCK_GROUP_IDS[4],
-    name: "Wellness & Growth Together",
-    description: "Emotional fitness, habits, and supporting each other’s growth in relationships.",
-    tags: ["wellness", "growth", "mindfulness"],
-    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&h=400&fit=crop",
-    memberCount: 174,
-    religionFocus: "all" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: _MOCK_GROUP_IDS[5],
-    name: "Interfaith Respect Table",
-    description: "Open, kind dialogue across backgrounds while dating — everyone is welcome.",
-    tags: ["interfaith", "dialogue", "inclusion"],
-    image: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=400&fit=crop",
-    memberCount: 121,
-    religionFocus: "interfaith" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const mockGroups = seedWorld.groups;
 
 /** In-memory group memberships for mock / offline flows (mirrors GroupMembership rows). */
 const mockGroupMemberships: Array<{
@@ -557,8 +126,10 @@ export const removeMockGroupMembership = (userId: string, groupId: string) => {
   if (i !== -1) mockGroupMemberships.splice(i, 1);
 };
 
-/** Default mock user is in Welcome Circle until they join more groups. */
-addMockGroupMembership(mockUsers[0].id, _MOCK_GROUP_IDS[0]);
+// Seed memberships for seeded users only. New registrations start with zero memberships.
+for (const m of seedWorld.groupMemberships) {
+  mockGroupMemberships.push({ ...m });
+}
 
 // Mock Events (hostUserId = creator; default demo user is often mockUsers[0] so they see themselves as host on first event)
 type MockEventRow = {
@@ -754,45 +325,10 @@ const mockCoaches = [
 ];
 
 // Mock Notifications
-const mockNotifications = [
-  {
-    id: generateId(),
-    userId: currentUserId || mockUsers[0].id,
-    type: "match",
-    title: "New Match!",
-    message: "You and Sarah Chen have matched! Start a conversation now.",
-    relatedUserId: mockUsers[1].id,
-    read: false,
-    createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: generateId(),
-    userId: currentUserId || mockUsers[0].id,
-    type: "event",
-    title: "Event Reminder",
-    message: "Speed Dating Night starts in 2 hours. Don't forget to check in!",
-    relatedEntityId: mockEvents[0].id,
-    read: false,
-    createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const mockNotifications = seedWorld.notifications;
 
 // Mock Conversations
-const mockConversations = [
-  {
-    id: generateId(),
-    participant1Id: currentUserId || mockUsers[0].id,
-    participant2Id: mockUsers[1].id,
-    lastMessage: "Thanks! I noticed we both love hiking. Do you have any favorite trails?",
-    lastMessageAt: new Date().toISOString(),
-    unreadCount: 1,
-    otherUser: mockUsers[1],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const mockConversations = seedWorld.conversations;
 
 /** Pathname only, for routing mock responses (avoids `/api/posts` matching `/api/posts/:id/comments`). */
 function mockApiPathname(endpoint: string): string {
@@ -933,6 +469,10 @@ export function tryMockApiWrite(method: string, url: string, body?: unknown): Re
     const row = createMockEventFromPayload(b, "pending");
     mockEvents.push(row);
     return jsonResponse(shapeMockEventForClient(row as Record<string, unknown>, viewer), 201);
+  }
+
+  if (m === "POST" && /^\/api\/profile-views\/?$/.test(path)) {
+    return jsonResponse({ ok: true });
   }
 
   const singleEventPath = path.match(/^\/api\/events\/([^/]+)\/?$/);
@@ -1095,6 +635,15 @@ export const getMockData = (endpoint: string): any => {
       ),
     );
   }
+  if (/^\/api\/users\/recent-joiners\/?$/.test(path)) {
+    return [];
+  }
+  if (/\/api\/users\/[^/]+\/likes-received\/?$/.test(path)) {
+    return [];
+  }
+  if (/\/api\/users\/[^/]+\/profile-visitors\/?$/.test(path)) {
+    return [];
+  }
   if (/\/api\/users\/[^/]+\/ai-matches\/?$/.test(path)) {
     const pool = mockUsers.filter((u) => u.id !== currentUserId).slice(0, 4);
     return {
@@ -1152,7 +701,9 @@ export const getMockData = (endpoint: string): any => {
     !endpoint.includes('/conversation-summaries') &&
     !endpoint.includes('/chat-unread-count') &&
     !endpoint.includes('/matches') &&
-    !endpoint.includes('/search')
+    !endpoint.includes('/search') &&
+    !endpoint.includes('/likes-received') &&
+    !endpoint.includes('/profile-visitors')
   ) {
     const userId = endpoint.split('/api/users/')[1]?.split('?')[0]?.split('/')[0];
     if (!userId || userId === 'search') return mockUserWithFreshPresence(mockUsers[0]);

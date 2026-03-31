@@ -9,16 +9,22 @@ import {
   MapPin,
   Heart,
   Check,
-  CheckCircle,
+  BadgeCheck,
   MessageCircle,
   Star,
   Flag,
   Sparkles,
-  Ruler,
-  Baby,
   Share2,
   Ban,
   X,
+  ChefHat,
+  Dumbbell,
+  Mountain,
+  BookOpen,
+  Music2,
+  Plane,
+  Coffee,
+  Languages,
 } from "lucide-react";
 import { MuzzMarriageTimeline } from "@/components/muzz/MuzzMarriageTimeline";
 import { getReligionLabel } from "@/lib/religionOptions";
@@ -75,6 +81,19 @@ function hashId(id: string) {
   return sum;
 }
 
+function interestGlyph(interest: string) {
+  const t = interest.trim().toLowerCase();
+  if (!t) return Sparkles;
+  if (/(cook|food|bake|chef|kitchen)/.test(t)) return ChefHat;
+  if (/(gym|fitness|workout|run|lifting)/.test(t)) return Dumbbell;
+  if (/(hike|mountain|outdoor|camp)/.test(t)) return Mountain;
+  if (/(read|book)/.test(t)) return BookOpen;
+  if (/(music|song|concert)/.test(t)) return Music2;
+  if (/(travel|trip|flight|explore)/.test(t)) return Plane;
+  if (/(coffee|cafe|tea)/.test(t)) return Coffee;
+  return Sparkles;
+}
+
 function aboutMeRows(user: MarriageDiscoveryUser): { label: string; value: string }[] {
   const h = hashId(user.id || "x");
   const fallbackH = ["160cm (5' 3\")", "165cm (5' 5\")", "172cm (5' 8\")"][h % 3];
@@ -116,6 +135,17 @@ function faithChipsFor(user: MarriageDiscoveryUser): string[] {
     tags.push(pool[h % pool.length], pool[(h + 1) % pool.length]);
   }
   return Array.from(new Set(tags)).slice(0, 5);
+}
+
+function normalizeLanguageList(raw: MarriageDiscoveryUser["languages"]): string[] {
+  if (Array.isArray(raw)) return raw.map((x) => String(x || "").trim()).filter(Boolean);
+  if (typeof raw === "string" && raw.trim()) {
+    return raw
+      .split(/[,·|/]/g)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+  return [];
 }
 
 function languagesForUser(id: string): string {
@@ -208,15 +238,10 @@ export function MarriageDiscoveryProfile({
   const firstName = user.name.split(/\s+/)[0] || user.name;
   const aboutRows = aboutMeRows(user);
   const faithChips = faithChipsFor(user);
-  const languagesLabel = (() => {
-    if (Array.isArray(user.languages) && user.languages.length) {
-      return user.languages.filter(Boolean).join(" · ");
-    }
-    if (typeof user.languages === "string" && user.languages.trim()) {
-      return user.languages.trim();
-    }
-    return languagesForUser(user.id);
-  })();
+  const languageList =
+    normalizeLanguageList(user.languages).length > 0
+      ? normalizeLanguageList(user.languages)
+      : languagesForUser(user.id).split(" · ").map((x) => x.trim()).filter(Boolean);
 
   const sharedInterests = useMemo(() => {
     if (!me?.interests?.length || !user.interests?.length) return [];
@@ -226,7 +251,7 @@ export function MarriageDiscoveryProfile({
 
   const heroImage = user.profileBanner?.trim() || user.avatar?.trim() || null;
 
-  const submitComplimentMessage = () => {
+  const submitComplimentMessage = async () => {
     if (outgoing?.status === "pending") return;
     const trimmed = chatDraft.trim();
     if (!trimmed) {
@@ -248,7 +273,7 @@ export function MarriageDiscoveryProfile({
     }
     setCompliments(n - 1);
     addMarriageComplimented(user.id);
-    createComplimentChatRequest(viewerId, viewerName, user.id, user.name);
+    await createComplimentChatRequest(viewerId, viewerName, user.id, user.name, trimmed);
     persistComplimentDraft(viewerId, user.id, trimmed);
     setComplLeft(getCompliments());
     setChatDraft("");
@@ -292,7 +317,7 @@ export function MarriageDiscoveryProfile({
   const rejectedRequest = outgoing?.status === "rejected";
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pb-[calc(env(safe-area-inset-bottom)+8rem)] pt-2">
+    <div className="mx-auto w-full max-w-[600px] px-4 pb-[calc(env(safe-area-inset-bottom)+8.5rem)] pt-3">
       <AlertDialog open={congratOpen} onOpenChange={setCongratOpen}>
         <AlertDialogContent className="max-h-[min(90dvh,560px)] max-w-md overflow-y-auto overflow-x-hidden rounded-2xl border-primary/15 bg-gradient-to-b from-white via-primary/[0.04] to-white px-6 pt-8 pb-6 shadow-2xl shadow-primary/10">
           <div className="relative overflow-hidden rounded-2xl">
@@ -358,185 +383,217 @@ export function MarriageDiscoveryProfile({
       </AlertDialog>
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-        {/* Large hero — same feel as full profile preview */}
-        <div className="relative aspect-[3/4] max-h-[min(72vh,520px)] w-full overflow-hidden rounded-2xl border border-stone-200/80 bg-stone-100 shadow-sm">
-          {heroImage ? (
-            <img
-              src={heroImage}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-chart-1/20 to-chart-4/25" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-            <div className="flex items-end gap-3">
-              <Avatar className="h-16 w-16 border-2 border-white/90 shadow-lg">
-                <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                <AvatarFallback className="bg-primary/30 text-lg font-bold text-white">
-                  {user.name.slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+        {/* Compact header: small photo + modern pills */}
+        <Card className="overflow-hidden border-[#F0F0F0] bg-white shadow-[0_10px_40px_-26px_rgba(15,23,42,0.35)]">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="relative h-[96px] w-[78px] shrink-0 overflow-hidden rounded-2xl border border-stone-200 bg-stone-100 shadow-sm">
+                {heroImage ? (
+                  <img
+                    src={heroImage}
+                    alt=""
+                    loading="eager"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover [filter:none]"
+                    style={{ transform: "translateZ(0)", WebkitBackfaceVisibility: "hidden" }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-chart-1/20 to-chart-4/25" />
+                )}
+              </div>
+
               <div className="min-w-0 flex-1">
-                <h1 className="font-display text-xl font-bold leading-tight truncate">
-                  {user.name}
-                  {user.age != null ? `, ${user.age}` : ""}
-                </h1>
-                {user.location ? (
-                  <div className="mt-1 flex items-center gap-1 text-sm text-white/90">
-                    <MapPin className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{user.location}</span>
-                  </div>
-                ) : null}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge className="border-0 bg-white/20 text-white backdrop-blur-sm">
-                    {compatibilityScore}% match
-                  </Badge>
+                <div className="flex items-center gap-2">
+                  <h1 className="min-w-0 truncate font-display text-[18px] font-extrabold leading-tight tracking-[0.2px] text-slate-900">
+                    {user.name}
+                    {user.age != null ? `, ${user.age}` : ""}
+                  </h1>
                   {user.verified ? (
-                    <Badge className="border-0 bg-sky-500/90 text-white gap-1">
-                      <CheckCircle className="h-3 w-3" />
+                    <span className="inline-flex items-center justify-center rounded-full bg-sky-50 px-2 py-1 text-[11px] font-bold text-sky-700 ring-1 ring-sky-200">
+                      <BadgeCheck className="mr-1 h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                       Verified
-                    </Badge>
+                    </span>
                   ) : null}
                 </div>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center rounded-full bg-[#722F37] px-3 py-1 text-[11px] font-extrabold text-white shadow-sm">
+                    {compatibilityScore}% match
+                  </span>
+                  {user.location ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700">
+                      <MapPin className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} aria-hidden />
+                      <span className="max-w-[16rem] truncate">{user.location}</span>
+                    </span>
+                  ) : null}
+                  {aboutRows.map((row) => (
+                    <span
+                      key={row.label}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-[11px] font-semibold text-slate-700"
+                      title={row.label}
+                    >
+                      <span className="text-slate-500">{row.label}:</span>
+                      <span className="text-slate-900">{row.value}</span>
+                    </span>
+                  ))}
+                </div>
+
+                {user.bio ? (
+                  <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-slate-700">
+                    {user.bio}
+                  </p>
+                ) : null}
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {sharedInterests.length > 0 ? (
-          <Card className="border-primary/20 bg-primary/[0.04]">
-            <CardContent className="p-4">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-primary">You both like</p>
-              <div className="flex flex-wrap gap-2">
-                {sharedInterests.map((interest) => (
-                  <Badge key={interest} variant="secondary" className="border-primary/20 bg-white">
-                    {interest}
-                  </Badge>
-                ))}
+          <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-[11px] font-bold text-rose-800 ring-1 ring-rose-200">
+                  Common ground
+                </span>
+                {sharedInterests.slice(0, 10).map((interest) => {
+                  const Icon = interestGlyph(interest);
+                  return (
+                    <span
+                      key={interest}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm"
+                      title={interest}
+                    >
+                      <Icon className="h-4 w-4 text-[#722F37]" strokeWidth={1.75} aria-hidden />
+                      <span className="max-w-[14rem] truncate">{interest}</span>
+                    </span>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
         ) : null}
 
-        <Card className="border-stone-200/80 bg-white shadow-sm">
+        <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
           <CardContent className="p-4 sm:p-5">
-            <h3 className="mb-4 font-display text-base font-semibold text-foreground">About me</h3>
-            <div className="space-y-3">
-              {aboutRows.map((row, i) => {
-                const Icon = i === 0 ? Ruler : i === 1 ? Heart : Baby;
-                return (
-                  <div
-                    key={row.label}
-                    className="flex items-center gap-3 rounded-xl border border-stone-100 bg-stone-50/90 px-3 py-2.5"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600">
-                      <Icon className="h-4 w-4" strokeWidth={2} />
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-stone-500">{row.label}</span>
-                      <Badge
-                        variant="secondary"
-                        className="border-stone-200 bg-white font-semibold text-stone-800 shadow-sm"
-                      >
-                        {row.value}
-                      </Badge>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-display text-base font-semibold text-slate-900">Marriage intention</h3>
+              <span className="rounded-full bg-[#722F37]/10 px-3 py-1 text-[11px] font-bold text-[#722F37]">
+                {firstName}
+              </span>
+            </div>
+            <div className="mt-3">
+              <MuzzMarriageTimeline
+                firstName={firstName}
+                commitmentIntention={user.commitmentIntention}
+                marriageTimeline={user.marriageTimeline}
+                marriageApproach={user.marriageApproach}
+                wantsChildren={user.wantsChildren != null ? String(user.wantsChildren) : null}
+              />
             </div>
           </CardContent>
         </Card>
 
-        <MuzzMarriageTimeline
-          firstName={firstName}
-          commitmentIntention={user.commitmentIntention}
-          marriageTimeline={user.marriageTimeline}
-          marriageApproach={user.marriageApproach}
-          wantsChildren={user.wantsChildren != null ? String(user.wantsChildren) : null}
-        />
-
-        <Card className="border-stone-200/80 bg-white shadow-sm">
+        <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
           <CardContent className="p-4 sm:p-5">
-            <h3 className="mb-3 font-display text-base font-semibold text-foreground">Faith & values</h3>
-            <div className="flex flex-wrap gap-2">
-              {faithChips.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="secondary"
-                  className="rounded-full border-stone-200/80 bg-stone-100 px-3 py-1.5 text-sm font-medium text-stone-800"
-                >
-                  {tag}
-                </Badge>
-              ))}
+            <h3 className="mb-3 font-display text-base font-semibold text-slate-900">Heritage &amp; values</h3>
+
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Faith &amp; values
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {faithChips.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <Languages className="h-4 w-4 text-slate-400" strokeWidth={1.75} aria-hidden />
+                  Languages
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {languageList.map((lang) => (
+                    <span
+                      key={lang}
+                      className="inline-flex rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 shadow-sm"
+                    >
+                      {lang}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Background
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { k: "Nationality", v: user.nationality?.trim() || "—" },
+                    { k: "Ethnicity", v: labelEthnicity(user.ethnicity) || "—" },
+                    { k: "Smoking", v: labelSmoking(user.smoking) || "—" },
+                    { k: "Alcohol", v: labelAlcohol(user.drinksAlcohol) || "—" },
+                  ].map((row) => (
+                    <span
+                      key={row.k}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm"
+                    >
+                      <span className="text-slate-500">{row.k}</span>
+                      <span className="text-slate-300" aria-hidden>
+                        •
+                      </span>
+                      <span className="text-slate-900">{row.v}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-stone-200/80 bg-white shadow-sm">
-          <CardContent className="p-4 sm:p-5">
-            <h3 className="mb-3 font-display text-base font-semibold text-foreground">
-              Languages &amp; background
-            </h3>
-            <ul className="space-y-2 text-sm text-stone-800">
-              <li className="flex justify-between gap-2">
-                <span className="text-stone-500">Nationality</span>
-                <span className="font-medium text-right">{user.nationality?.trim() || "—"}</span>
-              </li>
-              <li className="flex justify-between gap-2">
-                <span className="text-stone-500">Ethnicity</span>
-                <span className="font-medium text-right">{labelEthnicity(user.ethnicity) || "—"}</span>
-              </li>
-              <li className="flex justify-between gap-2">
-                <span className="text-stone-500">Languages</span>
-                <span className="font-medium text-right">{languagesLabel}</span>
-              </li>
-              <li className="flex justify-between gap-2">
-                <span className="text-stone-500">Smoking</span>
-                <span className="font-medium text-right">{labelSmoking(user.smoking) || "—"}</span>
-              </li>
-              <li className="flex justify-between gap-2">
-                <span className="text-stone-500">Alcohol</span>
-                <span className="font-medium text-right">{labelAlcohol(user.drinksAlcohol) || "—"}</span>
-              </li>
-            </ul>
           </CardContent>
         </Card>
 
         {user.interests && user.interests.length > 0 ? (
-          <Card>
+          <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
             <CardContent className="p-4 sm:p-6">
-              <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Interests</h2>
+              <h2 className="mb-3 font-display text-base font-semibold text-slate-900">Interests</h2>
               <div className="flex flex-wrap gap-2">
                 {user.interests.map((interest) => (
-                  <Badge
+                  <span
                     key={interest}
-                    variant="secondary"
-                    className="border-primary/20 bg-primary/10 px-4 py-1.5 text-primary"
+                    className="inline-flex items-center rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 shadow-sm transition hover:-translate-y-[1px] hover:bg-primary/5 hover:text-primary"
+                    title={interest}
                   >
                     {interest}
-                  </Badge>
+                  </span>
                 ))}
               </div>
             </CardContent>
           </Card>
         ) : null}
 
-        {user.bio ? (
-          <Card className="border-stone-200/80 bg-white shadow-sm">
-            <CardContent className="p-4 sm:p-6">
-              <h2 className="mb-3 font-display text-lg font-semibold text-foreground">Bio</h2>
-              <p className="leading-relaxed text-foreground">{user.bio}</p>
-            </CardContent>
-          </Card>
-        ) : null}
+        {/* Bio shown in header (keep page compact). */}
 
         {/* Connect: compliment → share → Fav / Block / Report (Pass / Like: fixed bar below) */}
-        <Card className="border-stone-200/80 bg-white shadow-sm ring-1 ring-stone-100/80">
+        <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] ring-1 ring-black/[0.03]">
           <CardContent className="space-y-4 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Badge className="rounded-full bg-[#722F37] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-sm">
+                  Connect
+                </Badge>
+                <span className="text-sm font-semibold text-slate-900">Start a conversation</span>
+              </div>
+              <span className="inline-flex items-center rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-[11px] font-semibold text-slate-700">
+                Compliments left: <span className="ml-1 font-extrabold text-[#722F37] tabular-nums">{complLeft}</span>
+              </span>
+            </div>
             {pendingRequest ? (
               <div className="space-y-3 rounded-xl border border-amber-200/80 bg-amber-50/50 p-4">
                 <p className="text-sm font-medium text-stone-800">
@@ -553,27 +610,24 @@ export function MarriageDiscoveryProfile({
               </div>
             ) : approvedRequest ? (
               <div className="space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <Badge
-                    variant="outline"
-                    className="shrink-0 border-primary/25 bg-primary/[0.06] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary"
-                  >
-                    Compliment
-                  </Badge>
-                </div>
                 <h3 className="font-display text-base font-bold leading-snug text-stone-900">
                   Don&apos;t wait — chat with {firstName} now
                 </h3>
                 <p className="text-sm font-medium text-emerald-800">
                   {firstName} accepted your chat request. Your saved message can go with you to Chat.
                 </p>
-                <Textarea
-                  value={chatDraft}
-                  onChange={(e) => setChatDraft(e.target.value)}
-                  placeholder="Edit your message before opening Chat…"
-                  rows={4}
-                  className="min-h-[100px] resize-y rounded-xl border-stone-200 bg-stone-50/90 text-sm"
-                />
+                <div className="rounded-[24px] border border-[#F0F0F0] bg-[#F4F4F7] px-4 py-3">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Message
+                  </label>
+                  <Textarea
+                    value={chatDraft}
+                    onChange={(e) => setChatDraft(e.target.value)}
+                    placeholder="Edit your message before opening Chat…"
+                    rows={4}
+                    className="mt-2 min-h-[100px] resize-y rounded-2xl border-0 bg-transparent p-0 text-[15px] leading-relaxed text-slate-900 shadow-none placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
                 <Button
                   type="button"
                   className="w-full gap-2 rounded-xl font-bold"
@@ -594,33 +648,29 @@ export function MarriageDiscoveryProfile({
 
                 {showComplimentForm ? (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge
-                        variant="outline"
-                        className="border-primary/25 bg-primary/[0.06] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary"
-                      >
-                        Compliment
-                      </Badge>
-                      <span className="text-xs font-bold text-primary tabular-nums">{complLeft} left</span>
-                    </div>
                     <h3 className="font-display text-base font-bold leading-snug text-stone-900 sm:text-lg">
                       Don&apos;t wait — chat with {firstName} now
                     </h3>
-                    <Textarea
-                      value={chatDraft}
-                      onChange={(e) => setChatDraft(e.target.value)}
-                      disabled={complLeft < 1}
-                      placeholder={
-                        complLeft < 1
-                          ? "Get more compliments from Menu to send a message…"
-                          : `Say hi to ${firstName} — a warm line goes a long way…`
-                      }
-                      rows={5}
-                      className="min-h-[120px] resize-y rounded-xl border-stone-200 bg-white text-sm shadow-inner disabled:opacity-60"
-                    />
+                    <div className="rounded-[24px] border border-[#F0F0F0] bg-[#F4F4F7] px-4 py-3">
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Chat now
+                      </label>
+                      <Textarea
+                        value={chatDraft}
+                        onChange={(e) => setChatDraft(e.target.value)}
+                        disabled={complLeft < 1}
+                        placeholder={
+                          complLeft < 1
+                            ? "Get more compliments from Menu to send a message…"
+                            : `Say hi to ${firstName} — a warm line goes a long way…`
+                        }
+                        rows={5}
+                        className="mt-2 min-h-[120px] resize-y rounded-2xl border-0 bg-transparent p-0 text-[15px] leading-relaxed text-slate-900 shadow-none placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-60"
+                      />
+                    </div>
                     <Button
                       type="button"
-                      className="h-11 w-full rounded-xl font-bold shadow-md shadow-primary/15"
+                      className="h-[30px] w-full rounded-full bg-gradient-to-br from-[#722F37] to-[#8B2942] text-[12px] font-bold text-white shadow-[0_10px_30px_-14px_rgba(15,23,42,0.35)] hover:brightness-[0.98]"
                       disabled={complLeft < 1 || !chatDraft.trim()}
                       onClick={submitComplimentMessage}
                     >
@@ -636,45 +686,47 @@ export function MarriageDiscoveryProfile({
               </>
             )}
 
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 w-full gap-2 rounded-xl border-stone-200 font-semibold"
-              onClick={onShareProfile}
-            >
-              <Share2 className="h-4 w-4" />
-              Share profile
-            </Button>
-
-            <div className="grid grid-cols-3 gap-3">
-              <button
+            <div className="grid grid-cols-2 gap-2">
+              <Button
                 type="button"
-                onClick={onToggleFavorite}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-2 rounded-2xl border-2 bg-white py-4 shadow-sm transition-colors",
-                  isFavorite
-                    ? "border-amber-300 bg-amber-50/90 text-amber-800"
-                    : "border-stone-200 text-stone-700 hover:border-stone-300 hover:bg-stone-50",
-                )}
+                variant="outline"
+                className="h-11 w-full gap-2 rounded-xl border-stone-200 font-semibold"
+                onClick={onShareProfile}
               >
-                <Star className={cn("h-6 w-6", isFavorite && "fill-current")} strokeWidth={2} />
-                <span className="text-[11px] font-bold tracking-wide">Fav</span>
-              </button>
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full gap-2 rounded-xl border-stone-200 font-semibold"
+                onClick={onToggleFavorite}
+              >
+                <Star className={cn("h-4 w-4", isFavorite && "fill-current")} strokeWidth={1.75} aria-hidden />
+                {isFavorite ? "Favorited" : "Favorite"}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2">
               <button
                 type="button"
                 onClick={onBlock}
-                className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-stone-200 bg-white py-4 text-stone-700 shadow-sm transition-colors hover:border-stone-300 hover:bg-stone-50"
+                title="Block"
+                aria-label="Block"
+                className={cn(
+                  "inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#F0F0F0] bg-white text-slate-700 shadow-sm transition hover:bg-slate-900/[0.03]",
+                )}
               >
-                <Ban className="h-6 w-6" strokeWidth={2} />
-                <span className="text-[11px] font-bold tracking-wide">Block</span>
+                <Ban className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               </button>
               <button
                 type="button"
                 onClick={onReport}
-                className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-stone-200 bg-white py-4 text-stone-700 shadow-sm transition-colors hover:border-stone-300 hover:bg-stone-50"
+                title="Report"
+                aria-label="Report"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#F0F0F0] bg-white text-slate-700 shadow-sm transition hover:bg-slate-900/[0.03]"
               >
-                <Flag className="h-6 w-6" strokeWidth={2} />
-                <span className="text-[11px] font-bold tracking-wide">Report</span>
+                <Flag className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               </button>
             </div>
           </CardContent>
@@ -687,23 +739,23 @@ export function MarriageDiscoveryProfile({
         role="toolbar"
         aria-label="Pass or like this profile"
       >
-        <div className="pointer-events-auto mx-auto max-w-lg px-4 pb-[calc(env(safe-area-inset-bottom)+4.7rem)] pt-1.5">
-          <div className="flex w-full items-center justify-between rounded-2xl border border-stone-200/50 bg-white/65 py-2.5 pl-2 pr-2 backdrop-blur-md shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.18)]">
+        <div className="pointer-events-auto mx-auto max-w-[600px] px-20 pb-[calc(env(safe-area-inset-bottom)+5.3rem)] pt-1.5">
+          <div className="flex w-full items-center justify-between">
             <button
               type="button"
               aria-label="Pass"
               onClick={onPass}
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-black text-white shadow-lg shadow-black/25 transition-all hover:bg-black/90 hover:shadow-xl active:scale-95"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black text-white shadow-md shadow-black/20 transition-all hover:bg-black/90 active:scale-95"
             >
-              <X className="h-6 w-6" strokeWidth={2.5} />
+              <X className="h-5 w-5" strokeWidth={2.5} />
             </button>
             <button
               type="button"
               aria-label="Like"
               onClick={onLike}
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#722F37] text-white shadow-lg shadow-[#722F37]/35 transition-all hover:bg-[#652a31] hover:shadow-xl active:scale-95"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#722F37] text-white shadow-md shadow-[#722F37]/30 transition-all hover:bg-[#652a31] active:scale-95"
             >
-              <Check className="h-6 w-6" strokeWidth={2.6} />
+              <Check className="h-5 w-5" strokeWidth={2.6} />
             </button>
           </div>
         </div>

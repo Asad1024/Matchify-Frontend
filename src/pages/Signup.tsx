@@ -1,9 +1,51 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import AuthScreen from "@/components/auth/AuthScreen";
+import AuthScreen, { type GoogleSignupPrefill } from "@/components/auth/AuthScreen";
+import { buildApiUrl } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Signup() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const [googlePrefill, setGooglePrefill] = useState<GoogleSignupPrefill | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gcode = params.get("gcode");
+    if (!gcode) return;
+    void (async () => {
+      try {
+        const res = await fetch(
+          buildApiUrl(`/api/auth/google/signup-prefill?code=${encodeURIComponent(gcode)}`),
+          { credentials: "include" },
+        );
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast({
+            title: "Google signup expired",
+            description: (j as { message?: string }).message || "Start again with Google.",
+            variant: "destructive",
+          });
+          return;
+        }
+        setGooglePrefill({
+          code: gcode,
+          email: String((j as { email?: string }).email || ""),
+          name: String((j as { name?: string }).name || ""),
+          picture: (j as { picture?: string | null }).picture ?? null,
+        });
+        const url = new URL(window.location.href);
+        url.searchParams.delete("gcode");
+        window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      } catch {
+        toast({
+          title: "Could not load Google signup",
+          description: "Try Google again from the signup page.",
+          variant: "destructive",
+        });
+      }
+    })();
+  }, [toast]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -108,6 +150,7 @@ export default function Signup() {
       showBackToLanding={true}
       onAdminLogin={handleAdminLogin}
       onEventAdminLogin={handleEventAdminLogin}
+      googleSignupPrefill={googlePrefill}
     />
   );
 }

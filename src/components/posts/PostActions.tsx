@@ -25,15 +25,20 @@ export function PostActions({
   const formatCount = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
 
   return (
-    <div className="flex items-center gap-1 sm:gap-2 pt-2 border-t border-border/50">
+    <div className="flex items-center gap-1 sm:gap-2 pt-2">
       <motion.div whileTap={{ scale: 0.9 }}>
         <Button
           variant="ghost"
-          className={`gap-1.5 h-9 px-3 hover-elevate transition-colors ${isLiked ? "text-primary" : ""}`}
+          className={`group gap-1.5 h-9 px-3 rounded-full bg-transparent text-slate-700/70 hover:text-slate-900 hover:bg-slate-900/[0.04] transition ${isLiked ? "text-primary hover:text-primary" : ""}`}
           onClick={onLike}
         >
           <motion.div animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }} transition={{ duration: 0.3 }}>
-            <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isLiked ? "fill-current" : ""}`} />
+            <Heart
+              className={`w-4 h-4 sm:w-5 sm:h-5 transition ${
+                isLiked ? "fill-current" : "fill-transparent group-hover:fill-current"
+              }`}
+              strokeWidth={1.75}
+            />
           </motion.div>
           <span className="font-medium text-xs sm:text-sm">{formatCount(likes)}</span>
         </Button>
@@ -42,10 +47,10 @@ export function PostActions({
       <motion.div whileTap={{ scale: 0.9 }}>
         <Button
           variant="ghost"
-          className="gap-1.5 h-9 px-3 hover-elevate transition-colors"
+          className="group gap-1.5 h-9 px-3 rounded-full bg-transparent text-slate-700/70 hover:text-slate-900 hover:bg-slate-900/[0.04] transition"
           onClick={onComment}
         >
-          <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+          <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={1.75} />
           <span className="font-medium text-xs sm:text-sm">{formatCount(comments)}</span>
         </Button>
       </motion.div>
@@ -53,10 +58,10 @@ export function PostActions({
       <motion.div whileTap={{ scale: 0.9 }}>
         <Button
           variant="ghost"
-          className="gap-1.5 h-9 px-3 hover-elevate transition-colors"
+          className="group gap-1.5 h-9 px-3 rounded-full bg-transparent text-slate-700/70 hover:text-slate-900 hover:bg-slate-900/[0.04] transition"
           onClick={onShare || (() => {})}
         >
-          <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
+          <Share2 className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={1.75} />
           <span className="font-medium text-xs sm:text-sm hidden sm:inline">Share</span>
         </Button>
       </motion.div>

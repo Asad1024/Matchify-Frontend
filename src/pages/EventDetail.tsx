@@ -56,12 +56,20 @@ export default function EventDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
-  const [showMatches, setShowMatches] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [isEditingAnswers, setIsEditingAnswers] = useState(false);
+  const [forceRevealed, setForceRevealed] = useState(false);
 
   // Get event ID from route params
   const eventId = params?.id;
+
+  // Prevent stale tab state causing blank screens when switching events / revisiting pages.
+  useEffect(() => {
+    setActiveTab('details');
+    setShowQuestionnaire(false);
+    setIsEditingAnswers(false);
+    setForceRevealed(false);
+  }, [eventId]);
 
   // RSVP mutation (so questionnaire can be shown right after RSVP)
   const rsvpMutation = useMutation({
@@ -80,15 +88,7 @@ export default function EventDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
       const hasQuestionnaire = data?.event?.hasQuestionnaire ?? event?.hasQuestionnaire;
       toast({ title: "You're going!", description: "RSVP confirmed." });
-      const evPayload = data?.event as { hostUserId?: string; isHost?: boolean } | undefined;
-      const isHostAfterRsvp =
-        !!userId &&
-        (Boolean(evPayload?.isHost) ||
-          Boolean(event?.isHost) ||
-          String(evPayload?.hostUserId ?? (event as { hostUserId?: string })?.hostUserId ?? "") ===
-            userId);
-      if (hasQuestionnaire && !isHostAfterRsvp) {
-        setActiveTab("questionnaire");
+      if (hasQuestionnaire && !isHost) {
         setShowQuestionnaire(true);
       }
     },
@@ -153,20 +153,22 @@ export default function EventDetail() {
   const questionnaireCompleted = !!questionnaire?.completed;
 
   // Fetch event details
-  const { data: event, isLoading } = useQuery<
+  const { data: event, isLoading, refetch: refetchEvent } = useQuery<
     Event & {
       matchRevealTime?: string;
       isHost?: boolean;
       hasQuestionnaire?: boolean;
       questionnaireCompleted?: boolean;
-      hostUserId?: string;
       hostName?: string;
       host?: { name?: string };
       userId?: string;
+      hostId?: string;
     }
   >({
     queryKey: [`/api/events/${eventId}`],
     enabled: !!eventId,
+    // Poll so matchRevealTime appears without refresh when host schedules reveal.
+    refetchInterval: isRSVPd ? 2000 : false,
     queryFn: async () => {
       const url = buildApiUrl(`/api/events/${eventId}`);
       const res = await fetch(url, { credentials: 'include' });
@@ -178,9 +180,7 @@ export default function EventDetail() {
   const isHost = useMemo(() => {
     if (!userId || !event) return false;
     if (event.isHost === true) return true;
-    const hid =
-      (event as { hostUserId?: string; userId?: string }).hostUserId ??
-      (event as { userId?: string }).userId;
+    const hid = String((event as { hostId?: string }).hostId ?? "");
     return Boolean(hid && hid === userId);
   }, [userId, event]);
 
@@ -191,14 +191,17 @@ export default function EventDetail() {
     return n || "";
   }, [event]);
 
+  const revealedNow =
+    forceRevealed ||
+    (event?.matchRevealTime ? Date.now() >= new Date(event.matchRevealTime).getTime() : false);
+
   // Fetch matches if revealed (server returns cards for current user when userId is passed)
-  const { data: matches = [] } = useQuery<Match[]>({
+  const { data: matches = [], refetch: refetchMatches } = useQuery<Match[]>({
     queryKey: [`/api/events/${eventId}/matches`, userId],
-    enabled:
-      !!eventId &&
-      !!userId &&
-      !!event?.matchRevealTime &&
-      new Date(event.matchRevealTime) <= new Date(),
+    enabled: !!eventId && !!userId && revealedNow,
+    // After reveal, poll briefly so the UI updates without refresh even if
+    // the backend flips from [] -> matches a moment later.
+    refetchInterval: activeTab === "matches" && revealedNow ? 1000 : false,
     queryFn: async () => {
       const url = buildApiUrl(
         `/api/events/${eventId}/matches?userId=${encodeURIComponent(userId!)}`,
@@ -219,16 +222,6 @@ export default function EventDetail() {
   }, [eventId, userId, refetchRsvps]);
 
   useEffect(() => {
-    // Hosts don't complete the attendee questionnaire
-    if (isHost && showQuestionnaire) {
-      setShowQuestionnaire(false);
-    }
-    if (isHost && activeTab === "questionnaire") {
-      setActiveTab("details");
-    }
-  }, [isHost, showQuestionnaire, activeTab]);
-
-  useEffect(() => {
     // Check if we should show questionnaire
     // Wait for all data to be loaded before showing
     // Only auto-show if questionnaire is not completed and user has RSVP'd (not the host)
@@ -243,7 +236,6 @@ export default function EventDetail() {
       // Only auto-show if questionnaire modal is not already shown
       if (!showQuestionnaire) {
         setShowQuestionnaire(true);
-        setActiveTab("questionnaire");
       }
     } else if (questionnaireCompleted) {
       // If questionnaire is completed, make sure it's hidden
@@ -260,8 +252,24 @@ export default function EventDetail() {
 
   // Check if reveal time has passed
   const revealTime = event?.matchRevealTime ? new Date(event.matchRevealTime) : null;
-  const isRevealed = revealTime ? new Date() >= revealTime : false;
+  const isRevealed = revealedNow;
   const isCountingDown = revealTime && new Date() < revealTime;
+
+  // If the tab bar is hidden, ensure we never land on a tab that has no content yet.
+  useEffect(() => {
+    if (activeTab === 'matches' && !isRevealed) setActiveTab('details');
+    if (activeTab === 'questionnaire' && (isHost || !event?.hasQuestionnaire)) setActiveTab('details');
+    if (activeTab === 'admin' && !isHost) setActiveTab('details');
+  }, [activeTab, isRevealed, isHost, event?.hasQuestionnaire]);
+
+  useEffect(() => {
+    if (!isRevealed) return;
+    // TabsList is hidden; auto-navigate once reveal happens.
+    if (!forceRevealed) setForceRevealed(true);
+    setActiveTab('matches');
+    queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/matches`, userId] });
+    refetchMatches();
+  }, [isRevealed, forceRevealed, eventId, userId, queryClient, refetchMatches]);
 
   // Questionnaire: use event's custom questions if set, otherwise defaults
   const customQuestions = parseEventQuestions((event as any)?.questionnaireQuestions);
@@ -313,8 +321,11 @@ export default function EventDetail() {
         <MatchCountdown
           targetTime={revealTime}
           onComplete={() => {
-            setShowMatches(true);
+            setForceRevealed(true);
             setActiveTab('matches');
+            queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/matches`, userId] });
+            refetchEvent();
+            refetchMatches();
           }}
           eventTitle={event.title}
         />
@@ -373,7 +384,8 @@ export default function EventDetail() {
               transition={{ duration: 0.3 }}
             >
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2">
+                {/* Mobile-first: keep tabs visible so users can always find Matches. */}
+                <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-muted p-1">
                   <TabsTrigger value="details" className="relative">
                     Event Details
                   </TabsTrigger>
@@ -393,25 +405,21 @@ export default function EventDetail() {
                       </span>
                     </TabsTrigger>
                   )}
-                  {isRevealed && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: "spring", stiffness: 200 }}
-                    >
-                      <TabsTrigger value="matches" className="relative">
-                        <span className="flex items-center gap-1">
-                          Matches
-                          <motion.div
-                            animate={{ scale: [1, 1.2, 1] }}
-                            transition={{ duration: 1, repeat: Infinity }}
-                          >
-                            <Heart className="w-4 h-4 fill-primary text-primary" />
-                          </motion.div>
-                        </span>
-                      </TabsTrigger>
-                    </motion.div>
-                  )}
+                  <TabsTrigger value="matches" className="relative" disabled={!isRevealed}>
+                    <span className="flex items-center gap-1">
+                      Matches
+                      {isRevealed ? (
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        >
+                          <Heart className="w-4 h-4 fill-primary text-primary" />
+                        </motion.div>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-muted-foreground">(soon)</span>
+                      )}
+                    </span>
+                  </TabsTrigger>
                   {isHost && (
                     <TabsTrigger value="admin" className="relative">
                       <span className="flex items-center gap-1">
@@ -423,26 +431,27 @@ export default function EventDetail() {
                 </TabsList>
 
                 <AnimatePresence mode="wait">
-                  {activeTab === "details" && (
-                    <TabsContent value="details" key="details">
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                      <Card className="border-2 border-primary/10 shadow-lg">
-                        <CardContent className="p-6 space-y-6">
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                          >
-                            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                              {event.title}
-                            </h1>
-                            <p className="text-muted-foreground text-lg">{event.description}</p>
-                          </motion.div>
+                  <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.22 }}
+                  >
+                    {activeTab === "details" && (
+                      <TabsContent value="details" forceMount>
+                        <Card className="border-2 border-primary/10 shadow-lg">
+                          <CardContent className="p-6 space-y-6">
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.05 }}
+                            >
+                              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                                {event.title}
+                              </h1>
+                              <p className="text-muted-foreground text-lg">{event.description}</p>
+                            </motion.div>
 
                           <motion.div
                             initial={{ opacity: 0 }}
@@ -497,10 +506,12 @@ export default function EventDetail() {
                                   You're hosting this event
                                 </Badge>
                                 <p className="text-sm text-muted-foreground">
-                                  You're already in. Attendees who RSVP complete the match questionnaire to be paired.
+                                  You’re already joined. Attendees who RSVP complete the match questionnaire to be paired.
                                 </p>
                               </>
-                            ) : !isRSVPd ? (
+                            ) : null}
+
+                            {!isHost && !isRSVPd ? (
                               <Button
                                 className="w-full sm:w-auto rounded-full h-12 font-bold bg-success text-success-foreground hover:bg-success/90"
                                 disabled={rsvpMutation.isPending}
@@ -508,7 +519,7 @@ export default function EventDetail() {
                               >
                                 {rsvpMutation.isPending ? "RSVPing…" : "RSVP"}
                               </Button>
-                            ) : (
+                            ) : !isHost ? (
                               <div className="flex flex-col sm:flex-row gap-3">
                                 <Badge className="w-fit px-4 py-2 text-sm bg-success/20 text-success border border-success/40">
                                   You're going
@@ -522,7 +533,7 @@ export default function EventDetail() {
                                   {cancelRsvpMutation.isPending ? "Cancelling…" : "Cancel RSVP"}
                                 </Button>
                               </div>
-                            )}
+                            ) : null}
                           </motion.div>
 
                           {event.hasQuestionnaire && !questionnaireCompleted && !isHost && (
@@ -571,133 +582,86 @@ export default function EventDetail() {
                           )}
                         </CardContent>
                       </Card>
-                      </motion.div>
-                    </TabsContent>
-                  )}
+                      </TabsContent>
+                    )}
 
-                  {activeTab === "questionnaire" && event.hasQuestionnaire && !isHost && (
-                    <TabsContent value="questionnaire" key="questionnaire">
-                      <AnimatePresence mode="wait">
+                    {activeTab === "questionnaire" && event.hasQuestionnaire && !isHost && (
+                      <TabsContent value="questionnaire" forceMount>
                         {questionnaireCompleted && !isEditingAnswers ? (
-                          <motion.div
-                            key="completed"
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <Card className="border-2 border-primary/20 shadow-lg">
-                              <CardContent className="p-8 text-center">
-                                <motion.div
-                                  initial={{ scale: 0, rotate: -180 }}
-                                  animate={{ scale: 1, rotate: 0 }}
-                                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                                  className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mx-auto mb-4"
-                                >
-                                  <Heart className="w-10 h-10 text-primary fill-primary" />
-                                </motion.div>
-                                <motion.h3
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ delay: 0.2 }}
-                                  className="text-2xl font-bold mb-2"
-                                >
-                                  Questionnaire Completed! ✅
-                                </motion.h3>
-                                <motion.p
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ delay: 0.3 }}
-                                  className="text-muted-foreground mb-6 text-lg"
-                                >
-                                  Your answers have been saved. Matches will be revealed at the event.
-                                </motion.p>
-                                <motion.div
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ delay: 0.4 }}
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
-                                  <Button
-                                    variant="outline"
-                                    type="button"
-                                    onClick={() => setIsEditingAnswers(true)}
-                                  >
-                                    Edit Answers
-                                  </Button>
-                                </motion.div>
-                              </CardContent>
-                            </Card>
-                          </motion.div>
+                          <Card className="border-2 border-primary/20 shadow-lg">
+                            <CardContent className="p-8 text-center">
+                              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mx-auto mb-4">
+                                <Heart className="w-10 h-10 text-primary fill-primary" />
+                              </div>
+                              <h3 className="text-2xl font-bold mb-2">Questionnaire Completed! ✅</h3>
+                              <p className="text-muted-foreground mb-6 text-lg">
+                                Your answers have been saved. Matches will be revealed at the event.
+                              </p>
+                              <Button variant="outline" type="button" onClick={() => setIsEditingAnswers(true)}>
+                                Edit Answers
+                              </Button>
+                            </CardContent>
+                          </Card>
                         ) : (
-                          <motion.div
-                            key="form"
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <EventMatchQuestionnaire
-                              eventId={event.id}
-                              eventTitle={event.title}
-                              questions={questions}
-                              initialAnswers={(() => {
-                                if (!questionnaire?.answers) return undefined;
-                                try {
-                                  const raw = questionnaire.answers;
-                                  if (typeof raw === 'object' && raw !== null) return raw as Record<string, string>;
-                                  if (typeof raw === 'string') return JSON.parse(raw) as Record<string, string>;
-                                } catch {
-                                  return undefined;
-                                }
+                          <EventMatchQuestionnaire
+                            eventId={event.id}
+                            eventTitle={event.title}
+                            questions={questions}
+                            initialAnswers={(() => {
+                              if (!questionnaire?.answers) return undefined;
+                              try {
+                                const raw = questionnaire.answers;
+                                if (typeof raw === 'object' && raw !== null) return raw as Record<string, string>;
+                                if (typeof raw === 'string') return JSON.parse(raw) as Record<string, string>;
+                              } catch {
                                 return undefined;
-                              })()}
-                              onComplete={async () => {
-                                setShowQuestionnaire(false);
-                                setIsEditingAnswers(false);
-                                await refetchQuestionnaire();
-                                queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
-                              }}
-                              onCancel={() => {
-                                setShowQuestionnaire(false);
-                                setIsEditingAnswers(false);
-                              }}
-                            />
-                          </motion.div>
+                              }
+                              return undefined;
+                            })()}
+                            onComplete={async () => {
+                              setShowQuestionnaire(false);
+                              setIsEditingAnswers(false);
+                              await refetchQuestionnaire();
+                              queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
+                            }}
+                            onCancel={() => {
+                              setShowQuestionnaire(false);
+                              setIsEditingAnswers(false);
+                            }}
+                          />
                         )}
-                      </AnimatePresence>
-                    </TabsContent>
-                  )}
+                      </TabsContent>
+                    )}
 
-                  {activeTab === "matches" && isRevealed && (
-                    <TabsContent value="matches" key="matches">
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.5 }}
-                      >
-                        <EventMatchResults
-                          matches={matches}
-                          eventTitle={event.title}
-                          eventId={event.id}
-                          onMessage={(userId) => setLocation(`/chat?user=${userId}`)}
-                        />
-                      </motion.div>
-                    </TabsContent>
-                  )}
+                    {activeTab === "matches" && (
+                      <TabsContent value="matches" forceMount>
+                        {isRevealed ? (
+                          <EventMatchResults
+                            matches={matches}
+                            eventTitle={event.title}
+                            eventId={event.id}
+                          viewerUserId={userId}
+                            onMessage={(userId) => setLocation(`/chat?user=${userId}`)}
+                          />
+                        ) : (
+                          <Card className="border border-gray-100 bg-white shadow-sm">
+                            <CardContent className="p-5">
+                              <p className="text-sm font-semibold text-foreground">Matches aren’t revealed yet</p>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                Once the host starts the reveal, your match profiles will appear here automatically.
+                              </p>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </TabsContent>
+                    )}
 
-                  {activeTab === "admin" && isHost && (
-                    <TabsContent value="admin" key="admin">
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
+                    {activeTab === "admin" && isHost && (
+                      <TabsContent value="admin" forceMount>
                         <EventMatchAdmin eventId={event.id} eventTitle={event.title} />
-                      </motion.div>
-                    </TabsContent>
-                  )}
+                      </TabsContent>
+                    )}
+                  </motion.div>
                 </AnimatePresence>
               </Tabs>
               </motion.div>
