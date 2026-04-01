@@ -226,7 +226,7 @@ export default function AuthScreen({
             className="h-24 w-24 sm:h-28 sm:w-28 object-contain mx-auto"
           />
         </div>
-        <h1 className="text-2xl font-black text-gray-900 font-display">
+        <h1 className="text-2xl font-bold text-foreground font-display">
           {isSignUp ? 'Create Account' : 'Welcome back'}
         </h1>
         <p className="text-sm text-gray-500 mt-1 text-center">

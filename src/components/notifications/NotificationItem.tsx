@@ -10,7 +10,9 @@ type NotificationType =
   | "system"
   | "curated_match"
   | "marriage_chat_request"
-  | "marriage_chat_accepted";
+  | "marriage_chat_accepted"
+  | "chat_request"
+  | "chat_request_accepted";
 
 interface NotificationItemProps {
   id: string;
@@ -37,6 +39,8 @@ const ICON_MAP: Record<NotificationType, React.ElementType> = {
   system: Bell,
   marriage_chat_request: MessageCircle,
   marriage_chat_accepted: MessageCircle,
+  chat_request: MessageCircle,
+  chat_request_accepted: MessageCircle,
 };
 
 const COLOR_MAP: Record<NotificationType, string> = {
@@ -47,6 +51,8 @@ const COLOR_MAP: Record<NotificationType, string> = {
   system: "bg-gray-100 text-gray-500",
   marriage_chat_request: "bg-primary/10 text-primary",
   marriage_chat_accepted: "bg-primary/10 text-primary",
+  chat_request: "bg-primary/10 text-primary",
+  chat_request_accepted: "bg-primary/10 text-primary",
 };
 
 export default function NotificationItem({
@@ -63,7 +69,7 @@ export default function NotificationItem({
 }: NotificationItemProps) {
   const Icon = ICON_MAP[type] || Bell;
   const iconColor = COLOR_MAP[type] || COLOR_MAP.system;
-  const showActions = type === "marriage_chat_request" && (onAccept || onDecline);
+  const showActions = (type === "marriage_chat_request" || type === "chat_request") && (onAccept || onDecline);
 
   return (
     <motion.div

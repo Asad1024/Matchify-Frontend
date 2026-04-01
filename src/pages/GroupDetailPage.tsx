@@ -21,6 +21,7 @@ import {
 import BottomNav from "@/components/common/BottomNav";
 import { GlobalSearch, OPEN_GLOBAL_SEARCH_EVENT } from "@/components/common/GlobalSearch";
 import PostCard from "@/components/posts/PostCard";
+import CreatePostDialog from "@/components/posts/CreatePostDialog";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
@@ -99,12 +100,40 @@ export default function GroupDetailPage() {
   const { toast } = useToast();
   const [heroTab, setHeroTab] = useState<"posts" | "members">("posts");
   const [fabCompact, setFabCompact] = useState(false);
+  const [createPostOpen, setCreatePostOpen] = useState(false);
+  const [launchComposerOnce, setLaunchComposerOnce] = useState(false);
+
+  const clearCreatePostLauncherFlag = () => {
+    try {
+      sessionStorage.removeItem("matchify_open_create_post");
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     setFabCompact(false);
     const t = window.setTimeout(() => setFabCompact(true), 3500);
     return () => window.clearTimeout(t);
   }, [groupId]);
+
+  useEffect(() => {
+    const onOpen = (ev: Event) => {
+      const ce = ev as CustomEvent<{ groupId?: string | null }>;
+      const gid = ce?.detail?.groupId ? String(ce.detail.groupId) : null;
+      if (!gid || gid !== groupId) return;
+      setLaunchComposerOnce(true);
+    };
+    window.addEventListener("matchify-open-create-post", onOpen as EventListener);
+    return () => window.removeEventListener("matchify-open-create-post", onOpen as EventListener);
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!launchComposerOnce) return;
+    setLaunchComposerOnce(false);
+    clearCreatePostLauncherFlag();
+    setCreatePostOpen(true);
+  }, [launchComposerOnce]);
 
   const { data: group, isLoading: groupLoading } = useQuery<GroupRow>({
     queryKey: [`/api/groups/${groupId}`],
@@ -128,15 +157,16 @@ export default function GroupDetailPage() {
     enabled: !!userId,
   });
 
-  const { data: users = [] } = useQuery<DirectoryUser[]>({
-    queryKey: ["/api/users"],
-    enabled: !!userId,
-  });
-
   const isMember = useMemo(() => {
     if (!groupId || !Array.isArray(memberships)) return false;
     return memberships.some((m: { groupId?: string }) => m.groupId === groupId);
   }, [memberships, groupId]);
+
+  const { data: users = [] } = useQuery<DirectoryUser[]>({
+    queryKey: ["/api/users"],
+    // Member directory is only visible once the viewer joins.
+    enabled: !!userId && isMember,
+  });
 
   const groupPosts = useMemo(() => {
     if (!groupId || !Array.isArray(posts)) return [];
@@ -144,10 +174,11 @@ export default function GroupDetailPage() {
   }, [posts, groupId]);
 
   const previewMembers = useMemo(() => {
+    if (!isMember) return [] as DirectoryUser[];
     const list = Array.isArray(users) ? users : [];
     const others = list.filter((u) => u.id !== userId);
     return others.slice(0, 3);
-  }, [users, userId]);
+  }, [users, userId, isMember]);
 
   const joinMutation = useMutation({
     mutationFn: async ({ gid }: { gid: string }) => {
@@ -270,7 +301,7 @@ export default function GroupDetailPage() {
 
   if (!groupId || groupLoading || !group) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-28">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
         <LoadingState message="Loading group…" showMascot />
         <BottomNav active="community" />
       </div>
@@ -281,10 +312,10 @@ export default function GroupDetailPage() {
   const totalMembers = memberCountLabel(group);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
       <GlobalSearch />
 
-      <header className="sticky top-0 z-40 border-b border-stone-100/80 bg-white/90 shadow-[0_4px_24px_-8px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-card/80 shadow-2xs backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-2 px-4 py-2 pt-[max(0.35rem,env(safe-area-inset-top))]">
           <Button
             type="button"
@@ -349,8 +380,8 @@ export default function GroupDetailPage() {
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-lg px-4">
-        <div className="relative mt-3 h-36 w-full overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-stone-100 to-stone-200 shadow-sm sm:h-40">
+      <div className="mx-auto w-full max-w-lg px-3">
+        <div className="relative mt-3 h-36 w-full overflow-hidden rounded-[24px] border border-border/70 bg-card/60 shadow-2xs sm:h-40">
           {cover ? (
             <img src={cover} alt="" className="h-full w-full object-cover" loading="lazy" />
           ) : (
@@ -358,7 +389,7 @@ export default function GroupDetailPage() {
               <Users className="h-11 w-11 text-primary/35 sm:h-12 sm:w-12" strokeWidth={1.25} />
             </div>
           )}
-          <div className="absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-black/55 via-black/15 to-transparent pt-10 pb-2">
+          <div className="absolute inset-x-0 bottom-0 rounded-b-[24px] bg-gradient-to-t from-black/55 via-black/15 to-transparent pt-10 pb-2">
             <div className="flex justify-center px-2">
               <div className="inline-flex rounded-full bg-black/35 p-1 backdrop-blur-md">
                 <button
@@ -386,7 +417,7 @@ export default function GroupDetailPage() {
           </div>
         </div>
 
-        <div className="mt-4 w-full space-y-4 rounded-2xl border border-stone-200/90 bg-white p-4 shadow-sm">
+        <div className="mt-4 w-full space-y-4 rounded-2xl border border-border/70 bg-card/70 p-4 shadow-2xs">
           <div className="flex w-full flex-wrap items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 font-display text-xl font-bold tracking-tight text-stone-900 sm:text-2xl">
               {group.name}
@@ -411,21 +442,33 @@ export default function GroupDetailPage() {
           </div>
 
           <div className="flex w-full min-w-0 items-center gap-2">
-            <div className="flex shrink-0 -space-x-2">
-              {previewMembers.map((u) => (
-                <Avatar
-                  key={u.id}
-                  className="h-10 w-10 border-2 border-white shadow-sm ring-1 ring-stone-100"
-                >
-                  <AvatarImage src={u.avatar || undefined} alt="" />
-                  <AvatarFallback className="text-xs font-semibold">
-                    {u.name?.slice(0, 2).toUpperCase() || "?"}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-            </div>
+            {isMember ? (
+              <div className="flex shrink-0 -space-x-2">
+                {previewMembers.map((u) => (
+                  <Avatar
+                    key={u.id}
+                    className="h-10 w-10 border-2 border-white shadow-sm ring-1 ring-stone-100"
+                  >
+                    <AvatarImage src={u.avatar || undefined} alt="" />
+                    <AvatarFallback className="text-xs font-semibold">
+                      {u.name?.slice(0, 2).toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+              </div>
+            ) : (
+              <div className="flex shrink-0 -space-x-2 opacity-70" aria-hidden>
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-10 w-10 rounded-full border-2 border-white bg-stone-100 shadow-sm ring-1 ring-stone-100"
+                  />
+                ))}
+              </div>
+            )}
             <p className="min-w-0 text-sm font-medium text-stone-600">
               <span className="font-bold text-stone-900">{totalMembers.toLocaleString()}</span> members
+              {!isMember ? <span className="text-stone-400"> · Join to view</span> : null}
             </p>
           </div>
 
@@ -441,7 +484,22 @@ export default function GroupDetailPage() {
               <p className="mt-1 text-xs text-stone-500">
                 A sample of members in this space. Open Community to discover more people.
               </p>
-              {(Array.isArray(users) ? users : []).length === 0 ? (
+              {!isMember ? (
+                <div className="mt-6 rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-10 text-center shadow-sm">
+                  <p className="text-sm font-semibold text-stone-900">Members are private</p>
+                  <p className="mt-1 text-xs text-stone-500">
+                    Join this group to see who’s here.
+                  </p>
+                  <Button
+                    type="button"
+                    className="mt-4 rounded-full"
+                    onClick={() => joinMutation.mutate({ gid: groupId })}
+                    disabled={joinMutation.isPending}
+                  >
+                    {joinMutation.isPending ? "Joining…" : "Join group"}
+                  </Button>
+                </div>
+              ) : (Array.isArray(users) ? users : []).length === 0 ? (
                 <div className="mt-8 flex flex-col items-center px-4 pb-6 text-center">
                   <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-400">
                     <Users className="h-7 w-7" strokeWidth={1.5} />
@@ -509,6 +567,7 @@ export default function GroupDetailPage() {
                     }}
                     content={post.content}
                     image={postDisplayImageUrl(post)}
+                    detailHref={`/community/post/${encodeURIComponent(post.id)}`}
                     likes={post.likes ?? post.likesCount ?? 0}
                     comments={post.comments ?? post.commentsCount ?? 0}
                     firstComment={post.firstComment ?? null}
@@ -538,14 +597,14 @@ export default function GroupDetailPage() {
               layout
               transition={{ type: "spring", stiffness: 420, damping: 32 }}
               className={cn(
-                "flex items-center gap-2 overflow-hidden rounded-full border border-stone-200/80 bg-white py-3 text-sm font-semibold text-stone-900 shadow-[0_12px_40px_-16px_rgba(15,23,42,0.35)]",
+                "flex items-center gap-2 overflow-hidden rounded-full border border-border/70 bg-card/75 py-3 text-sm font-semibold text-stone-900 shadow-lg backdrop-blur-xl",
                 fabCompact ? "px-3.5" : "px-4",
               )}
               style={{
                 paddingLeft: fabCompact ? undefined : "1.1rem",
                 paddingRight: fabCompact ? undefined : "1.1rem",
               }}
-              onClick={() => setLocation(`/group/${groupId}/create-post`)}
+              onClick={() => setCreatePostOpen(true)}
               aria-label="Create post"
             >
               <PenSquare className="h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
@@ -562,6 +621,19 @@ export default function GroupDetailPage() {
             </motion.button>
           </div>
         </div>
+      ) : null}
+
+      {isMember ? (
+        <CreatePostDialog
+          open={createPostOpen}
+            onOpenChange={(o) => {
+              setCreatePostOpen(o);
+              if (!o) clearCreatePostLauncherFlag();
+            }}
+          userId={userId}
+          groupId={groupId}
+          groupName={group.name}
+        />
       ) : null}
 
       <BottomNav active="community" />

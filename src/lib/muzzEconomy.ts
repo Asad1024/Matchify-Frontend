@@ -12,17 +12,12 @@ export const setBoosts = (n: number): void => {
 };
 
 export const getCompliments = (): number => {
-  if (import.meta.env.VITE_UNLIMITED_COMPLIMENTS === "true") return 9999;
+  // Unlimited mode removed; compliments are now tied to subscription/limits.
   const n = parseInt(localStorage.getItem(`${P}compliments`) || "2", 10);
   return Number.isFinite(n) ? n : 2;
 };
 
 export const setCompliments = (n: number): void => {
-  if (import.meta.env.VITE_UNLIMITED_COMPLIMENTS === "true") {
-    // Keep localStorage stable in unlimited mode.
-    localStorage.setItem(`${P}compliments`, "9999");
-    return;
-  }
   localStorage.setItem(`${P}compliments`, String(Math.max(0, n)));
 };
 

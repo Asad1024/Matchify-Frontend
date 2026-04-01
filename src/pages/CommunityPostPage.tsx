@@ -172,69 +172,71 @@ export default function CommunityPostPage() {
   const gid = p ? (p as Post & { groupId?: string }).groupId : undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
-      <div className="sticky top-0 z-40 border-b border-gray-100 bg-white/95 backdrop-blur-md safe-top">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
+      <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 shadow-2xs backdrop-blur-xl safe-top">
         <div className="mx-auto flex max-w-lg items-center gap-2 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-10 w-10 shrink-0 rounded-full text-gray-800"
+            className="h-11 w-11 shrink-0 rounded-full text-foreground/80 hover:bg-foreground/[0.05]"
             onClick={() => setLocation("/community")}
             aria-label="Back to feed"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="truncate text-base font-bold text-gray-900">Post</h1>
+          <h1 className="truncate font-display text-[15px] font-bold text-foreground">Post</h1>
         </div>
       </div>
 
-      <div className="mx-auto mt-3 max-w-lg px-4">
+      <div className="mx-auto mt-3 max-w-lg px-3">
         {loading ? (
           <LoadingState message="Loading post…" showMascot />
         ) : !p ? (
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
-            <p className="text-sm font-medium text-gray-900">Post not found</p>
-            <p className="mt-2 text-xs text-gray-500">It may have been removed or isn’t in your feed.</p>
-            <Button type="button" className="mt-4" onClick={() => setLocation("/community")}>
+          <div className="matchify-surface p-6 text-center">
+            <p className="font-display text-base font-bold text-stone-900">Post not found</p>
+            <p className="mt-2 text-sm text-stone-500">It may have been removed or isn’t in your feed.</p>
+            <Button type="button" className="mt-4 rounded-full" onClick={() => setLocation("/community")}>
               Back to feed
             </Button>
           </div>
         ) : (
-          <PostCard
-            id={p.id}
-            authorId={p.userId || (p as { authorId?: string }).authorId}
-            author={{
-              name: u?.name || "Member",
-              image: u?.avatar || (u as { image?: string })?.image,
-              verified: u?.verified,
-            }}
-            content={p.content}
-            image={postDisplayImageUrl(p)}
-            likes={Number(p.likes ?? p.likesCount) || 0}
-            comments={Number(p.comments ?? p.commentsCount) || 0}
-            likedByMe={!!p.likedByMe}
-            savedByMe={!!p.savedByMe}
-            isFollowingAuthor={followingIds.has(p.userId || "")}
-            firstComment={p.firstComment ?? null}
-            groupId={gid}
-            groupName={gid ? groupNameById.get(gid) : undefined}
-            onLikeToggle={(pid, liked) => likeMutation.mutate({ postId: pid, like: liked })}
-            timestamp={
-              p.createdAt
-                ? typeof p.createdAt === "string"
-                  ? p.createdAt
-                  : new Date(p.createdAt).toISOString()
-                : ""
-            }
-            postedAt={
-              p.createdAt
-                ? typeof p.createdAt === "string"
-                  ? p.createdAt
-                  : new Date(p.createdAt).toISOString()
-                : undefined
-            }
-          />
+          <div className="matchify-surface overflow-hidden">
+            <PostCard
+              id={p.id}
+              authorId={p.userId || (p as { authorId?: string }).authorId}
+              author={{
+                name: u?.name || "Member",
+                image: u?.avatar || (u as { image?: string })?.image,
+                verified: u?.verified,
+              }}
+              content={p.content}
+              image={postDisplayImageUrl(p)}
+              likes={Number(p.likes ?? p.likesCount) || 0}
+              comments={Number(p.comments ?? p.commentsCount) || 0}
+              likedByMe={!!p.likedByMe}
+              savedByMe={!!p.savedByMe}
+              isFollowingAuthor={followingIds.has(p.userId || "")}
+              firstComment={p.firstComment ?? null}
+              groupId={gid}
+              groupName={gid ? groupNameById.get(gid) : undefined}
+              onLikeToggle={(pid, liked) => likeMutation.mutate({ postId: pid, like: liked })}
+              timestamp={
+                p.createdAt
+                  ? typeof p.createdAt === "string"
+                    ? p.createdAt
+                    : new Date(p.createdAt).toISOString()
+                  : ""
+              }
+              postedAt={
+                p.createdAt
+                  ? typeof p.createdAt === "string"
+                    ? p.createdAt
+                    : new Date(p.createdAt).toISOString()
+                  : undefined
+              }
+            />
+          </div>
         )}
       </div>
 

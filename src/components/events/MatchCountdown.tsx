@@ -14,7 +14,7 @@ const CONFETTI_COLORS = [
   "#722F37", "#8B2942", "#a84860", "#c4879a", "#e8d4dc", "#ffffff",
 ];
 
-const ROW_HEIGHT = 128; // height of each row in the reel (more space between numbers)
+const ROW_HEIGHT = 104; // height of each row in the reel
 
 const EXCITEMENT_TEXTS: Record<number, string> = {
   10: "Get ready!",
@@ -43,9 +43,11 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
   const [showConfetti, setShowConfetti] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const onCompleteCalled = useRef(false);
+  const [startSeconds, setStartSeconds] = useState<number | null>(null);
 
   useEffect(() => {
     setCountdownDuration(null);
+    setStartSeconds(null);
   }, [targetTime]);
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
       const sec = Math.floor(difference / 1000);
       setTimeLeft(sec);
       setCountdownDuration((d) => (d === null ? sec : d));
+      setStartSeconds((s) => (s === null ? sec : s));
     };
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 100);
@@ -77,38 +80,21 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
     return () => clearTimeout(t);
   }, [showConfetti, onComplete]);
 
-  const showReel = timeLeft <= 60;
   const excitementText = getExcitementText(timeLeft);
 
-  const progress = useMemo(() => {
-    const total = countdownDuration;
-    if (!total || total <= 0) return 0;
-    const t = Math.max(0, timeLeft);
-    return Math.min(1, Math.max(0, (total - t) / total));
-  }, [countdownDuration, timeLeft]);
+  const reel = useMemo(() => {
+    const start = Math.max(0, startSeconds ?? countdownDuration ?? Math.max(0, timeLeft));
+    const values = Array.from({ length: start + 1 }, (_, i) => start - i);
+    const active = Math.max(0, timeLeft);
+    const activeIndex = Math.min(values.length - 1, Math.max(0, start - active));
 
-  const reelItems = useMemo(() => {
-    const formatLabel = (v: number) =>
-      showReel ? String(v) : `${Math.floor(v / 60)}:${(v % 60).toString().padStart(2, "0")}`;
+    // Position so the active row sits centered.
+    const viewportHeight = ROW_HEIGHT * 5;
+    const centeredOffset = viewportHeight / 2 - ROW_HEIGHT / 2;
+    const translateY = centeredOffset - activeIndex * ROW_HEIGHT;
 
-    const items: { value: number; label: string }[] = [];
-
-    if (timeLeft + 1 >= 0) {
-      items.push({ value: timeLeft + 1, label: formatLabel(timeLeft + 1) });
-    }
-
-    items.push({ value: timeLeft, label: formatLabel(timeLeft) });
-
-    if (timeLeft - 1 >= 0) {
-      items.push({ value: timeLeft - 1, label: formatLabel(timeLeft - 1) });
-    }
-
-    return items;
-  }, [timeLeft, showReel]);
-
-  const centerIndex = 1; // current value is always the middle item
-  const viewportHeight = ROW_HEIGHT * 3;
-  const listOffsetY = 0;
+    return { values, viewportHeight, translateY, active };
+  }, [startSeconds, countdownDuration, timeLeft]);
 
   if (isComplete) return null;
 
@@ -118,7 +104,7 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200] flex flex-col items-center justify-center overflow-hidden"
+        className="fixed inset-0 z-[200] overflow-hidden"
         style={{ background: "linear-gradient(135deg, #722F37 0%, #8B2942 45%, #a84860 100%)" }}
       >
         <div className="absolute inset-0 pointer-events-none">
@@ -148,91 +134,86 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
             );
           })}
         </div>
-        <motion.div
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 15 }}
-          className="relative z-10 text-center px-6"
-        >
-          <div className="text-6xl mb-4">🎉</div>
-          <p className="text-4xl md:text-6xl font-black text-white drop-shadow-lg">
-            Revealing matches…
-          </p>
-          <p className="text-white/80 mt-3 text-lg font-medium">Get ready to meet your match!</p>
-        </motion.div>
+
+        <div className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-lg flex-col items-center justify-center px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
+            className="w-full text-center"
+          >
+            <div className="text-6xl mb-4">🎉</div>
+            <p className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg">
+              Revealing matches…
+            </p>
+            <p className="text-white/80 mt-3 text-lg font-medium">Get ready to meet your match!</p>
+          </motion.div>
+        </div>
       </motion.div>
     );
   }
-
-  const ringR = 46;
-  const ringC = 2 * Math.PI * ringR;
-  const ringOffset = ringC * (1 - progress);
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/35 backdrop-blur-[2px] pb-6 pt-[env(safe-area-inset-top)]"
+      className="fixed inset-0 z-[200] bg-black text-[#D4AF37]"
     >
-      <motion.div
-        initial={{ y: 18, opacity: 0, scale: 0.98 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        transition={{ type: "spring", stiffness: 260, damping: 26 }}
-        className="w-[min(92vw,28rem)] overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl"
-      >
-        <div className="px-5 pt-5 pb-4 bg-gradient-to-r from-primary to-red-950 text-primary-foreground">
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] opacity-90">
+      <div className="mx-auto flex min-h-[100svh] w-full max-w-lg flex-col px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+        <div className="pt-8 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#D4AF37]/80">
             Match reveal
           </p>
-          <p className="mt-1 font-display text-lg font-bold leading-tight">
-            {eventTitle}
-          </p>
-          <p className="mt-1 text-xs opacity-90">{excitementText}</p>
+          <p className="mt-2 text-base font-semibold text-[#D4AF37]/90">{eventTitle}</p>
+          <p className="mt-1 text-xs text-[#D4AF37]/70">{excitementText}</p>
         </div>
 
-        <div className="px-5 py-5">
-          <div className="flex items-center justify-center">
-            <div className="relative h-32 w-32">
-              <svg className="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
-                <circle
-                  cx="60"
-                  cy="60"
-                  r={ringR}
-                  fill="none"
-                  stroke="rgba(114,47,55,0.12)"
-                  strokeWidth="10"
-                />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r={ringR}
-                  fill="none"
-                  stroke="hsl(349 52% 38%)"
-                  strokeWidth="10"
-                  strokeLinecap="round"
-                  strokeDasharray={ringC}
-                  strokeDashoffset={ringOffset}
-                />
-              </svg>
-              <div className="absolute inset-0 grid place-items-center">
-                <div className="text-center">
-                  <div className="text-5xl font-black tabular-nums text-primary leading-none">
-                    {Math.max(0, timeLeft)}
-                  </div>
-                  <div className="mt-1 text-[11px] font-semibold text-muted-foreground">
-                    seconds
-                  </div>
-                </div>
-              </div>
+        <div className="flex flex-1 items-center justify-center">
+          <div
+            className="relative w-full overflow-hidden rounded-3xl border border-[#D4AF37]/15 bg-black"
+            style={{ height: reel.viewportHeight }}
+          >
+            {/* Center highlight */}
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2">
+              <div className="mx-6 rounded-2xl border border-[#D4AF37]/20 bg-[#D4AF37]/[0.06] py-6" />
             </div>
-          </div>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black to-transparent" />
 
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Everyone sees their matches at the same time.
-          </p>
+            <motion.div
+              className="absolute left-0 top-0 w-full"
+              animate={{ y: reel.translateY }}
+              transition={{ type: "spring", stiffness: 210, damping: 28 }}
+            >
+              {reel.values.map((v) => {
+                const isActive = v === reel.active;
+                return (
+                  <div
+                    key={v}
+                    className="grid w-full place-items-center tabular-nums"
+                    style={{ height: ROW_HEIGHT }}
+                  >
+                    <div
+                      className={
+                        isActive
+                          ? "text-7xl font-bold tracking-tight text-[#D4AF37] drop-shadow-[0_0_18px_rgba(212,175,55,0.22)]"
+                          : "text-4xl font-bold text-[#D4AF37]/35"
+                      }
+                    >
+                      {v}
+                    </div>
+                  </div>
+                );
+              })}
+            </motion.div>
+          </div>
         </div>
-      </motion.div>
+
+        <div className="pb-6 text-center text-xs text-[#D4AF37]/60">
+          Everyone sees their matches at the same time.
+        </div>
+      </div>
     </motion.div>
   );
 }

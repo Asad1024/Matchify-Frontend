@@ -951,7 +951,7 @@ export default function ProfileEditTab({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 rounded-2xl bg-stone-50/90 px-3.5 py-3">
+          <div className="space-y-1.5 rounded-2xl bg-card/60 px-3.5 py-3 border border-border/70 shadow-2xs">
             <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Community highlights
             </Label>
@@ -976,7 +976,7 @@ export default function ProfileEditTab({
         title="Profile banner"
         description="Wide cover used on some screens; preview hero uses your main photo."
       >
-        <div className="rounded-2xl border border-stone-100 bg-stone-50/50 p-3">
+        <div className="rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs">
           <PhotoUpload
             variant="banner"
             suppressSuccessToast
@@ -997,7 +997,7 @@ export default function ProfileEditTab({
       </ProfilePreviewCard>
 
       <Button
-        className="h-12 w-full rounded-2xl bg-primary font-black text-primary-foreground shadow-md shadow-primary/20"
+        className="h-12 w-full rounded-2xl bg-primary font-semibold text-primary-foreground shadow-2xs"
         onClick={handleSave}
         disabled={updateMutation.isPending}
       >
@@ -1018,7 +1018,7 @@ export default function ProfileEditTab({
       >
         <div className="space-y-1">
           <button type="button" className={linkRow} onClick={onGoAIMatchmaker}>
-            <span className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Sparkles className="h-4 w-4 text-primary" /> AI Matchmaker
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -1028,18 +1028,18 @@ export default function ProfileEditTab({
             className={linkRow}
             onClick={hasPartner ? onGoCoaching : onOpenAddPartner}
           >
-            <span className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Heart className="h-4 w-4 text-primary" />
               {hasPartner ? "Relationship coaching" : "Add partner · coaching"}
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
           <button type="button" className={linkRow} onClick={() => setLocation("/settings")}>
-            <span className="text-sm font-bold text-foreground">Privacy &amp; notifications</span>
+            <span className="text-sm font-semibold text-foreground">Privacy &amp; notifications</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
           <button type="button" className={linkRow} onClick={onOpenSecurity}>
-            <span className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Shield className="h-4 w-4 text-muted-foreground" /> Security &amp; password
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -1051,7 +1051,7 @@ export default function ProfileEditTab({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50/90 px-3.5 py-3">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Username</span>
-            <span className="text-sm font-black text-foreground">@{user.username}</span>
+            <span className="text-sm font-semibold text-foreground">@{user.username}</span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50/90 px-3.5 py-3">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email</span>

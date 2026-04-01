@@ -32,9 +32,9 @@ function readAiMatchCooldownMs(): number {
     const n = Number(raw);
     if (Number.isFinite(n) && n > 0) return n;
   }
-  // Default: 1 hour.
+  // Default: 48 hours.
   // Override via `VITE_AI_MATCH_COOLDOWN_MS` in `.env.local`.
-  return 60 * 60 * 1000;
+  return 48 * 60 * 60 * 1000;
 }
 
 export const AI_MATCH_COOLDOWN_MS = readAiMatchCooldownMs();

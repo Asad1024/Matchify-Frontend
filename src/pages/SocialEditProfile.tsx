@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { X, Camera, Settings, Trash2, Lock, Eye, Pencil, Sparkles, GripVertical, Plus } from "lucide-react";
+import { X, Settings, Trash2, Lock, Eye, Pencil, Sparkles, GripVertical, Plus, Link as LinkIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import PhotoUpload from "@/components/profile/PhotoUpload";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -47,6 +48,8 @@ export default function SocialEditProfile() {
   const { userId } = useCurrentUser();
   const { toast } = useToast();
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [addGalleryOpen, setAddGalleryOpen] = useState(false);
+  const [newGalleryUrl, setNewGalleryUrl] = useState("");
   const [nameLockUntil, setNameLockUntil] = useState(0);
   const [usernameLockUntil, setUsernameLockUntil] = useState(0);
   const [form, setForm] = useState({ name: "", username: "", bio: "" });
@@ -106,10 +109,15 @@ export default function SocialEditProfile() {
   };
 
   const addGalleryUrl = () => {
-    const url = window.prompt("Paste image URL");
-    const u = String(url || "").trim();
+    setAddGalleryOpen(true);
+  };
+
+  const commitNewGalleryUrl = () => {
+    const u = String(newGalleryUrl || "").trim();
     if (!u) return;
     setGallery((prev) => Array.from(new Set([u, ...prev])).slice(0, 18));
+    setNewGalleryUrl("");
+    setAddGalleryOpen(false);
   };
 
   const nameLocked = Date.now() < nameLockUntil;
@@ -249,7 +257,7 @@ export default function SocialEditProfile() {
             </span>
           ) : null}
         </div>
-        <div className="rounded-[18px] border border-[#F0F0F0] bg-white px-3 py-2.5 shadow-sm focus-within:bg-primary/[0.03]">
+        <div className="rounded-[18px] border border-border/70 bg-card/60 px-3 py-2.5 shadow-2xs focus-within:bg-primary/[0.04]">
           {children}
         </div>
         {helper ? <p className="text-[11px] leading-relaxed text-slate-500">{helper}</p> : null}
@@ -259,32 +267,32 @@ export default function SocialEditProfile() {
 
   if (!userId || isLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] flex items-center justify-center">
         <LoadingState message="Loading profile..." showMascot />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB]">
-      <div className="sticky top-0 z-40 border-b border-stone-100 bg-white pt-[env(safe-area-inset-top)]">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))]">
+      <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 shadow-2xs backdrop-blur-md pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-12 w-full max-w-lg items-center px-2">
           <div className="w-10 shrink-0">
             <Button type="button" variant="ghost" size="icon" className="rounded-full" onClick={close} aria-label="Close">
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <h1 className="flex-1 text-center font-display text-[15px] font-extrabold text-stone-900">Social profile</h1>
+          <h1 className="flex-1 text-center font-display text-[15px] font-bold text-stone-900">Social profile</h1>
           <div className="w-10 shrink-0" />
         </div>
       </div>
 
       <div className="mx-auto w-full max-w-lg space-y-4 px-4 pb-8 pt-4">
         {/* Segmented pill: Edit vs Preview */}
-        <div className="rounded-full bg-[#F1F2F4] p-1 shadow-[inset_0_1px_4px_rgba(15,23,42,0.06)]">
+        <div className="rounded-full bg-card/60 p-1 shadow-2xs ring-1 ring-border/70 backdrop-blur-md">
           <div className="grid grid-cols-2 gap-1">
-            <div className="relative h-10 rounded-full text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-900">
-              <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
+            <div className="relative h-10 rounded-full text-[12px] font-medium uppercase tracking-[0.14em] text-primary-foreground">
+              <span className="absolute inset-0 rounded-full bg-primary shadow-2xs" />
               <span className="relative inline-flex h-full w-full items-center justify-center gap-2">
                 <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                 Edit
@@ -293,7 +301,7 @@ export default function SocialEditProfile() {
             <button
               type="button"
               onClick={() => setLocation("/profile/social")}
-              className="relative h-10 rounded-full text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500 hover:text-slate-800"
+              className="relative h-10 rounded-full text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 hover:text-slate-800"
             >
               <span className="relative inline-flex items-center gap-2">
                 <Eye className="h-4 w-4" strokeWidth={1.75} aria-hidden />
@@ -304,7 +312,7 @@ export default function SocialEditProfile() {
         </div>
 
         {/* Media */}
-        <div className="rounded-[24px] border border-[#F0F0F0] bg-white p-4 shadow-sm">
+        <div className="matchify-surface border-white/0 bg-card/70 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Media gallery</p>
@@ -313,7 +321,7 @@ export default function SocialEditProfile() {
             <Button
               type="button"
               variant="outline"
-              className="h-10 rounded-full border-[#F0F0F0] bg-white font-semibold text-slate-800"
+              className="h-10 rounded-full border-border/70 bg-card/60 font-semibold text-slate-800 shadow-2xs hover:bg-card"
               onClick={addGalleryUrl}
             >
               <Plus className="mr-2 h-4 w-4" strokeWidth={1.75} />
@@ -365,7 +373,7 @@ export default function SocialEditProfile() {
         </div>
 
         {/* Public info */}
-        <div className="rounded-[24px] border border-[#F0F0F0] bg-white p-4 shadow-sm">
+        <div className="matchify-surface border-white/0 bg-card/70 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Public info</p>
           <div className="mt-3 space-y-4">
             <FloatingField
@@ -407,7 +415,7 @@ export default function SocialEditProfile() {
         </div>
 
         {/* Contact details (placeholder, dynamic if available later) */}
-        <div className="rounded-[24px] border border-[#F0F0F0] bg-white p-4 shadow-sm">
+        <div className="matchify-surface border-white/0 bg-card/70 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Contact details</p>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">
             Contact fields will appear here when enabled for Social profiles.
@@ -431,8 +439,8 @@ export default function SocialEditProfile() {
         <Button
           type="button"
           className={cn(
-            "h-12 w-full rounded-full font-bold text-white",
-            "bg-gradient-to-br from-[#722F37] to-[#8B2942] shadow-[0_18px_60px_-28px_rgba(114,47,55,0.55)] hover:brightness-[0.98]",
+            "h-12 w-full rounded-full font-semibold text-white shadow-xl hover:brightness-[0.98]",
+            "bg-primary",
           )}
           disabled={!canSave || saveMutation.isPending}
           onClick={() => saveMutation.mutate()}
@@ -466,6 +474,49 @@ export default function SocialEditProfile() {
               <Trash2 className="mr-2 h-4 w-4" /> Delete photo
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={addGalleryOpen}
+        onOpenChange={(open) => {
+          setAddGalleryOpen(open);
+          if (!open) setNewGalleryUrl("");
+        }}
+      >
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Add a gallery photo</DialogTitle>
+            <DialogDescription>Paste an image URL. Photos are saved on this device.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="rounded-2xl border border-border/70 bg-card/60 px-3 py-2.5 shadow-2xs focus-within:bg-primary/[0.04]">
+              <div className="flex items-center gap-2">
+                <LinkIcon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+                <Input
+                  value={newGalleryUrl}
+                  onChange={(e) => setNewGalleryUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="h-10 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitNewGalleryUrl();
+                  }}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              Tip: use a direct image link ending with <span className="font-semibold">.jpg</span> or{" "}
+              <span className="font-semibold">.png</span>.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="outline" className="rounded-full" onClick={() => setAddGalleryOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" className="rounded-full" onClick={commitNewGalleryUrl} disabled={!newGalleryUrl.trim()}>
+              Add photo
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

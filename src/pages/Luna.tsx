@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import BottomNav from "@/components/common/BottomNav";
 import { LunaChatPanel } from "@/components/assistant/PersonalAssistantOverlay";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bell, Settings, Sparkles } from "lucide-react";
+import { ArrowLeft, Bell, Settings, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +14,7 @@ export default function LunaPage() {
 
   // Reuse the existing chat UI, but render it inline so Header+BottomNav remain visible.
   return (
-    <div className="min-h-screen bg-[#F9FAFB] pb-24">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
       {/* Subtle mesh gradient just for Luna space */}
       <div
         className={cn(
@@ -25,21 +25,27 @@ export default function LunaPage() {
       />
 
       {/* Premium Luna header */}
-      <div className="sticky top-0 z-40 border-b border-[#F0F0F0] bg-white/70 backdrop-blur-md">
+      <div className="sticky top-0 z-40 border-b border-border/70 bg-card/70 backdrop-blur-md shadow-2xs">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-slate-600 hover:border-[#F0F0F0] hover:bg-white"
-            onClick={() => setLocation("/menu")}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-foreground/70 hover:border-border/70 hover:bg-foreground/[0.04]"
+            onClick={() => {
+              if (typeof window !== "undefined" && window.history.length > 1) {
+                window.history.back();
+                return;
+              }
+              setLocation("/community");
+            }}
             aria-label="Back"
             title="Back"
           >
-            <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden />
+            <ArrowLeft className="h-5 w-5" strokeWidth={1.75} aria-hidden />
           </button>
 
           <div className="min-w-0 text-center">
             <div className="relative">
-              <div className="mx-auto w-fit font-display text-[18px] font-extrabold tracking-[0.2px] text-slate-900 drop-shadow-[0_0_20px_rgba(114,47,55,0.18)]">
+              <div className="mx-auto w-fit font-display text-[18px] font-bold tracking-[0.2px] text-slate-900 drop-shadow-[0_0_20px_rgba(114,47,55,0.10)]">
                 Luna
               </div>
             </div>
@@ -62,7 +68,7 @@ export default function LunaPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-slate-600 hover:border-[#F0F0F0] hover:bg-white"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-foreground/70 hover:border-border/70 hover:bg-foreground/[0.04]"
               onClick={() => setLocation("/notifications")}
               aria-label="Notifications"
               title="Notifications"
@@ -71,8 +77,8 @@ export default function LunaPage() {
             </button>
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-slate-600 hover:border-[#F0F0F0] hover:bg-white"
-              onClick={() => setLocation("/profile")}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-foreground/70 hover:border-border/70 hover:bg-foreground/[0.04]"
+              onClick={() => setLocation("/settings")}
               aria-label="Settings"
               title="Settings"
             >
@@ -80,7 +86,7 @@ export default function LunaPage() {
             </button>
             <button
               type="button"
-              className="hidden h-10 items-center justify-center rounded-full border border-[#F0F0F0] bg-white px-3 text-[12px] font-semibold text-slate-700 shadow-sm hover:bg-white sm:inline-flex"
+              className="hidden h-10 items-center justify-center rounded-full border border-border/70 bg-card/70 px-3 text-[12px] font-semibold text-foreground/80 shadow-2xs hover:bg-card sm:inline-flex"
               onClick={logout}
             >
               Logout
@@ -90,7 +96,7 @@ export default function LunaPage() {
       </div>
 
       <div className="mx-auto max-w-lg px-4 pt-3">
-        <div className="overflow-hidden rounded-[24px] border border-white/60 bg-white/70 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)] backdrop-blur-md">
+        <div className="matchify-surface overflow-hidden border-white/0 bg-card/70">
           <div className="h-[calc(100svh-13rem)]">
             <LunaChatPanel />
           </div>

@@ -6,6 +6,7 @@ import PageWrapper from "@/components/common/PageWrapper";
 import BottomNav from "@/components/common/BottomNav";
 import { BlockReportDialog } from "@/components/common/BlockReportDialog";
 import { ShareProfileDialog } from "@/components/profile/ShareProfileDialog";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   MarriageDiscoveryProfile,
   type MarriageDiscoveryUser,
@@ -215,11 +216,13 @@ export default function Home() {
   const favActive =
     !!current && (isMarriageFavorite(current.id) || false);
   void favRev; // re-read favorite flag from store after toggle
+  const likedCount = getMarriageLikedIds().size;
+  const passedCount = getMarriagePassedIds().size;
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <PageWrapper>
-        <div className="min-h-screen bg-gray-50 pb-24">
+        <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
           <Header
             showSearch={true}
             onSearch={(query) => {
@@ -234,7 +237,14 @@ export default function Home() {
               }
             }}
             onNotifications={() => setLocation("/notifications")}
-            onCreate={() => setLocation("/community/create-post")}
+            onCreate={() => {
+              try {
+                sessionStorage.setItem("matchify_open_create_post", JSON.stringify({ groupId: null }));
+              } catch {
+                /* ignore */
+              }
+              setLocation("/community");
+            }}
             onSettings={() => setLocation("/profile")}
             onLogout={logout}
             title="Marriage"
@@ -243,20 +253,52 @@ export default function Home() {
 
           <div className="mx-auto max-w-lg">
             {usersLoading || meLoading ? (
-              <div className="flex justify-center py-20">
-                <LoadingState message="Finding people for you…" showMascot={true} />
+              <div className="px-4 py-10">
+                <Card className="matchify-surface overflow-hidden border-white/0 bg-card/70">
+                  <CardContent className="p-6">
+                    <LoadingState message="Finding people for you…" showMascot={true} />
+                  </CardContent>
+                </Card>
               </div>
             ) : !current ? (
-              <div className="px-6 py-16 text-center">
-                <p className="font-display text-lg font-bold text-stone-900">You’re all caught up</p>
-                <p className="mt-2 text-sm text-stone-600">
-                  No new profiles right now. Browse Explore to find more people, or check back later.
-                </p>
-                <Button type="button" className="mt-6 rounded-full" onClick={() => setLocation("/explore")}>
-                  Open Explore
-                </Button>
+              <div className="px-4 py-8">
+                <Card className="matchify-surface overflow-hidden border-white/0 bg-card/70">
+                  <CardContent className="p-6 text-center">
+                    <p className="font-display text-lg font-bold text-stone-900">You’re all caught up</p>
+                    <p className="mt-2 text-sm text-stone-600">
+                      No new profiles right now. Browse Discover or check back later.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                      <span className="rounded-full border border-border/70 bg-card/60 px-3 py-1 text-[12px] font-semibold text-stone-700 tabular-nums">
+                        Liked: <span className="font-bold text-primary">{likedCount}</span>
+                      </span>
+                      <span className="rounded-full border border-border/70 bg-card/60 px-3 py-1 text-[12px] font-semibold text-stone-700 tabular-nums">
+                        Passed: <span className="font-bold text-stone-900">{passedCount}</span>
+                      </span>
+                    </div>
+
+                    <div className="mt-6 grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 rounded-full border-border/70 bg-card/60 font-semibold text-stone-800 shadow-2xs hover:bg-card"
+                        onClick={() => setLocation("/explore")}
+                      >
+                        Open Discover
+                      </Button>
+                      <Button
+                        type="button"
+                        className="h-11 rounded-full font-semibold shadow-2xs"
+                        onClick={() => setLocation("/events")}
+                      >
+                        Browse events
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
                 {import.meta.env.DEV ? (
-                  <div className="mx-auto mt-8 max-w-sm rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-4 text-left">
+                  <div className="mx-auto mt-4 max-w-lg rounded-[24px] border border-amber-200/60 bg-amber-50/70 px-4 py-4 text-left shadow-2xs">
                     <p className="text-xs font-bold uppercase tracking-wide text-amber-900/80">Testing only</p>
                     <p className="mt-1 text-xs leading-relaxed text-amber-950/80">
                       Clears pass/like/favorite/compliment lists (Marriage deck + Explore → My history) and marriage
@@ -266,7 +308,7 @@ export default function Home() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="mt-3 w-full border-amber-300 bg-white font-semibold text-amber-950 hover:bg-amber-100/80"
+                      className="mt-3 w-full border-amber-300 bg-white font-semibold text-amber-950 shadow-2xs hover:bg-amber-100/80"
                       onClick={() => {
                         resetMarriageTestingState();
                         setMarriageChatEpoch((n) => n + 1);

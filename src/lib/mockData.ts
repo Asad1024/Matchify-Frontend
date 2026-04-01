@@ -710,9 +710,7 @@ export const getMockData = (endpoint: string): any => {
     const found = mockUsers.find((u) => u.id === userId) || mockUsers[0];
     return mockUserWithFreshPresence(found);
   }
-  if (endpoint.includes('/api/stories')) {
-    return mockStories;
-  }
+  // Stories must be DB-backed (no local/mock feed).
   if (path === "/api/posts" || /\/api\/posts\/?$/.test(path)) {
     return mockPosts;
   }

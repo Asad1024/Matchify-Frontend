@@ -25,6 +25,7 @@ import type { Group, Story } from "@shared/schema";
 import StoryCircles from "@/components/stories/StoryCircles";
 import StoryViewer from "@/components/stories/StoryViewer";
 import CreateStoryDialog from "@/components/stories/CreateStoryDialog";
+import CreatePostDialog from "@/components/posts/CreatePostDialog";
 import { groupStoriesIntoRings, type StoryRing } from "@/lib/storyRings";
 import { StorySkeleton } from "@/components/ui/skeleton-enhanced";
 import { fetchPostsFeed } from "@/lib/fetchPostsFeed";
@@ -109,10 +110,20 @@ export default function Community() {
     initialIndex: number;
   } | null>(null);
   const [createStoryOpen, setCreateStoryOpen] = useState(false);
+  const [createPostOpen, setCreatePostOpen] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { userId: currentUserId } = useCurrentUser();
   const { logout } = useAuth();
+  const [composePrefillGroupId, setComposePrefillGroupId] = useState<string | null>(null);
+
+  const clearCreatePostLauncherFlag = () => {
+    try {
+      sessionStorage.removeItem("matchify_open_create_post");
+    } catch {
+      /* ignore */
+    }
+  };
 
   /** Legacy share links used `?post=`; normalize to `/community/post/:id`. */
   useEffect(() => {
@@ -125,6 +136,34 @@ export default function Community() {
       /* ignore */
     }
   }, [setLocation]);
+
+  useEffect(() => {
+    const onOpen = (ev: Event) => {
+      const ce = ev as CustomEvent<{ groupId?: string | null }>;
+      const gid = ce?.detail?.groupId ?? null;
+      setComposePrefillGroupId(gid ? String(gid) : null);
+      setCreatePostOpen(true);
+      // If a launcher stored a sticky flag, clear it now that we've consumed it.
+      clearCreatePostLauncherFlag();
+    };
+    window.addEventListener("matchify-open-create-post", onOpen as EventListener);
+    return () => window.removeEventListener("matchify-open-create-post", onOpen as EventListener);
+  }, []);
+
+  useEffect(() => {
+    // Support "launcher" routes that navigate away then back (event may fire before we mount).
+    try {
+      const raw = sessionStorage.getItem("matchify_open_create_post");
+      if (!raw) return;
+      sessionStorage.removeItem("matchify_open_create_post");
+      const parsed = JSON.parse(raw) as { groupId?: string | null };
+      const gid = parsed?.groupId ? String(parsed.groupId) : null;
+      setComposePrefillGroupId(gid);
+      setCreatePostOpen(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const onboardingLikes = parseInt(localStorage.getItem(ONBOARDING_KEY) || '0', 10);
   const [likedCount, setLikedCount] = useState(onboardingLikes);
@@ -144,7 +183,8 @@ export default function Community() {
   );
 
   const { data: stories = [], isLoading: storiesLoading } = useQuery<Story[]>({
-    queryKey: ["/api/stories"],
+    queryKey: [`/api/stories?viewerId=${encodeURIComponent(currentUserId ?? "")}`],
+    enabled: !!currentUserId,
   });
 
   const storyRings = useMemo(() => groupStoriesIntoRings(stories), [stories]);
@@ -246,7 +286,7 @@ export default function Community() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] pb-28">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
       <Header
         showSearch={true}
         title="Explore"
@@ -263,6 +303,12 @@ export default function Community() {
           }
         }}
         onNotifications={() => setLocation("/notifications")}
+        onCreate={() => {
+          setComposePrefillGroupId(null);
+          // Header sets a launcher flag for route-based flows; clear it for in-place open so refresh doesn't auto-open.
+          clearCreatePostLauncherFlag();
+          setCreatePostOpen(true);
+        }}
         onSettings={() => setLocation("/profile")}
         onLogout={logout}
       />
@@ -283,19 +329,19 @@ export default function Community() {
         </div>
 
         {!aiMatchmakerComplete && (
-              <div className="mx-4 mt-3 rounded-2xl border-2 border-amber-400/80 bg-amber-50 p-4 shadow-sm flex items-start gap-3">
+              <div className="mx-4 mt-3 rounded-2xl border border-amber-400/60 bg-amber-50/70 p-4 shadow-2xs flex items-start gap-3 backdrop-blur-md">
                 <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
                   <AlertCircle className="w-5 h-5 text-amber-700" aria-hidden />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm text-amber-950 mb-0.5">Finish AI Matchmaker to see matches</p>
+                  <p className="font-semibold text-sm text-amber-950 mb-0.5">Finish AI Matchmaker to see matches</p>
                   <p className="text-xs text-amber-900/85 mb-2 leading-relaxed">
                     Complete all 30 questions to unlock Discover matches and AI scores.
                   </p>
                   <button
                     type="button"
                     onClick={() => setLocation("/ai-matchmaker/flow-b")}
-                    className="flex items-center gap-1.5 bg-primary text-primary-foreground rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm"
+                    className="flex items-center gap-1.5 bg-primary text-primary-foreground rounded-xl px-3 py-1.5 text-xs font-semibold shadow-2xs"
                   >
                     <Sparkles className="w-3 h-3" aria-hidden />
                     Continue
@@ -305,7 +351,7 @@ export default function Community() {
               </div>
             )}
 
-            <div className="mx-4 mt-3 overflow-hidden rounded-[20px] border border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+            <div className="mx-4 mt-3 overflow-hidden rounded-[20px] matchify-surface">
               <div
                 className="overflow-x-auto scroll-smooth scrollbar-hide px-4 py-3"
                 aria-label="Stories"
@@ -390,6 +436,7 @@ export default function Community() {
                       }}
                       content={post.content}
                       image={postDisplayImageUrl(post)}
+                      detailHref={`/community/post/${encodeURIComponent(post.id)}`}
                       likes={post.likes ?? post.likesCount ?? 0}
                       comments={post.comments ?? post.commentsCount ?? 0}
                       firstComment={post.firstComment ?? null}
@@ -411,23 +458,6 @@ export default function Community() {
             </div>
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-[5.5rem] z-30 flex justify-center sm:bottom-[5.75rem]">
-        <div className="flex w-full max-w-lg justify-end px-4">
-          <motion.button
-            type="button"
-            layout
-            transition={{ type: "spring", stiffness: 420, damping: 32 }}
-            className={cn(
-              "pointer-events-auto flex items-center justify-center overflow-hidden rounded-full border border-stone-200/80 bg-white p-3 text-sm font-semibold text-stone-900 shadow-[0_12px_40px_-16px_rgba(15,23,42,0.35)]",
-            )}
-            onClick={() => setLocation("/community/create-post")}
-            aria-label="Create post"
-          >
-            <PenSquare className="h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
-          </motion.button>
-        </div>
-      </div>
-
       <BottomNav active={activePage} onNavigate={setActivePage} />
 
       {storyViewer && (
@@ -445,6 +475,23 @@ export default function Community() {
         onOpenChange={setCreateStoryOpen}
         userId={currentUserId}
       />
+
+      {currentUserId ? (
+        <CreatePostDialog
+          open={createPostOpen}
+          onOpenChange={(o) => {
+            setCreatePostOpen(o);
+            if (!o) {
+              setComposePrefillGroupId(null);
+              // Ensure refresh doesn't re-open after the user explicitly closed.
+              clearCreatePostLauncherFlag();
+            }
+          }}
+          userId={currentUserId}
+          groupId={composePrefillGroupId}
+          groupName={null}
+        />
+      ) : null}
     </div>
   );
 }

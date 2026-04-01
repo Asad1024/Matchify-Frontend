@@ -68,7 +68,7 @@ export default function CreateEvent() {
   // Redirect if not logged in
   if (!currentUserId) {
     return (
-      <div className="min-h-screen bg-background pb-24">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
         <Header
           showSearch={false}
           unreadNotifications={0}
@@ -78,7 +78,7 @@ export default function CreateEvent() {
           onLogout={logout}
         />
         <div className="mx-auto max-w-lg px-4 pb-6 pt-2">
-          <Card>
+          <Card className="matchify-surface rounded-[24px] border-white/0 bg-card/70">
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground mb-4">You must be logged in to create an event.</p>
               <Button onClick={() => setLocation('/login')}>Go to Login</Button>
@@ -332,7 +332,7 @@ export default function CreateEvent() {
 
   if (editEventId && loadingExistingEvent) {
     return (
-      <div className="min-h-screen bg-background pb-24">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
         <Header
           showSearch={false}
           unreadNotifications={0}
@@ -350,7 +350,7 @@ export default function CreateEvent() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
       <Header
         showSearch={false}
         unreadNotifications={0}
@@ -364,12 +364,12 @@ export default function CreateEvent() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mx-auto w-full min-w-0 max-w-lg px-4 pb-6 pt-2"
+        className="mx-auto w-full min-w-0 max-w-lg px-3 pb-6 pt-2"
       >
         <Button
           variant="ghost"
           onClick={() => setLocation(eventsBackPath)}
-          className="mb-4 -ml-2"
+          className="mb-3 -ml-2 h-10 px-2 text-slate-700 hover:bg-slate-900/[0.03]"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           {fromAdmin
@@ -379,8 +379,8 @@ export default function CreateEvent() {
               : "Back to Events"}
         </Button>
 
-        <Card className="overflow-hidden rounded-2xl border border-gray-100/80 bg-white shadow-sm">
-          <CardHeader className="space-y-1 border-b border-gray-100/80 pb-4">
+        <Card className="matchify-surface overflow-hidden border-white/0 bg-card/70">
+          <CardHeader className="space-y-1 border-b border-border/70 pb-4">
             <CardTitle className="font-display text-xl sm:text-2xl">
               {editEventId ? "Edit Event" : fromAdmin ? "Create Event (Admin)" : "Create New Event"}
             </CardTitle>
@@ -511,8 +511,8 @@ export default function CreateEvent() {
               </div>
 
               {/* Cover image: upload + preview (same flow as posts) */}
-              <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4">
-                <Label className="text-sm font-medium">Cover image (optional)</Label>
+              <div className="space-y-3 rounded-[22px] border border-stone-200 bg-stone-50/70 p-4">
+                <Label className="text-sm font-semibold text-slate-900">Cover image (optional)</Label>
                 <input
                   ref={imageFileRef}
                   type="file"
@@ -526,7 +526,7 @@ export default function CreateEvent() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="rounded-full"
+                    className="rounded-full border-stone-200 bg-white"
                     disabled={uploadingImage || saveEventMutation.isPending}
                     onClick={handlePickEventImage}
                   >
@@ -561,7 +561,7 @@ export default function CreateEvent() {
                   className="rounded-xl"
                 />
                 {formData.image.trim() ? (
-                  <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
+                  <div className="overflow-hidden rounded-[18px] border border-stone-200 bg-white">
                     <img
                       src={formData.image.trim()}
                       alt=""
@@ -572,7 +572,7 @@ export default function CreateEvent() {
               </div>
 
               {/* Questionnaire when RSVP */}
-              <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <div className="space-y-4 rounded-[22px] border border-primary/15 bg-gradient-to-br from-primary/[0.08] via-white to-white p-4">
                 <div className="flex items-center gap-3">
                   <ClipboardList className="w-5 h-5 text-primary shrink-0" />
                   <div className="flex-1">
@@ -597,7 +597,7 @@ export default function CreateEvent() {
                     {formData.questionnaireQuestions.map((q, index) => (
                       <div
                         key={q.id}
-                        className="space-y-2 rounded-xl border border-border/80 bg-background p-4 shadow-sm"
+                        className="space-y-2 rounded-[22px] border border-stone-200 bg-white p-4 shadow-sm"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs text-muted-foreground font-medium">Question {index + 1}</span>
@@ -655,7 +655,7 @@ export default function CreateEvent() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="w-full"
+                      className="w-full rounded-full border-stone-200 bg-white"
                       onClick={() => {
                         const id = `q${Date.now()}`;
                         setFormData({
@@ -675,19 +675,19 @@ export default function CreateEvent() {
               </div>
 
               {/* Submit */}
-              <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:gap-4">
+              <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:gap-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setLocation(eventsBackPath)}
-                  className="h-11 flex-1 rounded-xl"
+                  className="h-11 flex-1 rounded-full border-stone-200 bg-white font-semibold"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={saveEventMutation.isPending || uploadingImage}
-                  className="h-11 flex-1 rounded-xl font-semibold"
+                  className="h-11 flex-1 rounded-full font-semibold"
                 >
                   {saveEventMutation.isPending
                     ? editEventId

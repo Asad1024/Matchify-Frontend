@@ -57,6 +57,32 @@ export default function GroupCreatePostPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // This route is now a "modal launcher".
+    // It immediately navigates back to the underlying page and lets that page open the composer dialog
+    // so the user sees the previous screen blurred behind.
+    const target = matchGroup && routeGroupId ? `/group/${routeGroupId}` : "/community";
+    try {
+      sessionStorage.setItem(
+        "matchify_open_create_post",
+        JSON.stringify({ groupId: matchGroup ? routeGroupId : null }),
+      );
+    } catch {
+      /* ignore */
+    }
+    try {
+      window.dispatchEvent(
+        new CustomEvent("matchify-open-create-post", {
+          detail: { groupId: matchGroup ? routeGroupId : null, from: isCommunityComposer ? "community" : "group" },
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
+    setLocation(target);
+    return;
+  }, [isCommunityComposer, matchGroup, routeGroupId, setLocation]);
+
+  useEffect(() => {
     if (isCommunityComposer) {
       setSelectedGroupId("");
       return;
@@ -231,7 +257,7 @@ export default function GroupCreatePostPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] pb-28">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
       {/* Expressive Canvas backdrop */}
       <div
         className="fixed inset-0 z-50 bg-black/30 backdrop-blur-md"
@@ -241,7 +267,7 @@ export default function GroupCreatePostPage() {
 
       <div className="fixed inset-0 z-[55] flex items-start justify-center overflow-y-auto px-4 pb-24 pt-[max(1rem,env(safe-area-inset-top))]">
         <div
-          className="w-full max-w-lg overflow-hidden rounded-[28px] border border-[#F0F0F0] bg-white shadow-[0_18px_60px_-28px_rgba(15,23,42,0.55)]"
+          className="w-full max-w-lg overflow-hidden rounded-[28px] border border-border/70 bg-card/85 shadow-xl backdrop-blur-xl"
           style={{ transitionTimingFunction: "cubic-bezier(0.22,1,0.36,1)" }}
         >
           {/* Header */}
@@ -275,7 +301,7 @@ export default function GroupCreatePostPage() {
                 className={cn(
                   "inline-flex h-9 items-center justify-center rounded-full px-4 text-[12px] font-bold transition",
                   canPost
-                    ? "bg-gradient-to-br from-[#722F37] to-[#8B2942] text-white shadow-[0_10px_30px_-14px_rgba(15,23,42,0.35)] hover:brightness-[0.98] active:scale-[0.99]"
+                    ? "bg-primary text-primary-foreground shadow-2xs hover:brightness-[0.98]"
                     : "bg-slate-100 text-slate-400",
                 )}
                 style={{ transitionTimingFunction: "cubic-bezier(0.22,1,0.36,1)" }}
@@ -289,7 +315,7 @@ export default function GroupCreatePostPage() {
           <div className="space-y-4 px-4 pb-5 pt-4 sm:px-5">
             {/* Avatar + compact group selector */}
             <div className="flex w-full items-center gap-2">
-              <Avatar className="h-10 w-10 shrink-0 border-2 border-white bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.25)]">
+              <Avatar className="h-10 w-10 shrink-0 border border-border/70 bg-white shadow-2xs">
                 <AvatarImage src={me?.avatar || undefined} alt="" />
                 <AvatarFallback className="bg-white text-[10px] font-bold text-primary">
                   {(me?.name || "Me").slice(0, 2).toUpperCase()}
@@ -302,8 +328,8 @@ export default function GroupCreatePostPage() {
                     type="button"
                     className={cn(
                       "flex h-9 w-auto max-w-[12.5rem] min-w-0 items-center gap-2 rounded-full px-3 text-left text-[12px] font-semibold outline-none transition",
-                      "bg-[#F4F4F7] text-slate-700 hover:bg-[#ECECF2]",
-                      "focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white",
+                      "bg-card/70 text-slate-700 shadow-2xs ring-1 ring-border/70 hover:bg-card",
+                      "focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     )}
                   >
                     <UsersRound className="h-4 w-4 shrink-0 text-slate-600" strokeWidth={1.75} aria-hidden />

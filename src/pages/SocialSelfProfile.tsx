@@ -14,10 +14,7 @@ import {
   Heart,
   Bookmark,
   SlidersHorizontal,
-  Eye,
   Pencil,
-  Instagram,
-  Linkedin,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -99,12 +96,12 @@ function SmoothEmpty({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className="rounded-3xl border border-stone-100/90 bg-gradient-to-b from-white via-white to-stone-50/90 px-6 py-14 text-center shadow-[0_10px_40px_-20px_rgba(15,23,42,0.12)]"
+      className="matchify-surface rounded-3xl px-6 py-14 text-center"
     >
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/[0.08] text-primary shadow-inner shadow-stone-200/40">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/[0.08] text-primary shadow-2xs">
         <Icon className="h-7 w-7" strokeWidth={1.75} />
       </div>
-      <p className="font-display text-base font-bold tracking-tight text-stone-900">{title}</p>
+      <p className="font-display text-base font-medium tracking-tight text-foreground">{title}</p>
       <p className="mt-2 text-sm leading-relaxed text-stone-500">{subtitle}</p>
     </motion.div>
   );
@@ -372,7 +369,7 @@ export default function SocialSelfProfile() {
 
   if (!userId || isLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center pb-24">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] flex flex-col items-center justify-center pb-24">
         <LoadingState message="Loading profile…" showMascot />
         <BottomNav active="menu" onNavigate={() => {}} />
       </div>
@@ -380,10 +377,10 @@ export default function SocialSelfProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] pb-28">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
       <GlobalSearch />
 
-      <div className="sticky top-0 z-40 border-b border-stone-100/80 bg-white/90 shadow-[0_4px_24px_-8px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 shadow-2xs backdrop-blur-xl">
         <div className="mx-auto w-full max-w-lg px-3 py-2 pt-[max(0.35rem,env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-2">
             <Button
@@ -423,153 +420,87 @@ export default function SocialSelfProfile() {
       </div>
 
       <div className="mx-auto w-full max-w-lg">
-        {/* Cover + identity */}
-        <div className="px-4 pt-4">
-          <div className="relative overflow-hidden rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]">
-            <div className="relative h-44 w-full overflow-hidden">
-              {socialGallery[0] ? (
-                <img src={socialGallery[0]} alt="" className="absolute inset-0 h-full w-full object-cover" />
-              ) : (
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(114,47,55,0.18),transparent_45%),radial-gradient(circle_at_85%_18%,rgba(236,72,153,0.12),transparent_42%),radial-gradient(circle_at_40%_90%,rgba(248,113,113,0.12),transparent_48%)]" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />
-            </div>
+        <div className="px-3 pt-2">
+          <div className="matchify-surface p-5">
+            <div className="flex flex-col items-center text-center">
+              <Avatar className="h-24 w-24 border-[3px] border-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.28)] ring-1 ring-black/[0.04]">
+                <AvatarImage src={user.avatar || undefined} alt="" className="object-cover" />
+                <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-2xl font-semibold text-primary">
+                  {user.name?.slice(0, 2).toUpperCase() || "?"}
+                </AvatarFallback>
+              </Avatar>
 
-            <div className="relative px-4 pb-4">
-              <div className="-mt-10 flex items-end gap-4">
-                <div className="shrink-0">
-                  <div className="rounded-full bg-white p-1 shadow-[0_18px_60px_-28px_rgba(15,23,42,0.35)]">
-                    <Avatar className="h-20 w-20 border-4 border-white sm:h-24 sm:w-24">
-                      <AvatarImage src={user.avatar || undefined} alt="" className="object-cover" />
-                      <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-2xl font-semibold text-primary">
-                        {user.name?.slice(0, 2).toUpperCase() || "?"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1 pb-1">
-                  <h1 className="truncate font-display text-[24px] font-extrabold leading-tight text-slate-900">
-                    {user.name}
-                  </h1>
-                  <p className="mt-0.5 truncate text-[14px] font-medium text-slate-500">@{user.username}</p>
-                </div>
-              </div>
+              <h1 className="mt-4 truncate font-display text-[22px] font-bold leading-tight text-foreground">
+                {user.name}
+              </h1>
+              <p className="mt-1 truncate text-[13px] font-medium text-muted-foreground">@{user.username}</p>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-4 grid w-full grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => openConnections("followers")}
-                  className="rounded-full border border-[#F0F0F0] bg-white/70 px-3 py-2 text-left shadow-sm backdrop-blur-md"
+                  className="rounded-[18px] border border-border/70 bg-card/60 p-3 text-center shadow-2xs"
                 >
-                  <p className="text-[14px] font-extrabold tabular-nums leading-none text-slate-900">
+                  <p className="text-[16px] font-semibold tabular-nums leading-none text-foreground">
                     {statDisplay(followerCount)}
                   </p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                     Followers
                   </p>
                 </button>
                 <button
                   type="button"
                   onClick={() => openConnections("following")}
-                  className="rounded-full border border-[#F0F0F0] bg-white/70 px-3 py-2 text-left shadow-sm backdrop-blur-md"
+                  className="rounded-[18px] border border-border/70 bg-card/60 p-3 text-center shadow-2xs"
                 >
-                  <p className="text-[14px] font-extrabold tabular-nums leading-none text-slate-900">
+                  <p className="text-[16px] font-semibold tabular-nums leading-none text-foreground">
                     {statDisplay(followingCount)}
                   </p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                     Following
                   </p>
                 </button>
-                <div className="rounded-full border border-[#F0F0F0] bg-white/70 px-3 py-2 text-left shadow-sm backdrop-blur-md">
-                  <p className="text-[14px] font-extrabold tabular-nums leading-none text-slate-900">
+                <div className="rounded-[18px] border border-border/70 bg-card/60 p-3 text-center shadow-2xs">
+                  <p className="text-[16px] font-semibold tabular-nums leading-none text-foreground">
                     {socialSummaryLoading ? "–" : String(myPosts.length)}
                   </p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Posts</p>
-                </div>
-              </div>
-
-              <div className="mt-3 space-y-1.5 text-sm text-slate-600">
-                {placeLine ? (
-                  <p className="flex items-start gap-1.5 font-medium text-slate-600">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.75} />
-                    <span className="leading-snug">{placeLine}</span>
+                  <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Posts
                   </p>
-                ) : null}
-                <p className="flex items-start gap-1.5 text-xs text-slate-500">
-                  <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.75} />
-                  <span className="leading-snug">{joinedLabel}</span>
-                </p>
-              </div>
-
-              <div className="mt-4 rounded-full bg-[#F1F2F4] p-1 shadow-[inset_0_1px_4px_rgba(15,23,42,0.06)]">
-                <div className="grid grid-cols-2 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setLocation("/profile/social/edit")}
-                    className="relative h-10 rounded-full text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500 hover:text-slate-800"
-                  >
-                    <span className="relative inline-flex h-full w-full items-center justify-center gap-2">
-                      <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                      Edit
-                    </span>
-                  </button>
-                  <div className="relative h-10 rounded-full text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-900">
-                    <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
-                    <span className="relative inline-flex h-full w-full items-center justify-center gap-2">
-                      <Eye className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                      Preview
-                    </span>
-                  </div>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-2">
-                <button
-                  type="button"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F4F4F7] text-slate-700"
-                  aria-label="Instagram"
-                  title="Instagram"
-                >
-                  <Instagram className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F4F4F7] text-slate-700"
-                  aria-label="X"
-                  title="X"
-                >
-                  <span className="text-[12px] font-black">X</span>
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F4F4F7] text-slate-700"
-                  aria-label="LinkedIn"
-                  title="LinkedIn"
-                >
-                  <Linkedin className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                </button>
-              </div>
+              {placeLine ? (
+                <p className="mt-4 flex items-start gap-1.5 text-sm font-medium text-muted-foreground">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/70" strokeWidth={1.75} />
+                  <span className="leading-snug">{placeLine}</span>
+                </p>
+              ) : null}
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+                <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.75} />
+                <span className="leading-snug">{joinedLabel}</span>
+              </p>
+
+              <Button
+                type="button"
+                className="mt-5 h-11 w-full rounded-full text-[13px] font-semibold"
+                onClick={() => setLocation("/profile/social/edit")}
+              >
+                <Pencil className="mr-2 h-4 w-4" strokeWidth={1.75} aria-hidden />
+                Edit profile
+              </Button>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 space-y-3 px-4">
-          <div className="rounded-[24px] border border-[#F0F0F0] bg-white px-4 py-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">About</p>
-            <p className="mt-2 font-serif text-[15px] leading-[1.7] text-slate-800">
+        <div className="mt-4 space-y-3 px-3">
+          <div className="matchify-surface px-4 py-4 shadow-2xs">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">About</p>
+            <p className="mt-2 text-[15px] leading-[1.7] text-foreground/90">
               {user.bio?.trim() || "Tell the community what you’re about — add a short bio from Edit."}
             </p>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 w-full rounded-full border-[#F0F0F0] bg-white/70 text-[13px] font-semibold text-slate-800 shadow-sm backdrop-blur-md hover:bg-white"
-            onClick={() => setLocation("/settings/social")}
-          >
-            <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" strokeWidth={1.75} />
-            Follows, mutes &amp; blocks
-          </Button>
         </div>
 
         <div className="mt-6 px-4 pb-4">
@@ -694,6 +625,7 @@ export default function SocialSelfProfile() {
                           }}
                           content={post.content}
                           image={postDisplayImageUrl(p)}
+                          detailHref={`/community/post/${encodeURIComponent(post.id)}`}
                           likes={likeN}
                           comments={commentN}
                           likedByMe={p.likedByMe}
@@ -788,11 +720,11 @@ export default function SocialSelfProfile() {
                           }}
                           content={post.content}
                           image={postDisplayImageUrl(p)}
+                          detailHref={detailHref}
                           likes={likeN}
                           comments={commentN}
                           likedByMe={p.likedByMe ?? false}
                           savedByMe
-                          detailHref={detailHref}
                           isFollowingAuthor={followingIds.has(p.userId || "")}
                           firstComment={p.firstComment ?? null}
                           groupId={gid}
@@ -932,6 +864,7 @@ export default function SocialSelfProfile() {
                           }}
                           content={post.content}
                           image={postDisplayImageUrl(p)}
+                          detailHref={`/community/post/${encodeURIComponent(post.id)}`}
                           likes={likeN}
                           comments={commentN}
                           likedByMe={p.likedByMe ?? true}

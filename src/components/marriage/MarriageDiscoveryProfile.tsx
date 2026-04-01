@@ -29,7 +29,8 @@ import {
 import { MuzzMarriageTimeline } from "@/components/muzz/MuzzMarriageTimeline";
 import { getReligionLabel } from "@/lib/religionOptions";
 import { labelAlcohol, labelEthnicity, labelSmoking } from "@/lib/profileDemographics";
-import { getCompliments, setCompliments } from "@/lib/muzzEconomy";
+import { complimentsLeft, consumeCompliment } from "@/lib/entitlements";
+import { useUpgrade } from "@/contexts/UpgradeContext";
 import { addMarriageComplimented } from "@/lib/marriageDeckStore";
 import {
   cancelOutgoingChatRequest,
@@ -223,18 +224,19 @@ export function MarriageDiscoveryProfile({
   onComplimentSent,
 }: Props) {
   const { toast } = useToast();
+  const { tier, requireTier } = useUpgrade();
   const [chatDraft, setChatDraft] = useState("");
   const [congratOpen, setCongratOpen] = useState(false);
-  const [complLeft, setComplLeft] = useState(() => getCompliments());
+  const [complLeft, setComplLeft] = useState(() => complimentsLeft({ userId: viewerId, tier }));
 
   useEffect(() => {
-    setComplLeft(getCompliments());
+    setComplLeft(complimentsLeft({ userId: viewerId, tier }));
     if (outgoing?.status === "approved") {
       setChatDraft(readComplimentDraft(viewerId, user.id));
     } else {
       setChatDraft("");
     }
-  }, [user.id, viewerId, outgoing?.status]);
+  }, [user.id, viewerId, outgoing?.status, tier]);
   const firstName = user.name.split(/\s+/)[0] || user.name;
   const aboutRows = aboutMeRows(user);
   const faithChips = faithChipsFor(user);
@@ -262,20 +264,19 @@ export function MarriageDiscoveryProfile({
       });
       return;
     }
-    const n = getCompliments();
-    if (n < 1) {
-      toast({
-        title: "No compliments left",
-        description: "Open Menu or Subscriptions to get more (demo).",
-        variant: "destructive",
+    const res = consumeCompliment({ userId: viewerId, tier });
+    if (!res.ok) {
+      requireTier({
+        feature: "Compliments",
+        minTier: tier === "free" ? "plus" : "premium",
+        reason: tier === "free" ? "Free plan includes 3 compliments/week." : "You’ve hit this week’s limit on Plus.",
       });
       return;
     }
-    setCompliments(n - 1);
     addMarriageComplimented(user.id);
     await createComplimentChatRequest(viewerId, viewerName, user.id, user.name, trimmed);
     persistComplimentDraft(viewerId, user.id, trimmed);
-    setComplLeft(getCompliments());
+    setComplLeft(res.left);
     setChatDraft("");
     setCongratOpen(true);
     onComplimentSent?.();
@@ -365,7 +366,7 @@ export function MarriageDiscoveryProfile({
             <AlertDialogFooter className="relative z-[1] mt-6 flex-col gap-2 sm:flex-col">
               <Button
                 type="button"
-                className="w-full rounded-xl font-bold shadow-md shadow-primary/20"
+                className="w-full rounded-xl font-semibold shadow-2xs"
                 onClick={() => {
                   setCongratOpen(false);
                   onExploreNext();
@@ -384,7 +385,7 @@ export function MarriageDiscoveryProfile({
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
         {/* Compact header: small photo + modern pills */}
-        <Card className="overflow-hidden border-[#F0F0F0] bg-white shadow-[0_10px_40px_-26px_rgba(15,23,42,0.35)]">
+        <Card className="matchify-surface overflow-hidden border-white/0 bg-card/70 shadow-lg">
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-start gap-3">
               <div className="relative h-[96px] w-[78px] shrink-0 overflow-hidden rounded-2xl border border-stone-200 bg-stone-100 shadow-sm">
@@ -404,12 +405,12 @@ export function MarriageDiscoveryProfile({
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="min-w-0 truncate font-display text-[18px] font-extrabold leading-tight tracking-[0.2px] text-slate-900">
+                  <h1 className="min-w-0 truncate font-display text-[18px] font-bold leading-tight tracking-[0.2px] text-slate-900">
                     {user.name}
                     {user.age != null ? `, ${user.age}` : ""}
                   </h1>
                   {user.verified ? (
-                    <span className="inline-flex items-center justify-center rounded-full bg-sky-50 px-2 py-1 text-[11px] font-bold text-sky-700 ring-1 ring-sky-200">
+                    <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary ring-1 ring-primary/15">
                       <BadgeCheck className="mr-1 h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                       Verified
                     </span>
@@ -417,7 +418,7 @@ export function MarriageDiscoveryProfile({
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center rounded-full bg-[#722F37] px-3 py-1 text-[11px] font-extrabold text-white shadow-sm">
+                  <span className="inline-flex items-center rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-white shadow-2xs">
                     {compatibilityScore}% match
                   </span>
                   {user.location ? (
@@ -449,10 +450,10 @@ export function MarriageDiscoveryProfile({
         </Card>
 
         {sharedInterests.length > 0 ? (
-          <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+          <Card className="matchify-surface border-white/0 bg-card/70 shadow-2xs">
             <CardContent className="p-4 sm:p-5">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-[11px] font-bold text-rose-800 ring-1 ring-rose-200">
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary ring-1 ring-primary/15">
                   Common ground
                 </span>
                 {sharedInterests.slice(0, 10).map((interest) => {
@@ -460,10 +461,10 @@ export function MarriageDiscoveryProfile({
                   return (
                     <span
                       key={interest}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-800 shadow-2xs"
                       title={interest}
                     >
-                      <Icon className="h-4 w-4 text-[#722F37]" strokeWidth={1.75} aria-hidden />
+                      <Icon className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden />
                       <span className="max-w-[14rem] truncate">{interest}</span>
                     </span>
                   );
@@ -473,11 +474,11 @@ export function MarriageDiscoveryProfile({
           </Card>
         ) : null}
 
-        <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+        <Card className="matchify-surface border-white/0 bg-card/70 shadow-2xs">
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-display text-base font-semibold text-slate-900">Marriage intention</h3>
-              <span className="rounded-full bg-[#722F37]/10 px-3 py-1 text-[11px] font-bold text-[#722F37]">
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
                 {firstName}
               </span>
             </div>
@@ -493,7 +494,7 @@ export function MarriageDiscoveryProfile({
           </CardContent>
         </Card>
 
-        <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+        <Card className="matchify-surface border-white/0 bg-card/70 shadow-2xs">
           <CardContent className="p-4 sm:p-5">
             <h3 className="mb-3 font-display text-base font-semibold text-slate-900">Heritage &amp; values</h3>
 
@@ -506,7 +507,7 @@ export function MarriageDiscoveryProfile({
                   {faithChips.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm"
+                      className="inline-flex rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-800 shadow-2xs"
                     >
                       {tag}
                     </span>
@@ -523,7 +524,7 @@ export function MarriageDiscoveryProfile({
                   {languageList.map((lang) => (
                     <span
                       key={lang}
-                      className="inline-flex rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 shadow-sm"
+                      className="inline-flex rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-700 shadow-2xs"
                     >
                       {lang}
                     </span>
@@ -544,7 +545,7 @@ export function MarriageDiscoveryProfile({
                   ].map((row) => (
                     <span
                       key={row.k}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-800 shadow-2xs"
                     >
                       <span className="text-slate-500">{row.k}</span>
                       <span className="text-slate-300" aria-hidden>
@@ -560,14 +561,14 @@ export function MarriageDiscoveryProfile({
         </Card>
 
         {user.interests && user.interests.length > 0 ? (
-          <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+          <Card className="matchify-surface border-white/0 bg-card/70 shadow-2xs">
             <CardContent className="p-4 sm:p-6">
               <h2 className="mb-3 font-display text-base font-semibold text-slate-900">Interests</h2>
               <div className="flex flex-wrap gap-2">
                 {user.interests.map((interest) => (
                   <span
                     key={interest}
-                    className="inline-flex items-center rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 shadow-sm transition hover:-translate-y-[1px] hover:bg-primary/5 hover:text-primary"
+                    className="inline-flex items-center rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-700 shadow-2xs transition-colors hover:bg-primary/10 hover:text-primary"
                     title={interest}
                   >
                     {interest}
@@ -581,17 +582,17 @@ export function MarriageDiscoveryProfile({
         {/* Bio shown in header (keep page compact). */}
 
         {/* Connect: compliment → share → Fav / Block / Report (Pass / Like: fixed bar below) */}
-        <Card className="border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] ring-1 ring-black/[0.03]">
+        <Card className="matchify-surface border-white/0 bg-card/70 shadow-2xs ring-1 ring-border/70">
           <CardContent className="space-y-4 p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Badge className="rounded-full bg-[#722F37] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-sm">
+                <Badge className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white shadow-2xs">
                   Connect
                 </Badge>
                 <span className="text-sm font-semibold text-slate-900">Start a conversation</span>
               </div>
-              <span className="inline-flex items-center rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-[11px] font-semibold text-slate-700">
-                Compliments left: <span className="ml-1 font-extrabold text-[#722F37] tabular-nums">{complLeft}</span>
+              <span className="inline-flex items-center rounded-full border border-border/70 bg-card/60 px-3 py-1 text-[11px] font-semibold text-slate-700">
+                Compliments left: <span className="ml-1 font-bold text-primary tabular-nums">{complLeft}</span>
               </span>
             </div>
             {pendingRequest ? (
@@ -616,7 +617,7 @@ export function MarriageDiscoveryProfile({
                 <p className="text-sm font-medium text-emerald-800">
                   {firstName} accepted your chat request. Your saved message can go with you to Chat.
                 </p>
-                <div className="rounded-[24px] border border-[#F0F0F0] bg-[#F4F4F7] px-4 py-3">
+                <div className="rounded-[24px] border border-border/70 bg-card/60 px-4 py-3 shadow-2xs">
                   <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Message
                   </label>
@@ -651,7 +652,7 @@ export function MarriageDiscoveryProfile({
                     <h3 className="font-display text-base font-bold leading-snug text-stone-900 sm:text-lg">
                       Don&apos;t wait — chat with {firstName} now
                     </h3>
-                    <div className="rounded-[24px] border border-[#F0F0F0] bg-[#F4F4F7] px-4 py-3">
+                    <div className="rounded-[24px] border border-border/70 bg-card/60 px-4 py-3 shadow-2xs">
                       <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                         Chat now
                       </label>
@@ -670,7 +671,7 @@ export function MarriageDiscoveryProfile({
                     </div>
                     <Button
                       type="button"
-                      className="h-[30px] w-full rounded-full bg-gradient-to-br from-[#722F37] to-[#8B2942] text-[12px] font-bold text-white shadow-[0_10px_30px_-14px_rgba(15,23,42,0.35)] hover:brightness-[0.98]"
+                      className="h-[30px] w-full rounded-full bg-primary text-[12px] font-semibold text-white shadow-2xs hover:brightness-[0.98]"
                       disabled={complLeft < 1 || !chatDraft.trim()}
                       onClick={submitComplimentMessage}
                     >
@@ -714,7 +715,7 @@ export function MarriageDiscoveryProfile({
                 title="Block"
                 aria-label="Block"
                 className={cn(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#F0F0F0] bg-white text-slate-700 shadow-sm transition hover:bg-slate-900/[0.03]",
+                  "inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/60 text-slate-700 shadow-2xs transition-colors hover:bg-card",
                 )}
               >
                 <Ban className="h-5 w-5" strokeWidth={1.75} aria-hidden />
@@ -724,7 +725,7 @@ export function MarriageDiscoveryProfile({
                 onClick={onReport}
                 title="Report"
                 aria-label="Report"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#F0F0F0] bg-white text-slate-700 shadow-sm transition hover:bg-slate-900/[0.03]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/60 text-slate-700 shadow-2xs transition-colors hover:bg-card"
               >
                 <Flag className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               </button>
@@ -739,7 +740,7 @@ export function MarriageDiscoveryProfile({
         role="toolbar"
         aria-label="Pass or like this profile"
       >
-        <div className="pointer-events-auto mx-auto max-w-[600px] px-20 pb-[calc(env(safe-area-inset-bottom)+5.3rem)] pt-1.5">
+        <div className="pointer-events-auto mx-auto max-w-[600px] px-20 pb-[calc(env(safe-area-inset-bottom)+6.1rem)] pt-0">
           <div className="flex w-full items-center justify-between">
             <button
               type="button"
@@ -753,7 +754,7 @@ export function MarriageDiscoveryProfile({
               type="button"
               aria-label="Like"
               onClick={onLike}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#722F37] text-white shadow-md shadow-[#722F37]/30 transition-all hover:bg-[#652a31] active:scale-95"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-lg transition-all hover:brightness-[0.98] active:scale-95"
             >
               <Check className="h-5 w-5" strokeWidth={2.6} />
             </button>

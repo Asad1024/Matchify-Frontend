@@ -298,7 +298,7 @@ export default function SelfDiscoveryFlow({ userId, onComplete }: SelfDiscoveryF
                 >
                   <Star className="w-12 h-12 text-amber-400 fill-amber-300 mx-auto mb-3" />
                 </motion.div>
-                <h2 className="text-xl font-black text-foreground">Your AI Matchmaker Profile</h2>
+                <h2 className="text-xl font-bold text-foreground">Your AI Matchmaker Profile</h2>
                 <p className="text-sm text-muted-foreground mt-1">Here's what we learned about you.</p>
               </div>
 

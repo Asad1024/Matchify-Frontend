@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
@@ -17,11 +17,11 @@ import {
   AlertCircle,
   Users,
   Compass,
-  CheckCircle,
   Heart,
   MessageCircle,
   UserRound,
 } from "lucide-react";
+import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +31,9 @@ import type { User } from "@shared/schema";
 import { getAIMatches } from "@/services/aiMatchmaker.service";
 import type { AIMatch } from "@/services/aiMatchmaker.service";
 import { LayoutGroup, motion } from "framer-motion";
+import { buildApiUrl } from "@/services/api";
+import { useUpgrade } from "@/contexts/UpgradeContext";
+import { cn } from "@/lib/utils";
 
 type Profile = {
   id: string;
@@ -80,114 +83,105 @@ function cityCountryFromLocation(location: string | null | undefined): { city: s
   return { city: parts[0], country: parts[parts.length - 1] };
 }
 
+function formatCardTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
 function DiscoverCard({
   profile,
   compatibility,
+  liked,
   onViewProfile,
   onLike,
   onMessage,
 }: {
   profile: Profile;
   compatibility: number;
+  liked: boolean;
   onViewProfile: (id: string) => void;
   onLike: (id: string) => void;
   onMessage: (id: string) => void;
 }) {
-  const { city, country } = cityCountryFromLocation(profile.location);
+  const time = formatCardTime(profile.createdAt);
+  const locationLabel = profile.location?.trim() || "—";
   return (
-    <div className="overflow-hidden rounded-[28px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]">
-      <button
-        type="button"
-        className="group relative block aspect-[3/4] w-full text-left"
-        onClick={() => onViewProfile(profile.id)}
-      >
-        {profile.avatar ? (
-          <>
-            <div
-              className="absolute inset-0 scale-110 bg-cover bg-center opacity-90 blur-md"
-              style={{ backgroundImage: `url(${profile.avatar})` }}
-            />
-            <img
-              src={profile.avatar}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              loading="lazy"
-            />
-          </>
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-stone-300 to-stone-200" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-black/10" />
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onViewProfile(profile.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onViewProfile(profile.id);
+      }}
+      className="group relative aspect-[3/4] w-full min-h-0 cursor-pointer overflow-hidden rounded-[24px] border bg-muted text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+      style={{ borderColor: "hsl(var(--surface-border))" }}
+    >
+      {profile.avatar ? (
+        <img
+          src={profile.avatar}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-stone-300 to-stone-200" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" />
 
-        {/* Match % as glass badge */}
-        <span className="absolute right-3 top-3 inline-flex items-center rounded-full border border-white/35 bg-white/20 px-3 py-1 text-[11px] font-bold tracking-wide text-white shadow-sm backdrop-blur-md">
+      <div className="absolute left-3 right-3 top-3 flex items-start justify-between gap-2">
+        <span className="matchify-pill-active px-3 py-1.5 text-[11px] font-semibold shadow-sm backdrop-blur-lg">
           {compatibility}%
         </span>
 
-        {/* Bottom info overlay */}
-        <div className="absolute bottom-0 left-0 right-0 space-y-1 px-4 pb-14 pt-16">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="truncate font-display text-[16px] font-extrabold leading-tight text-white tracking-[0.2px]">
-              {profile.name}
-              {profile.age != null ? `, ${profile.age}` : ""}
-            </span>
-            {profile.verified ? <CheckCircle className="h-4 w-4 shrink-0 text-sky-200" /> : null}
-          </div>
-          <div className="truncate text-[12px] font-medium text-white/85">
-            {profile.career?.trim() || "—"}
-          </div>
-          <div className="truncate text-[12px] font-medium text-white/80">
-            {city !== "—" ? city : country}
-            {city !== "—" && country !== "—" ? ` · ${country}` : ""}
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onLike(profile.id);
+            }}
+            className="matchify-pill-active inline-flex items-center justify-center p-2.5 shadow-sm backdrop-blur-lg transition hover:brightness-[1.02]"
+            aria-label="Like"
+            title="Like"
+          >
+            <Heart
+              className="h-4.5 w-4.5 text-white"
+              fill={liked ? "currentColor" : "none"}
+              strokeWidth={2}
+              aria-hidden
+            />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMessage(profile.id);
+            }}
+            className="matchify-pill-active inline-flex items-center justify-center p-2.5 shadow-sm backdrop-blur-lg transition hover:brightness-[1.02]"
+            aria-label="Message"
+            title="Message"
+          >
+            <MessageCircle className="h-4.5 w-4.5 text-white" strokeWidth={2} aria-hidden />
+          </button>
         </div>
+      </div>
 
-        {/* Action bar (glass) */}
-        <div className="absolute inset-x-3 bottom-3 pointer-events-none">
-          <div className="pointer-events-auto grid grid-cols-3 gap-2 rounded-full border border-white/30 bg-white/15 p-1.5 shadow-[0_18px_60px_-28px_rgba(0,0,0,0.55)] backdrop-blur-md">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onLike(profile.id);
-              }}
-              className="group/act inline-flex h-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
-              aria-label="Like"
-              title="Like"
-            >
-              <Heart
-                className="h-5 w-5 text-white transition group-hover/act:fill-primary group-hover/act:text-primary"
-                strokeWidth={1.75}
-                aria-hidden
-              />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMessage(profile.id);
-              }}
-              className="group/act inline-flex h-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
-              aria-label="Message"
-              title="Message"
-            >
-              <MessageCircle className="h-5 w-5 text-white/95 transition group-hover/act:text-white" strokeWidth={1.75} aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewProfile(profile.id);
-              }}
-              className="group/act inline-flex h-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
-              aria-label="View profile"
-              title="View profile"
-            >
-              <UserRound className="h-5 w-5 text-white" strokeWidth={1.75} aria-hidden />
-            </button>
-          </div>
+      <div className="absolute bottom-0 left-0 right-0 space-y-1 px-3 pb-3 pt-14">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="truncate text-[15px] font-semibold leading-tight text-white tracking-[0.2px]">
+            {profile.name}
+            {profile.age != null ? `, ${profile.age}` : ""}
+          </span>
+          {profile.verified ? <VerifiedTick size="md" className="translate-y-[0.5px]" /> : null}
         </div>
-      </button>
+        <div className="flex items-center gap-1.5 text-[12px] font-medium text-white/85">
+          <span className="truncate">{locationLabel}</span>
+        </div>
+        <div className="text-[10px] font-medium text-white/65 tabular-nums">{time}</div>
+      </div>
     </div>
   );
 }
@@ -196,20 +190,27 @@ export default function Directory() {
   const [activePage, setActivePage] = useState('explore');
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
+  const { tier, requireTier } = useUpgrade();
   const { logout } = useAuth();
   const { toast } = useToast();
   const [showMatchReveal, setShowMatchReveal] = useState(false);
   const [currentMatch, setCurrentMatch] = useState<UnrevealedMatch | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [discoverTab, setDiscoverTab] = useState<"browse" | "curated">("browse");
+  const lastPeopleCardLikeAtMs = useRef<number>(0);
+  const [likedProfileIds, setLikedProfileIds] = useState<string[]>([]);
 
   const applyDiscoverTab = useCallback((t: "browse" | "curated") => {
+    if (t === "curated" && tier === "free") {
+      requireTier({ feature: "Curated picks", minTier: "plus", reason: "Free plan doesn’t include AI picks." });
+      return;
+    }
     setDiscoverTab(t);
     const url = new URL(window.location.href);
     if (t === "curated") url.searchParams.set("tab", "curated");
     else url.searchParams.delete("tab");
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }, []);
+  }, [requireTier, tier]);
 
   // Filter states
   const [ageRange, setAgeRange] = useState<[number, number]>([18, 100]);
@@ -231,6 +232,9 @@ export default function Directory() {
 
   useEffect(() => {
     if (unrevealedMatches.length > 0 && !showMatchReveal) {
+      // If the user tapped Like on a People card, we still create the same "profile like",
+      // but we intentionally avoid interrupting them with the Match Reveal modal.
+      if (Date.now() - lastPeopleCardLikeAtMs.current < 2500) return;
       setCurrentMatch(unrevealedMatches[0]);
       setShowMatchReveal(true);
     }
@@ -361,11 +365,30 @@ export default function Directory() {
   const latestAiOnly = latestCuratedId ? aiMatchMap.get(latestCuratedId) : undefined;
 
   const handleLikeProfile = (targetId: string) => {
+    lastPeopleCardLikeAtMs.current = Date.now();
+    setLikedProfileIds((prev) => (prev.includes(targetId) ? prev : [...prev, targetId]));
     const compatibility = aiMatchMap.get(targetId)?.compatibility ?? 70;
     likeProfileMutation.mutate({ targetId, compatibility });
   };
   const handleMessageProfile = (targetId: string) => {
-    setLocation(`/chat?user=${encodeURIComponent(targetId)}`);
+    // Send a message request (accept/reject) instead of opening chat immediately.
+    if (!userId) {
+      setLocation(`/chat?user=${encodeURIComponent(targetId)}`);
+      return;
+    }
+    fetch(buildApiUrl(`/api/users/${encodeURIComponent(userId)}/chat-requests`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ toId: targetId, message: "Hey! Want to chat?" }),
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.message || "Could not send request");
+        toast({ title: "Request sent", description: "They’ll get an accept/reject notification." });
+      })
+      .catch((e: any) => {
+        toast({ title: "Could not send request", description: e?.message || "Try again", variant: "destructive" });
+      });
   };
 
   const norm = (v: unknown): string => String(v ?? "").trim().toLowerCase();
@@ -446,14 +469,19 @@ export default function Directory() {
 
   return (
     <PageWrapper>
-    <div className="min-h-screen bg-[#F9FAFB] pb-24">
-      <Header showSearch={true} onLogout={logout} title="People" />
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
+      <Header
+        showSearch={true}
+        onLogout={logout}
+        title="People"
+        subtitle="Browse members and curated picks"
+      />
 
       <div className="max-w-lg mx-auto">
         {/* AI Matchmaker required — no AI matches / full list until 30 questions are finished */}
         {!aiMatchmakerComplete && (
           <div
-            className="mx-4 mt-4 rounded-2xl border-2 border-amber-400/80 bg-amber-50 p-4 shadow-sm"
+            className="mx-4 mt-4 rounded-2xl border border-amber-400/60 bg-amber-50/70 p-4 shadow-2xs"
             role="status"
             data-testid="banner-ai-matchmaker-incomplete"
           >
@@ -470,7 +498,7 @@ export default function Directory() {
                 </p>
                 <Button
                   size="sm"
-                  className="bg-primary text-primary-foreground font-bold rounded-xl h-9 text-xs hover:bg-primary/90 shadow-sm"
+                  className="bg-primary text-primary-foreground font-semibold rounded-xl h-9 text-xs hover:bg-primary/90 shadow-2xs"
                   onClick={() => setLocation("/ai-matchmaker/flow-b")}
                 >
                   <Sparkles className="w-3.5 h-3.5 mr-1.5" />
@@ -484,24 +512,13 @@ export default function Directory() {
 
         {/* AI Match banner */}
         {hasAttractionBlueprint && (
-          <div className="mx-4 mt-3 overflow-hidden rounded-[24px] border border-white/60 bg-gradient-to-br from-[#722F37]/10 via-white/70 to-[#F7D6DE]/60 px-4 py-3 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)] backdrop-blur-md">
+          <div className="mx-4 mt-3 matchify-surface bg-primary/5 px-4 py-3">
             <div className="flex items-center gap-3">
-              <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/50 bg-white/55 shadow-sm backdrop-blur-md">
-                <motion.div
-                  className="absolute inset-0 rounded-full"
-                  animate={{ opacity: [0.15, 0.28, 0.15] }}
-                  transition={{ duration: 2.4, repeat: Infinity, ease: [0.22, 1, 0.36, 1] }}
-                  style={{ background: "radial-gradient(circle at 30% 20%, rgba(114,47,55,0.35), transparent 60%)" }}
-                />
-                <motion.div
-                  animate={{ scale: [1, 1.08, 1], rotate: [0, 6, 0] }}
-                  transition={{ duration: 2.6, repeat: Infinity, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <Sparkles className="h-4 w-4 text-primary drop-shadow-[0_0_12px_rgba(114,47,55,0.28)]" />
-                </motion.div>
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white shadow-2xs ring-1 ring-primary/10">
+                <Sparkles className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800">AI Matchmaker active</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-800">AI Matchmaker active</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
                   Your <span className="font-semibold text-slate-800">timed pick</span> is one person per cycle on the AI
                   Matchmaker home. Here you can browse everyone; compatibility sort still uses AI scores where available.
@@ -513,7 +530,7 @@ export default function Directory() {
 
         {aiMatchmakerComplete && (
           <LayoutGroup id="discover-tabs">
-            <div className="mx-4 mt-3 flex rounded-[24px] border border-[#F0F0F0] bg-white/70 p-1 shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
+            <div className="mx-4 mt-3 matchify-surface flex p-1">
               {(
                 [
                   ["browse", "Browse", Compass],
@@ -524,7 +541,7 @@ export default function Directory() {
                   key={id}
                   type="button"
                   onClick={() => applyDiscoverTab(id)}
-                  className={`relative flex flex-1 items-center justify-center gap-2 rounded-[20px] py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] transition ${
+                  className={`relative flex flex-1 items-center justify-center gap-2 rounded-[20px] py-2.5 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${
                     discoverTab === id ? "text-slate-900" : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
@@ -533,7 +550,7 @@ export default function Directory() {
                   {discoverTab === id ? (
                     <motion.span
                       layoutId="discover-tab-bg"
-                      className="absolute inset-0 -z-10 rounded-[20px] bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]"
+                      className="absolute inset-0 -z-10 rounded-[20px] bg-card/80 shadow-2xs"
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                   ) : null}
@@ -568,6 +585,7 @@ export default function Directory() {
                       key={profile.id}
                       profile={profile}
                       compatibility={aiMatch?.compatibility || 70}
+                      liked={likedProfileIds.includes(profile.id)}
                       onViewProfile={(id) => setLocation(`/profile/${id}`)}
                       onLike={handleLikeProfile}
                       onMessage={handleMessageProfile}
@@ -589,11 +607,12 @@ export default function Directory() {
               <button
                 key={opt.id}
                 onClick={() => setSortBy(opt.id)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition ${
+                className={cn(
+                  "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors",
                   sortBy === opt.id
-                    ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
-                    : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
-                }`}
+                    ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
+                    : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+                )}
               >
                 {sortBy === opt.id && <Check className="w-3 h-3" />}
                 {opt.label}
@@ -605,11 +624,12 @@ export default function Directory() {
               <button
                 key={g}
                 onClick={() => setSelectedGender(selectedGender === g ? 'all' : g)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition capitalize ${
+                className={cn(
+                  "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors capitalize",
                   selectedGender === g
-                    ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
-                    : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
-                }`}
+                    ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
+                    : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+                )}
               >
                 {selectedGender === g && <Check className="w-3 h-3" />}
                 {g}
@@ -619,11 +639,12 @@ export default function Directory() {
             {/* Verified chip */}
             <button
               onClick={() => setVerifiedOnly(!verifiedOnly)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition ${
+              className={cn(
+                "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors",
                 verifiedOnly
-                  ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
-                  : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
-              }`}
+                  ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
+                  : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+              )}
             >
               {verifiedOnly && <Check className="w-3 h-3" />}
               Verified
@@ -634,11 +655,12 @@ export default function Directory() {
               <button
                 key={loc}
                 onClick={() => setSelectedLocation(selectedLocation === loc ? 'all' : loc)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition ${
+                className={cn(
+                  "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors",
                   selectedLocation === loc
-                    ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
-                    : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
-                }`}
+                    ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
+                    : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+                )}
               >
                 {selectedLocation === loc && <Check className="w-3 h-3" />}
                 {loc}
@@ -650,11 +672,12 @@ export default function Directory() {
               <button
                 key={ed}
                 onClick={() => setSelectedEducation(selectedEducation === ed ? 'all' : ed)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-semibold uppercase tracking-[0.14em] border backdrop-blur-md transition ${
+                className={cn(
+                  "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors",
                   selectedEducation === ed
-                    ? 'bg-white/85 text-slate-900 border-primary/45 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]'
-                    : 'bg-white/70 text-slate-600 border-[#F0F0F0] hover:bg-white/90'
-                }`}
+                    ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
+                    : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+                )}
               >
                 {selectedEducation === ed && <Check className="w-3 h-3" />}
                 {ed}
@@ -663,10 +686,10 @@ export default function Directory() {
           </div>
 
           {/* Age range */}
-          <div className="mt-3 rounded-[24px] border border-[#F0F0F0] bg-white/80 px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
+          <div className="mt-3 matchify-surface px-4 py-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Age range</span>
-              <span className="font-display text-[14px] font-extrabold text-slate-900 tabular-nums">
+              <span className="font-display text-[14px] font-bold text-slate-900 tabular-nums">
                 {ageRange[0]} <span className="text-slate-400">–</span> {ageRange[1]}
               </span>
             </div>
@@ -738,6 +761,7 @@ export default function Directory() {
                     key={profile.id}
                     profile={profile}
                     compatibility={aiMatch?.compatibility || profile.compatibility}
+                    liked={likedProfileIds.includes(profile.id)}
                     onViewProfile={(id) => setLocation(`/profile/${id}`)}
                     onLike={handleLikeProfile}
                     onMessage={handleMessageProfile}

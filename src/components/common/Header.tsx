@@ -1,7 +1,7 @@
 import { type ReactNode, useSyncExternalStore } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, Search, Settings, Plus } from "lucide-react";
+import { Search, Settings, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GlobalSearch, OPEN_GLOBAL_SEARCH_EVENT } from "./GlobalSearch";
@@ -130,8 +130,7 @@ export default function Header({
     if (onSettings) onSettings();
     else setLocation("/profile");
   };
-  // Show Luna only on Feed page (Community).
-  const showLuna = location === "/community";
+  const showLuna = false;
   const headerInitials = headerUser.name
     .split(/\s+/)
     .filter(Boolean)
@@ -144,8 +143,7 @@ export default function Header({
     <>
       <GlobalSearch />
       <HamburgerMenu onLogout={onLogout} buttonPosition="header">
-        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100"
-                style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.06)" }}>
+        <header className="sticky top-0 z-40 bg-card/80 backdrop-blur-md border-b border-border/70 shadow-2xs">
           <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-4 py-2">
             {/* Left — menu + logo/title share one baseline-aligned row */}
             <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -156,14 +154,14 @@ export default function Header({
                 <div className="flex min-w-0 flex-col justify-center py-0.5">
                   <h1
                     className={cn(
-                      "truncate text-[17px] font-bold leading-tight text-gray-900 tracking-[0.5px]",
+                      "truncate text-[17px] font-semibold leading-tight text-foreground tracking-[0.2px]",
                       titleClassName,
                     )}
                   >
                     {title}
                   </h1>
                   {subtitle ? (
-                    <p className="truncate text-[11px] font-medium text-gray-500">{subtitle}</p>
+                    <p className="truncate text-[11px] font-medium text-muted-foreground">{subtitle}</p>
                   ) : null}
                 </div>
               ) : (
@@ -184,7 +182,7 @@ export default function Header({
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="h-10 w-10 shrink-0 rounded-full text-gray-500 hover:bg-primary/10 hover:text-primary"
+                  className="h-10 w-10 shrink-0 rounded-full text-foreground/55 hover:bg-foreground/[0.05] hover:text-foreground"
                   data-testid="button-search"
                   aria-label="Open search"
                   onClick={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
@@ -193,28 +191,35 @@ export default function Header({
                 </Button>
               )}
 
-              {(onCreate || showLuna) && (
-                <div className="flex shrink-0 flex-col items-center justify-center gap-1">
-                  {showLuna ? (
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-10 w-10 shrink-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
-                      onClick={() => setLocation("/luna")}
-                      data-testid="button-luna"
-                      aria-label="Open Luna"
-                    >
-                      <Bot className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                    </Button>
-                  ) : null}
-
+              {onCreate && (
+                <div className="flex shrink-0 flex-col items-center justify-center gap-1 -mt-0.5 -mr-0.5">
                   {onCreate ? (
                     <Button
                       size="icon"
                       variant="ghost"
                       className="h-10 w-10 shrink-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
-                      onClick={onCreate}
+                      onClick={() => {
+                        // Robust: keep page-local handlers, but also broadcast a global "open composer"
+                        // signal (used by group/community flows) so the modal can open instantly.
+                        try {
+                          window.dispatchEvent(
+                            new CustomEvent("matchify-open-create-post", {
+                              detail: { from: "header" },
+                            }),
+                          );
+                        } catch {
+                          /* ignore */
+                        }
+                        try {
+                          sessionStorage.setItem(
+                            "matchify_open_create_post",
+                            JSON.stringify({ from: "header" }),
+                          );
+                        } catch {
+                          /* ignore */
+                        }
+                        onCreate();
+                      }}
                       data-testid="button-create-post"
                       aria-label="Create post"
                     >
@@ -233,7 +238,7 @@ export default function Header({
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-full p-0 text-gray-500 hover:bg-primary/5 hover:ring-2 hover:ring-primary/30"
+                  className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-full p-0 text-foreground/55 hover:bg-foreground/[0.05] hover:ring-2 hover:ring-primary/25"
                   onClick={handleProfileAvatar}
                   data-testid="button-profile-avatar"
                   aria-label="Open my profile"

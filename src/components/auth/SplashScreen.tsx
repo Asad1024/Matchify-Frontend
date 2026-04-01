@@ -120,7 +120,7 @@ function PhoneMockup() {
         className="absolute -inset-4 rounded-[3rem] opacity-40 blur-2xl pointer-events-none"
         style={{ background: "linear-gradient(145deg, #fff 0%, rgba(255,255,255,0.2) 100%)" }}
       />
-      <div className="relative rounded-[2.5rem] bg-zinc-900 p-2 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.45)] ring-1 ring-black/40">
+      <div className="relative rounded-[2.5rem] bg-zinc-900 p-2 shadow-xl ring-1 ring-black/40">
         <div className="rounded-[2rem] overflow-hidden bg-white aspect-[9/19] flex flex-col">
           <div className="h-7 bg-white flex items-center justify-center shrink-0">
             <div className="w-16 h-4 rounded-full bg-zinc-900/10" />
@@ -180,7 +180,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
             className="flex justify-center md:justify-start mb-8 md:mb-10"
           >
             {/* White pill so the logo always pops on the gradient hero */}
-            <div className="inline-flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
+            <div className="inline-flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-lg">
               <BrandLogo
                 className="h-9 sm:h-11 w-auto max-w-[9rem] sm:max-w-[11rem] object-contain"
                 alt="Matchify"
@@ -198,7 +198,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
               <p className="text-[11px] sm:text-xs font-bold tracking-[0.2em] uppercase text-white/70 mb-4">
                 The relationship app
               </p>
-              <h1 className="font-display font-black text-[2.125rem] sm:text-4xl md:text-[2.75rem] lg:text-5xl leading-[1.08] tracking-tight">
+              <h1 className="font-display font-bold text-[2.125rem] sm:text-4xl md:text-[2.75rem] lg:text-5xl leading-[1.08] tracking-tight">
                 Where serious
                 <br />
                 people meet.
@@ -261,7 +261,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
               <div key={label} className="text-center px-2 first:pl-0 last:pr-0">
                 <div className="flex items-center justify-center gap-1">
                   {star && <Star className="w-5 h-5 fill-amber-400 text-amber-400 hidden sm:block" />}
-                  <p className="font-display font-black text-2xl sm:text-3xl md:text-4xl text-zinc-900 tracking-tight">
+                  <p className="font-display font-bold text-2xl sm:text-3xl md:text-4xl text-zinc-900 tracking-tight">
                     {value}
                   </p>
                 </div>
@@ -280,7 +280,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
           viewport={{ once: true }}
           className="text-center max-w-2xl mx-auto mb-14 sm:mb-16"
         >
-          <h2 className="font-display font-black text-3xl sm:text-4xl md:text-[2.5rem] text-zinc-900 tracking-tight leading-tight">
+          <h2 className="font-display font-bold text-3xl sm:text-4xl md:text-[2.5rem] text-zinc-900 tracking-tight leading-tight">
             Built for something real.
           </h2>
           <p className="mt-3 text-zinc-500 text-sm sm:text-base">Not another endless swipe — a full journey in one app.</p>
@@ -300,7 +300,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
                 <Icon className="w-7 h-7 text-primary" strokeWidth={2} />
               </div>
               <div className="text-center sm:text-left">
-                <h3 className="font-display font-black text-xl sm:text-2xl text-zinc-900 tracking-tight">{title}</h3>
+                <h3 className="font-display font-bold text-xl sm:text-2xl text-zinc-900 tracking-tight">{title}</h3>
                 <p className="mt-2 text-sm sm:text-base text-zinc-600 leading-relaxed max-w-xl sm:max-w-none mx-auto sm:mx-0">
                   {line}
                 </p>
@@ -313,7 +313,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
       {/* ═══ HOW IT WORKS — numbered steps (Muzz rhythm) ═══ */}
       <section className="bg-zinc-50 border-y border-zinc-100 py-16 sm:py-20">
         <div className="max-w-6xl mx-auto px-5 sm:px-8">
-          <h2 className="font-display font-black text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-12 sm:mb-14">
+          <h2 className="font-display font-bold text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-12 sm:mb-14">
             How it works
           </h2>
           <div className="grid md:grid-cols-3 gap-8 md:gap-6">
@@ -326,8 +326,8 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
                 transition={{ delay: i * 0.08 }}
                 className="relative bg-white rounded-3xl p-8 shadow-sm border border-zinc-100 text-center md:text-left"
               >
-                <span className="font-display font-black text-5xl text-primary/20 leading-none">{n}</span>
-                <h3 className="font-display font-black text-lg sm:text-xl text-zinc-900 mt-4 tracking-tight">{title}</h3>
+                <span className="font-display font-bold text-5xl text-primary/20 leading-none">{n}</span>
+                <h3 className="font-display font-bold text-lg sm:text-xl text-zinc-900 mt-4 tracking-tight">{title}</h3>
                 <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{desc}</p>
               </motion.div>
             ))}
@@ -343,7 +343,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
         <div className="absolute inset-0 opacity-[0.08] pointer-events-none bg-[radial-gradient(circle_at_30%_20%,white_1px,transparent_1px)] bg-[length:24px_24px]" />
         <div className="relative max-w-6xl mx-auto px-5 sm:px-8">
           <div className="max-w-2xl mb-10 sm:mb-12">
-            <h2 className="font-display font-black text-3xl sm:text-4xl md:text-[2.5rem] leading-tight tracking-tight">
+            <h2 className="font-display font-bold text-3xl sm:text-4xl md:text-[2.5rem] leading-tight tracking-tight">
               Everything in one app.
             </h2>
             <p className="mt-3 text-white/80 text-sm sm:text-base leading-relaxed">
@@ -394,7 +394,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
                 <Brain className="w-8 h-8 opacity-90" />
                 <span className="text-xs font-bold uppercase tracking-widest text-white/70">AI coach</span>
               </div>
-              <h2 className="font-display font-black text-2xl sm:text-3xl md:text-4xl tracking-tight leading-tight">
+              <h2 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl tracking-tight leading-tight">
                 Meet Luna.
               </h2>
               <p className="mt-3 text-white/85 text-sm sm:text-base leading-relaxed">
@@ -419,7 +419,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
       {/* ═══ STORIES ═══ */}
       <section className="bg-zinc-50 border-t border-zinc-100 py-16 sm:py-20">
         <div className="max-w-6xl mx-auto px-5 sm:px-8">
-          <h2 className="font-display font-black text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-3">
+          <h2 className="font-display font-bold text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-3">
             Real stories
           </h2>
           <p className="text-center text-zinc-500 text-sm mb-12">From members who wanted more than a casual chat</p>
@@ -440,7 +440,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
                 </div>
                 <p className="text-zinc-800 text-sm sm:text-base leading-relaxed font-medium">&ldquo;{quote}&rdquo;</p>
                 <div className="mt-6 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center font-black text-primary text-xs">
+                  <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center font-bold text-primary text-xs">
                     {avatar}
                   </div>
                   <span className="font-bold text-zinc-900 text-sm">{name}</span>
@@ -453,7 +453,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
 
       {/* ═══ FAQ — Muzz-style accordion ═══ */}
       <section className="max-w-2xl mx-auto px-5 sm:px-8 py-16 sm:py-20">
-        <h2 className="font-display font-black text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-2">
+        <h2 className="font-display font-bold text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-2">
           Questions
         </h2>
         <p className="text-center text-zinc-500 text-sm mb-8">Quick answers before you join</p>
@@ -486,7 +486,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
               alt="Matchify"
             />
           </div>
-          <h2 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight leading-tight">
+          <h2 className="font-display font-bold text-3xl sm:text-4xl text-white tracking-tight leading-tight">
             Start free today.
           </h2>
           <p className="text-white/75 text-sm sm:text-base">No credit card to create your account.</p>

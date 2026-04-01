@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,76 +8,36 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
-  Heart, MessageSquare, Send, Sparkles, BookOpen,
-  Target, TrendingUp, Users, Loader2, CalendarDays, Eye
+  Heart,
+  MessageSquare,
+  Send,
+  Sparkles,
+  Users,
+  Loader2,
+  CalendarDays,
+  Eye,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { lunaFetch, lunaHeaders } from "@/lib/lunaApi";
+import { cn } from "@/lib/utils";
+import { useUpgrade } from "@/contexts/UpgradeContext";
+import { dailyKey, dailyCount, incrementDailyCount, lunaPartnerDailyLimitForTier } from "@/lib/entitlements";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface RelationshipCoachProps {
   userId: string;
   partnerId?: string | null;
 }
-
-type CoachTip = {
-  id: string;
-  category: string;
-  title: string;
-  content: string;
-  icon: React.ElementType;
-  color: string;
-};
-
-const TIPS: CoachTip[] = [
-  {
-    id: "communication",
-    category: "Communication",
-    title: "Active Listening",
-    content: "When your partner is talking, focus entirely on them. Put away distractions, make eye contact, and respond to show you're engaged. Summarise what they said before responding.",
-    icon: MessageSquare,
-    color: "bg-blue-100 text-blue-600",
-  },
-  {
-    id: "appreciation",
-    category: "Appreciation",
-    title: "Daily Gratitude",
-    content: "Express appreciation for small things every day. Saying 'thank you for making dinner' or 'I appreciate you listening' builds a culture of gratitude and strengthens your bond.",
-    icon: Heart,
-    color: "bg-primary/10 text-primary",
-  },
-  {
-    id: "goals",
-    category: "Goals",
-    title: "Shared Vision",
-    content: "Discuss your individual and shared goals monthly. Understanding where you're each headed individually helps you grow together in the same direction.",
-    icon: Target,
-    color: "bg-purple-100 text-purple-600",
-  },
-  {
-    id: "growth",
-    category: "Growth",
-    title: "Continuous Learning",
-    content: "Read relationship books together, attend workshops, or listen to podcasts on relationships. Learning together shows commitment to your partnership.",
-    icon: BookOpen,
-    color: "bg-primary/10 text-primary",
-  },
-  {
-    id: "quality-time",
-    category: "Quality Time",
-    title: "Intentional Dates",
-    content: "Schedule weekly date nights where phones are put away. Even simple activities like cooking together or a walk create meaningful connection time.",
-    icon: Users,
-    color: "bg-amber-100 text-amber-600",
-  },
-];
-
-const EXERCISES = [
-  { title: "Love Language Check-in", description: "Identify and practice each other's love languages this week.", time: "15 min" },
-  { title: "Relationship Vision Board", description: "Create a shared board of your relationship goals and dreams.", time: "30 min" },
-  { title: "Gratitude Exchange", description: "Share 3 things you appreciate about each other before bed tonight.", time: "5 min" },
-  { title: "Conflict Resolution Practice", description: "Discuss a past disagreement using 'I feel' statements.", time: "20 min" },
-];
 
 type PartnerUser = {
   id: string;
@@ -127,21 +87,37 @@ type PartnerSpaceSummary = {
 
 type JourneyPayload = {
   milestones: { id: string; title: string; body?: string | null; visibleToPartner?: boolean; createdAt?: string }[];
-  datePlans: unknown[];
+  datePlans: {
+    id: string;
+    title: string;
+    planDate?: string | null;
+    planTime?: string | null;
+    venue?: string | null;
+    notes?: string | null;
+    status?: string | null;
+    createdAt?: string;
+  }[];
   weeklyRecap: string;
   disclaimer: string;
 };
 
 export default function RelationshipCoach({ userId, partnerId }: RelationshipCoachProps) {
   const [question, setQuestion] = useState("");
-  const [activeSection, setActiveSection] = useState<"tips" | "exercises" | "chat" | "journey">("tips");
+  const [activeSection, setActiveSection] = useState<"chat" | "journey">("chat");
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>(partnerId || "");
-  const [shareMode, setShareMode] = useState<LunaSpace["shareMode"]>("private_only");
+  const [resetOpen, setResetOpen] = useState(false);
   const [milestoneTitle, setMilestoneTitle] = useState("");
   const [milestoneBody, setMilestoneBody] = useState("");
+  // Milestones are private notes for now; partner sharing can be added later.
   const [milestoneShare, setMilestoneShare] = useState(false);
+  const [schedulePlanId, setSchedulePlanId] = useState<string>("");
+  const [scheduleDate, setScheduleDate] = useState<string>("");
+  const [scheduleTime, setScheduleTime] = useState<string>("");
+  const [scheduleNotifyPartner, setScheduleNotifyPartner] = useState<boolean>(false);
+  const upcomingAlertKeyRef = useRef<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { tier, requireTier } = useUpgrade();
 
   const { data: matches = [] } = useQuery<MatchRow[]>({
     queryKey: [`/api/users/${userId}/matches`],
@@ -172,10 +148,22 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
   });
 
   const activeSpace = useMemo(() => {
-    const byPartner = spaces.find((s) => s.partnerUserId === selectedPartnerId);
-    if (!byPartner && selectedPartnerId && matches.length > 0) return null;
-    return byPartner || spaces[0] || null;
-  }, [spaces, selectedPartnerId, matches]);
+    if (selectedPartnerId) {
+      const byPartner = spaces.find((s) => s.partnerUserId === selectedPartnerId);
+      // Selected partner, but no space yet — show the "add" empty state.
+      return byPartner || null;
+    }
+    // No selection yet — show nothing until user picks a match.
+    return null;
+  }, [spaces, selectedPartnerId]);
+
+  // If a partner is pre-selected via prop, jump to chat when a space exists.
+  useEffect(() => {
+    if (!selectedPartnerId) return;
+    if (!activeSpace?.id) return;
+    if (activeSection !== "chat" && activeSection !== "journey") setActiveSection("chat");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPartnerId, activeSpace?.id]);
 
   const { data: messages = [] } = useQuery<LunaMessage[]>({
     queryKey: [`/api/users/${userId}/luna/spaces/${activeSpace?.id}/messages`, "auth"],
@@ -186,6 +174,11 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
       return res.json();
     },
   });
+
+  const firstReplyPendingLabel = useMemo(() => {
+    const lunaCount = (Array.isArray(messages) ? messages : []).filter((m) => m.senderRole === "luna").length;
+    return lunaCount === 0 ? "Luna is analyzing…" : "Luna is thinking…";
+  }, [messages]);
 
   const { data: journey } = useQuery<JourneyPayload>({
     queryKey: [`/api/users/${userId}/luna/spaces/${activeSpace?.id}/journey`],
@@ -204,6 +197,36 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
     },
   });
 
+  const upcomingPlan = useMemo(() => {
+    const plans = journey?.datePlans || [];
+    const scheduled = plans
+      .filter((p) => p.planDate && p.planTime)
+      .map((p) => {
+        const dt = new Date(`${p.planDate}T${p.planTime}:00`);
+        return { p, dt };
+      })
+      .filter(({ dt }) => !Number.isNaN(dt.getTime()))
+      .sort((a, b) => a.dt.getTime() - b.dt.getTime());
+    const next = scheduled.find(({ dt }) => dt.getTime() >= Date.now());
+    return next ? { ...next.p, _when: next.dt } : null;
+  }, [journey?.datePlans]);
+
+  useEffect(() => {
+    if (!upcomingPlan?._when || !activeSpace?.id) return;
+    const ms = upcomingPlan._when.getTime() - Date.now();
+    if (ms <= 0) return;
+    // Only alert for "soon" windows to avoid noise.
+    const isSoon = ms <= 24 * 60 * 60 * 1000;
+    if (!isSoon) return;
+    const key = `${activeSpace.id}:${upcomingPlan.id}:${upcomingPlan.planDate}:${upcomingPlan.planTime}`;
+    if (upcomingAlertKeyRef.current === key) return;
+    upcomingAlertKeyRef.current = key;
+    toast({
+      title: "Upcoming date scheduled",
+      description: `${upcomingPlan.title} • ${upcomingPlan.planDate} ${upcomingPlan.planTime}`,
+    });
+  }, [activeSpace?.id, toast, upcomingPlan]);
+
   const { data: suggestions = [] } = useQuery<DateSuggestion[]>({
     queryKey: [`/api/users/${userId}/luna/spaces/${activeSpace?.id}/date-suggestions`],
     enabled: !!activeSpace?.id,
@@ -220,45 +243,73 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
 
   const createSpace = useMutation({
     mutationFn: async (partnerUserId: string) => {
+      if (!requireTier({ feature: "Luna Partner Space", minTier: "plus", reason: "Free plan doesn’t include match coaching." })) {
+        throw new Error("Upgrade required");
+      }
       const res = await lunaFetch(`/api/users/${userId}/luna/spaces`, {
         method: "POST",
         headers: lunaHeaders(),
-        body: JSON.stringify({ partnerId: partnerUserId, shareMode }),
+        body: JSON.stringify({ partnerId: partnerUserId, shareMode: "private_only" }),
       });
       if (!res.ok) throw new Error("Failed to add partner to Luna");
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/luna/spaces`] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/luna/spaces`, "auth"] });
       toast({ title: "Added to Luna", description: "Partner space is ready." });
+      setActiveSection("chat");
     },
-  });
-
-  const updateSpace = useMutation({
-    mutationFn: async (nextMode: LunaSpace["shareMode"]) => {
-      const res = await lunaFetch(`/api/users/${userId}/luna/spaces/${activeSpace?.id}`, {
-        method: "PATCH",
-        headers: lunaHeaders(),
-        body: JSON.stringify({ shareMode: nextMode }),
-      });
-      if (!res.ok) throw new Error("Failed to update sharing");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/luna/spaces`] });
-      toast({ title: "Sharing updated" });
+    onError: (e) => {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg && msg !== "Upgrade required") {
+        toast({ title: "Could not add to Luna", description: msg, variant: "destructive" });
+      }
     },
   });
 
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
+      if (!requireTier({ feature: "Luna Partner Space", minTier: "plus", reason: "Free plan doesn’t include match coaching." })) {
+        throw new Error("Upgrade required");
+      }
+      const limit = lunaPartnerDailyLimitForTier(tier);
+      if (Number.isFinite(limit)) {
+        const key = dailyKey("luna_partner_msgs", `${userId}:${String(activeSpace?.id || "space")}`);
+        const used = dailyCount(key);
+        if (used >= limit) {
+          requireTier({
+            feature: "Luna Partner Space",
+            minTier: "premium",
+            reason: "You’ve hit today’s Partner Space message limit on Plus.",
+          });
+          throw new Error("Limit reached");
+        }
+        incrementDailyCount(key, 1);
+      }
       const res = await lunaFetch(`/api/users/${userId}/luna/spaces/${activeSpace?.id}/messages`, {
         method: "POST",
         headers: lunaHeaders(),
         body: JSON.stringify({ content, senderRole: "user", senderUserId: userId, visibility: "private" }),
       });
       if (!res.ok) throw new Error("Failed to send message");
-      return res.json() as Promise<{ crisis?: boolean; lunaReply?: unknown }>;
+      return res.json() as Promise<{ crisis?: boolean; lunaReply?: unknown; provider?: "gemini" | "openai" | "fallback" }>;
+    },
+    onMutate: (content) => {
+      // Clear immediately so the message doesn't "stick" until Luna responds,
+      // and optimistically append the user message to the chat list.
+      if (question.trim() === content.trim()) setQuestion("");
+      const key = [`/api/users/${userId}/luna/spaces/${activeSpace?.id}/messages`, "auth"] as const;
+      queryClient.setQueryData<LunaMessage[]>(key, (prev) => {
+        const arr = Array.isArray(prev) ? prev : [];
+        return [
+          ...arr,
+          {
+            id: `tmp_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+            senderRole: "user",
+            content: content,
+          },
+        ];
+      });
     },
     onSuccess: (data) => {
       setQuestion("");
@@ -269,9 +320,37 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
           variant: "destructive",
           duration: 12000,
         });
+      } else if (data?.provider === "fallback") {
+        toast({
+          title: "AI not configured",
+          description: "Backend has no Gemini/OpenAI key yet, so Luna is using a default reply.",
+          variant: "destructive",
+          duration: 7000,
+        });
       }
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/luna/spaces/${activeSpace?.id}/messages`] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/luna/spaces/${activeSpace?.id}/journey`] });
+    },
+  });
+
+  const resetChat = useMutation({
+    mutationFn: async () => {
+      if (!activeSpace?.id) throw new Error("No space selected");
+      const res = await lunaFetch(`/api/users/${userId}/luna/spaces/${activeSpace.id}/messages`, {
+        method: "DELETE",
+        headers: lunaHeaders(),
+      });
+      if (!res.ok) throw new Error("Failed to reset chat");
+      return res.json() as Promise<{ ok: boolean }>;
+    },
+    onSuccess: () => {
+      setResetOpen(false);
+      setQuestion("");
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/luna/spaces/${activeSpace?.id}/messages`, "auth"] });
+      toast({ title: "Chat reset", description: "Messages cleared for this partner space." });
+    },
+    onError: () => {
+      toast({ title: "Could not reset chat", variant: "destructive" });
     },
   });
 
@@ -280,13 +359,44 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
       const res = await lunaFetch(`/api/users/${userId}/luna/spaces/${activeSpace?.id}/date-plans`, {
         method: "POST",
         headers: lunaHeaders(),
-        body: JSON.stringify(plan),
+        body: JSON.stringify({ ...plan, notifyPartner: scheduleNotifyPartner }),
       });
       if (!res.ok) throw new Error("Failed to save date plan");
       return res.json();
     },
     onSuccess: () => {
       toast({ title: "Date plan saved", description: "Luna added this to your relationship journey." });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/luna/spaces/${activeSpace?.id}/journey`] });
+    },
+  });
+
+  const scheduleDatePlan = useMutation({
+    mutationFn: async (params: { planId: string; planDate: string; planTime: string; notifyPartner: boolean }) => {
+      const res = await lunaFetch(
+        `/api/users/${userId}/luna/spaces/${activeSpace?.id}/date-plans/${encodeURIComponent(params.planId)}`,
+        {
+          method: "PATCH",
+          headers: lunaHeaders(),
+          body: JSON.stringify({
+            planDate: params.planDate,
+            planTime: params.planTime,
+            notifyPartner: params.notifyPartner,
+            status: "scheduled",
+          }),
+        },
+      );
+      if (!res.ok) throw new Error("Failed to schedule date");
+      return res.json();
+    },
+    onSuccess: () => {
+      setSchedulePlanId("");
+      setScheduleDate("");
+      setScheduleTime("");
+      setScheduleNotifyPartner(false);
+      toast({
+        title: "Date scheduled",
+        description: "Saved. You’ll also get reminder notifications (24h + 2h before, or soon if it’s close).",
+      });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/luna/spaces/${activeSpace?.id}/journey`] });
     },
   });
@@ -315,50 +425,10 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
   });
 
   return (
-    <div className="space-y-4">
-      {partnerSpaces.length > 0 && (
-        <Card className="border-teal-200 bg-teal-50/40">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Eye className="w-4 h-4 text-teal-700" />
-              Shared with you (partner view)
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Your match chose to share part of Luna with you. Private chats stay private unless they pick “Shared full”.
-            </p>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-4">
-            {partnerSpaces.map((ps) => (
-              <div key={ps.spaceId} className="rounded-xl border bg-background p-3 space-y-2">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-sm font-semibold">
-                    With {ps.owner?.name || "your match"}
-                  </p>
-                  <Badge variant="outline" className="text-[10px]">
-                    {ps.shareMode.replace(/_/g, " ")}
-                  </Badge>
-                </div>
-                {ps.weeklyRecap && (
-                  <p className="text-xs text-muted-foreground leading-relaxed">{ps.weeklyRecap}</p>
-                )}
-                {Array.isArray(ps.messages) && ps.messages.length > 0 && (
-                  <div className="space-y-1 max-h-28 overflow-y-auto">
-                    {ps.messages.slice(-4).map((m) => (
-                      <div key={m.id} className="text-xs rounded-lg bg-muted/50 px-2 py-1.5">
-                        <span className="font-semibold text-primary">{m.senderRole === "luna" ? "Luna" : "Note"}: </span>
-                        {m.content}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
+    <div className="min-h-[100svh] bg-[#F8F9FB]">
+      <div className="mx-auto w-full max-w-lg space-y-4 px-3 pb-28 pt-3">
       {/* Partner selection */}
-      <Card>
+      <Card className={cn("rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm", activeSpace ? "border-primary/15" : "")}>
         <CardContent className="p-4 space-y-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Luna partner space</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -368,7 +438,8 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
               </SelectTrigger>
               <SelectContent>
                 {matches.map((m) => {
-                  const pid = m.partnerUserId ?? m.id;
+                  const pid = m.partnerUserId;
+                  if (!pid) return null;
                   return (
                     <SelectItem key={pid} value={pid}>
                       {m.name}
@@ -379,37 +450,63 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
             </Select>
             <Button
               disabled={!selectedPartnerId || createSpace.isPending}
-              onClick={() => createSpace.mutate(selectedPartnerId)}
+              onClick={() => {
+                if (!selectedPartnerId) return;
+                // If already added, jump user to the Luna tab.
+                if (activeSpace?.id) {
+                  setActiveSection("chat");
+                  return;
+                }
+                createSpace.mutate(selectedPartnerId);
+              }}
             >
-              Add To Luna
+              {createSpace.isPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Adding…
+                </span>
+              ) : activeSpace?.id ? (
+                "Open Luna"
+              ) : (
+                "Add to Luna"
+              )}
             </Button>
           </div>
-          {activeSpace && (
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">Space active</Badge>
-              <Select
-                value={activeSpace.shareMode}
-                onValueChange={(v) => updateSpace.mutate(v as LunaSpace["shareMode"])}
-              >
-                <SelectTrigger className="max-w-[220px] h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private_only">Private only</SelectItem>
-                  <SelectItem value="share_summaries">Share summaries</SelectItem>
-                  <SelectItem value="share_actions">Share actions</SelectItem>
-                  <SelectItem value="shared_full">Shared full</SelectItem>
-                </SelectContent>
-              </Select>
+          {selectedPartnerId ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {activeSpace?.id ? (
+                <>
+                  <Badge variant="outline">Active</Badge>
+                  <Badge variant="secondary">Private</Badge>
+                </>
+              ) : (
+                <Badge variant="outline">Not added yet</Badge>
+              )}
             </div>
-          )}
+          ) : selectedPartnerId ? (
+            <div className="rounded-2xl border border-dashed border-primary/20 bg-primary/[0.03] px-4 py-3">
+              <p className="text-xs font-semibold text-slate-900">Next step</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Tap <span className="font-semibold">Add to Luna</span> to create a private space for this match. Then open the{" "}
+                <span className="font-semibold">Luna</span> tab to start coaching.
+              </p>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
       {/* Partner status */}
       {activeSpace?.partner ? (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4 flex items-center gap-3">
+        <Card className="rounded-[24px] border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-white to-white shadow-sm">
+          <CardContent
+            className="p-4 flex items-center gap-3 cursor-pointer"
+            onClick={() => setActiveSection("chat")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") setActiveSection("chat");
+            }}
+          >
             <div className="flex -space-x-2">
               <Avatar className="w-10 h-10 border-2 border-white">
                 <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">You</AvatarFallback>
@@ -432,92 +529,66 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
         <Card className="border-dashed border-primary/25">
           <CardContent className="p-4 text-center text-sm text-muted-foreground">
             <Heart className="w-6 h-6 text-primary/40 mx-auto mb-2" />
-            Pick one of your matches and add them to Luna.
+            Pick a match to start a partner space.
           </CardContent>
         </Card>
       )}
 
       {/* Section tabs */}
-      <div className="flex gap-1 flex-wrap">
-        {(["tips", "exercises", "chat", "journey"] as const).map((section) => (
-          <button
-            key={section}
-            onClick={() => setActiveSection(section)}
-            className={`flex-1 min-w-[72px] py-2 rounded-xl text-[11px] font-semibold transition-colors capitalize ${
-              activeSection === section
-                ? "bg-primary text-white shadow-sm"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-            }`}
-          >
-            {section === "tips"
-              ? "💡 Tips"
-              : section === "exercises"
-                ? "🎯 Exercises"
-                : section === "chat"
-                  ? "💬 Luna"
-                  : "📍 Journey"}
-          </button>
-        ))}
-      </div>
-
-      {/* Tips section */}
-      {activeSection === "tips" && (
-        <div className="space-y-3">
-          {TIPS.map((tip) => {
-            const Icon = tip.icon;
+      <div
+        className={cn(
+          "rounded-full bg-[#F1F2F4] p-1 shadow-[inset_0_1px_4px_rgba(15,23,42,0.06)]",
+          !selectedPartnerId ? "opacity-60" : "",
+        )}
+      >
+        <div className="grid grid-cols-2 gap-1">
+          {(["chat", "journey"] as const).map((section) => {
+            const disabled = !activeSpace?.id;
+            const active = activeSection === section;
             return (
-              <Card key={tip.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${tip.color}`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-sm font-bold text-foreground">{tip.title}</h4>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{tip.category}</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{tip.content}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <button
+                key={section}
+                type="button"
+                disabled={!selectedPartnerId || disabled}
+                onClick={() => setActiveSection(section)}
+                className={cn(
+                  "relative h-10 rounded-full text-[12px] font-semibold transition",
+                  active ? "text-slate-900" : "text-slate-500 hover:text-slate-700",
+                  (!selectedPartnerId || disabled) && "cursor-not-allowed opacity-50 hover:text-slate-500",
+                )}
+              >
+                {active ? (
+                  <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
+                ) : null}
+                <span className="relative">
+                  {section === "chat" ? "Luna" : "Journey"}
+                </span>
+              </button>
             );
           })}
         </div>
-      )}
-
-      {/* Exercises section */}
-      {activeSection === "exercises" && (
-        <div className="space-y-3">
-          {EXERCISES.map((ex, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm font-bold text-foreground mb-1">{ex.title}</h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{ex.description}</p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] whitespace-nowrap">{ex.time}</Badge>
-                </div>
-                <Button size="sm" variant="outline" className="mt-3 w-full text-xs rounded-full">
-                  <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
-                  Start Exercise
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      </div>
 
       {/* Chat with coach */}
       {activeSection === "chat" && (
-        <Card>
+        <Card className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-22px_rgba(15,23,42,0.14)]">
           <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              Luna - AI Relationship Coach
-            </CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                Luna coaching
+              </CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!activeSpace?.id || resetChat.isPending}
+                className="h-9 rounded-full font-semibold text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900"
+                onClick={() => setResetOpen(true)}
+              >
+                Reset chat
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
             {/* No space yet - prompt to add partner */}
@@ -535,8 +606,9 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                 </Button>
               </div>
             )}
+
             {/* Chat history */}
-            {activeSpace && <div className="min-h-[200px] max-h-72 overflow-y-auto space-y-3 bg-muted/30 rounded-xl p-3">
+            {activeSpace && <div className="min-h-[280px] max-h-[46svh] overflow-y-auto space-y-3 rounded-[18px] border border-stone-200 bg-stone-50/70 p-3">
               {messages.length === 0 ? (
                 <div className="text-center py-8 text-xs text-muted-foreground">
                   <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -564,7 +636,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                 <div className="flex justify-start">
                   <div className="bg-white border border-border rounded-2xl rounded-tl-sm px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5 shadow-sm">
                     <Loader2 className="w-3 h-3 animate-spin" />
-                    Coach is thinking...
+                    {firstReplyPendingLabel}
                   </div>
                 </div>
               )}
@@ -577,7 +649,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="Ask about communication, conflict, intimacy..."
                 rows={2}
-                className="text-xs resize-none rounded-xl"
+                className="text-[13px] resize-none rounded-[18px] border-stone-200 bg-white shadow-sm"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -593,7 +665,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                   sendMessage.mutate(question.trim());
                 }}
                 disabled={!question.trim() || sendMessage.isPending}
-                className="rounded-xl self-end"
+                className="h-11 w-11 rounded-[18px] self-end shadow-sm"
               >
                 <Send className="w-4 h-4" />
               </Button>
@@ -616,7 +688,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                       <Button
                         size="sm"
                         variant="outline"
-                        className="mt-2 h-7 text-xs"
+                          className="mt-2 h-8 rounded-full text-xs"
                         onClick={() => saveDatePlan.mutate(s)}
                       >
                         <CalendarDays className="w-3.5 h-3.5 mr-1.5" />
@@ -631,6 +703,26 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
         </Card>
       )}
 
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete all Luna messages in this partner space. Journey items (milestones/date plans) will stay.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetChat.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground"
+              onClick={() => resetChat.mutate()}
+            >
+              Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {activeSection === "journey" && (
         <div className="space-y-3">
           {!activeSpace ? (
@@ -641,23 +733,143 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
             </Card>
           ) : (
             <>
-              <Card>
+              {/* Upcoming (simple + clear) */}
+              {upcomingPlan ? (
+                <Card className="overflow-hidden rounded-[24px] border border-primary/15 bg-gradient-to-br from-primary/[0.10] via-white to-white shadow-[0_12px_40px_-28px_rgba(15,23,42,0.22)]">
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-semibold text-foreground">Upcoming date</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <p className="text-sm font-semibold text-slate-900">{upcomingPlan.title}</p>
+                    <p className="mt-1 text-xs text-slate-700">
+                      {upcomingPlan.planDate} {upcomingPlan.planTime}
+                      {upcomingPlan.venue ? ` • ${upcomingPlan.venue}` : ""}
+                    </p>
+                    {upcomingPlan.notes ? (
+                      <p className="mt-2 text-xs text-slate-600 leading-relaxed">{upcomingPlan.notes}</p>
+                    ) : null}
+                    <p className="mt-3 text-[11px] text-slate-600">
+                      Reminders: 24h + 2h before (or soon if it’s close).
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm">
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-bold">Upcoming date</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <p className="text-sm text-slate-700">
+                      No scheduled date yet. Pick a plan below and tap <span className="font-semibold">Schedule</span>.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Plans */}
+              <Card className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm">
                 <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm font-bold">This week&apos;s recap</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-foreground">Date plans</CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 space-y-2">
-                  <p className="text-sm text-foreground leading-relaxed">
-                    {journey?.weeklyRecap || "Keep chatting with Luna and saving date ideas — your recap will grow here."}
-                  </p>
-                  {journey?.disclaimer && (
-                    <p className="text-[11px] text-muted-foreground border-t pt-2">{journey.disclaimer}</p>
+                  {journey && journey.datePlans.length > 0 ? (
+                    journey.datePlans.map((p) => {
+                      const isScheduling = schedulePlanId === p.id;
+                      const hasSchedule = Boolean(p.planDate) && Boolean(p.planTime);
+                      return (
+                        <div key={p.id} className="rounded-[18px] border border-stone-200 bg-white p-3 shadow-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{p.title}</p>
+                              <p className="mt-0.5 text-xs text-slate-600">
+                                {p.venue ? p.venue : "Venue TBD"}
+                                {p.notes ? ` • ${p.notes}` : ""}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-700">
+                                {hasSchedule ? `Scheduled: ${p.planDate} ${p.planTime}` : "Not scheduled yet"}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 rounded-full text-xs"
+                              onClick={() => {
+                                setSchedulePlanId(isScheduling ? "" : p.id);
+                                setScheduleDate(p.planDate || "");
+                                setScheduleTime(p.planTime || "");
+                              }}
+                            >
+                              {isScheduling ? "Close" : "Schedule"}
+                            </Button>
+                          </div>
+
+                          {isScheduling && (
+                            <div className="mt-3 space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <Label className="text-xs">Date</Label>
+                                  <input
+                                    type="date"
+                                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                                    value={scheduleDate}
+                                    onChange={(e) => setScheduleDate(e.target.value)}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Time</Label>
+                                  <input
+                                    type="time"
+                                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                                    value={scheduleTime}
+                                    onChange={(e) => setScheduleTime(e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`notify-partner-schedule-${p.id}`}
+                                  checked={scheduleNotifyPartner}
+                                  onCheckedChange={(c) => setScheduleNotifyPartner(c === true)}
+                                />
+                                <Label
+                                  htmlFor={`notify-partner-schedule-${p.id}`}
+                                  className="text-xs font-normal cursor-pointer"
+                                >
+                                  Notify partner (optional)
+                                </Label>
+                              </div>
+                              <Button
+                                size="sm"
+                                disabled={!scheduleDate || !scheduleTime || scheduleDatePlan.isPending}
+                                onClick={() =>
+                                  scheduleDatePlan.mutate({
+                                    planId: p.id,
+                                    planDate: scheduleDate,
+                                    planTime: scheduleTime,
+                                    notifyPartner: scheduleNotifyPartner,
+                                  })
+                                }
+                              >
+                                Save schedule
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-[18px] border border-dashed border-stone-200 bg-stone-50/60 p-4">
+                      <p className="text-sm font-semibold text-slate-900">No date plans yet</p>
+                      <p className="mt-1 text-sm text-slate-600">Use “Add to journey” on a date suggestion to create one.</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
 
-              <Card>
+              {/* Notes */}
+              <Card className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm">
                 <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm font-bold">Add a milestone</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-foreground">Notes (milestones)</CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 space-y-3">
                   <div>
@@ -666,7 +878,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                       className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                       value={milestoneTitle}
                       onChange={(e) => setMilestoneTitle(e.target.value)}
-                      placeholder="e.g. First intentional date night"
+                      placeholder="e.g. We agreed on a first date"
                     />
                   </div>
                   <div>
@@ -675,53 +887,36 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                       className="mt-1 text-xs min-h-[72px]"
                       value={milestoneBody}
                       onChange={(e) => setMilestoneBody(e.target.value)}
-                      placeholder="What went well? What did you learn?"
+                      placeholder="What did you learn? What’s the next step?"
                     />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="ms-share"
-                      checked={milestoneShare}
-                      onCheckedChange={(c) => setMilestoneShare(c === true)}
-                    />
-                    <Label htmlFor="ms-share" className="text-xs font-normal cursor-pointer">
-                      Let my partner see this (if sharing is on)
-                    </Label>
                   </div>
                   <Button
                     size="sm"
                     disabled={!milestoneTitle.trim() || addMilestone.isPending}
                     onClick={() => addMilestone.mutate()}
                   >
-                    Save milestone
+                    Save note
                   </Button>
+
+                  {journey && journey.milestones.length > 0 ? (
+                    <div className="pt-1 space-y-2">
+                      {journey.milestones.map((ms) => (
+                        <div key={ms.id} className="rounded-[18px] border border-stone-200 bg-white p-3 shadow-sm">
+                          <p className="text-sm font-semibold text-slate-900">{ms.title}</p>
+                          {ms.body ? <p className="mt-1 text-xs text-slate-600">{ms.body}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-600">Saved notes help you remember decisions and progress.</p>
+                  )}
                 </CardContent>
               </Card>
-
-              {journey && journey.milestones.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-bold">Milestones</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 space-y-2">
-                    {journey.milestones.map((ms) => (
-                      <div key={ms.id} className="rounded-lg border p-3 text-sm">
-                        <p className="font-semibold">{ms.title}</p>
-                        {ms.body && <p className="text-xs text-muted-foreground mt-1">{ms.body}</p>}
-                        {ms.visibleToPartner && (
-                          <Badge variant="secondary" className="mt-2 text-[10px]">
-                            Shared with partner
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
             </>
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -77,13 +77,13 @@ export default function SocialConnectionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
       <Header showSearch={false} onLogout={logout} title="Following & followers" />
       <div className="mx-auto mt-2 max-w-lg px-3">
         <Button
           type="button"
           variant="ghost"
-          className="-ml-2 mb-2 h-10 px-2 text-gray-700"
+          className="-ml-2 mb-2 h-10 px-2 text-slate-700 hover:bg-slate-900/[0.03]"
           onClick={() => setLocation("/settings/social")}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -91,16 +91,16 @@ export default function SocialConnectionsPage() {
         </Button>
 
         <Tabs value={tab} onValueChange={(v) => syncUrl(v as "following" | "followers")} className="w-full">
-          <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl bg-gray-200/50 p-1">
+          <TabsList className="grid h-11 w-full grid-cols-2 rounded-full bg-card/60 p-1 shadow-2xs backdrop-blur-md">
             <TabsTrigger
               value="following"
-              className="rounded-lg text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              className="rounded-full text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xs"
             >
               Following
             </TabsTrigger>
             <TabsTrigger
               value="followers"
-              className="rounded-lg text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              className="rounded-full text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xs"
             >
               Followers
             </TabsTrigger>
@@ -110,7 +110,7 @@ export default function SocialConnectionsPage() {
             {isLoading ? (
               <LoadingState message="Loading…" showMascot />
             ) : !lists?.following?.length ? (
-              <p className="rounded-xl border border-gray-100 bg-white px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-[24px] border border-dashed border-stone-200 bg-stone-50/80 px-4 py-10 text-center text-sm text-muted-foreground">
                 You’re not following anyone yet. Follow people from a post’s ⋯ menu.
               </p>
             ) : (
@@ -118,10 +118,10 @@ export default function SocialConnectionsPage() {
                 {lists.following.map((u) => (
                   <li
                     key={u.userId}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm"
+                    className="flex items-center justify-between gap-3 rounded-[22px] border border-border/70 bg-card/60 p-3 shadow-2xs"
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <Avatar className="h-11 w-11 shrink-0 border border-gray-100">
+                      <Avatar className="h-11 w-11 shrink-0 border border-stone-200">
                         <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                         <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
                           {u.name?.slice(0, 2).toUpperCase() || "?"}
@@ -139,7 +139,7 @@ export default function SocialConnectionsPage() {
                         type="button"
                         size="sm"
                         variant="ghost"
-                        className="text-muted-foreground"
+                        className="rounded-full text-muted-foreground hover:bg-slate-900/[0.03]"
                         onClick={() => setLocation(`/profile/${encodeURIComponent(u.userId)}`)}
                       >
                         Profile
@@ -149,6 +149,7 @@ export default function SocialConnectionsPage() {
                         size="sm"
                         variant="outline"
                         disabled={unfollowMutation.isPending}
+                        className="rounded-full border-border/70 bg-card/60 shadow-2xs hover:bg-card"
                         onClick={() => unfollowMutation.mutate(u.userId)}
                       >
                         Unfollow
@@ -164,7 +165,7 @@ export default function SocialConnectionsPage() {
             {isLoading ? (
               <LoadingState message="Loading…" showMascot />
             ) : !lists?.followers?.length ? (
-              <p className="rounded-xl border border-gray-100 bg-white px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-[24px] border border-dashed border-stone-200 bg-stone-50/80 px-4 py-10 text-center text-sm text-muted-foreground">
                 No followers yet. When someone follows you in this app on this device, they’ll show up here.
               </p>
             ) : (
@@ -172,10 +173,10 @@ export default function SocialConnectionsPage() {
                 {lists.followers.map((u) => (
                   <li
                     key={u.userId}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm"
+                    className="flex items-center justify-between gap-3 rounded-[22px] border border-border/70 bg-card/60 p-3 shadow-2xs"
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <Avatar className="h-11 w-11 shrink-0 border border-gray-100">
+                      <Avatar className="h-11 w-11 shrink-0 border border-stone-200">
                         <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                         <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
                           {u.name?.slice(0, 2).toUpperCase() || "?"}
@@ -192,6 +193,7 @@ export default function SocialConnectionsPage() {
                       type="button"
                       size="sm"
                       variant="outline"
+                      className="rounded-full border-border/70 bg-card/60 shadow-2xs hover:bg-card"
                       onClick={() => setLocation(`/profile/${encodeURIComponent(u.userId)}`)}
                     >
                       View profile

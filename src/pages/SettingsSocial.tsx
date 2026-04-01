@@ -98,20 +98,13 @@ export default function SettingsSocial() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
       <Header showSearch={false} onLogout={logout} title="Feed preferences" />
       <div className="mx-auto mt-2 max-w-lg space-y-3 px-3">
-        <Button
-          type="button"
-          variant="ghost"
-          className="-ml-2 mb-1 h-10 px-2 text-gray-700"
-          onClick={() => setLocation("/settings")}
+        <Card
+          id="social-section-followers"
+          className="matchify-surface scroll-mt-24 overflow-hidden border-white/0 bg-card/70"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Settings
-        </Button>
-
-        <Card id="social-section-followers" className="scroll-mt-24">
           <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
@@ -123,31 +116,32 @@ export default function SettingsSocial() {
                 on the same device.
               </CardDescription>
             </div>
-            {(lists?.followers?.length ?? 0) > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-9 shrink-0 self-start font-semibold text-primary hover:text-primary"
-                onClick={() => setLocation("/settings/social/connections?tab=followers")}
-              >
-                View all
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={listsLoading || (lists?.followers?.length ?? 0) === 0}
+              className="h-9 shrink-0 self-start rounded-full font-semibold text-primary hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+              onClick={() => setLocation("/settings/social/connections?tab=followers")}
+            >
+              View all
+            </Button>
           </CardHeader>
           <CardContent className="space-y-2">
             {listsLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : !lists?.followers?.length ? (
-              <p className="text-sm text-muted-foreground">No followers yet.</p>
+              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+                No followers yet.
+              </p>
             ) : (
               lists.followers.slice(0, CONNECTIONS_PREVIEW).map((u) => (
                 <div
                   key={u.userId}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-3"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-gray-100">
+                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
                       <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                         {u.name?.slice(0, 2).toUpperCase() || "?"}
@@ -159,7 +153,7 @@ export default function SettingsSocial() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="shrink-0 text-muted-foreground"
+                    className="shrink-0 rounded-full text-muted-foreground hover:bg-slate-900/[0.03]"
                     onClick={() => setLocation(`/profile/${encodeURIComponent(u.userId)}`)}
                   >
                     View
@@ -170,7 +164,10 @@ export default function SettingsSocial() {
           </CardContent>
         </Card>
 
-        <Card id="social-section-following" className="scroll-mt-24">
+        <Card
+          id="social-section-following"
+          className="matchify-surface scroll-mt-24 overflow-hidden border-white/0 bg-card/70"
+        >
           <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
@@ -186,7 +183,7 @@ export default function SettingsSocial() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-9 shrink-0 self-start font-semibold text-primary hover:text-primary"
+                className="h-9 shrink-0 self-start rounded-full font-semibold text-primary hover:bg-primary/10 hover:text-primary"
                 onClick={() => setLocation("/settings/social/connections?tab=following")}
               >
                 View all
@@ -197,15 +194,17 @@ export default function SettingsSocial() {
             {listsLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : !lists?.following?.length ? (
-              <p className="text-sm text-muted-foreground">You’re not following anyone yet.</p>
+              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+                You’re not following anyone yet.
+              </p>
             ) : (
               lists.following.slice(0, CONNECTIONS_PREVIEW).map((u) => (
                 <div
                   key={u.userId}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-3"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-gray-100">
+                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
                       <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                         {u.name?.slice(0, 2).toUpperCase() || "?"}
@@ -218,6 +217,7 @@ export default function SettingsSocial() {
                     size="sm"
                     variant="outline"
                     disabled={unfollowMutation.isPending}
+                    className="rounded-full border-stone-200"
                     onClick={() => unfollowMutation.mutate(u.userId)}
                   >
                     Unfollow
@@ -228,7 +228,10 @@ export default function SettingsSocial() {
           </CardContent>
         </Card>
 
-        <Card id="social-section-muted" className="scroll-mt-24">
+        <Card
+          id="social-section-muted"
+          className="matchify-surface scroll-mt-24 overflow-hidden border-white/0 bg-card/70"
+        >
           <CardHeader>
             <div className="flex items-center gap-2">
               <Volume2 className="h-5 w-5 text-primary" />
@@ -240,15 +243,17 @@ export default function SettingsSocial() {
             {listsLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : !lists?.muted?.length ? (
-              <p className="text-sm text-muted-foreground">No muted authors.</p>
+              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+                No muted authors.
+              </p>
             ) : (
               lists.muted.map((u) => (
                 <div
                   key={u.authorId}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-3"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-gray-100">
+                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
                       <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                         {u.name?.slice(0, 2).toUpperCase() || "?"}
@@ -261,6 +266,7 @@ export default function SettingsSocial() {
                     size="sm"
                     variant="outline"
                     disabled={unmuteMutation.isPending}
+                    className="rounded-full border-border/70 bg-card/60 shadow-2xs hover:bg-card"
                     onClick={() => unmuteMutation.mutate(u.authorId)}
                   >
                     Unmute
@@ -271,7 +277,10 @@ export default function SettingsSocial() {
           </CardContent>
         </Card>
 
-        <Card id="social-section-blocked" className="scroll-mt-24">
+        <Card
+          id="social-section-blocked"
+          className="matchify-surface scroll-mt-24 overflow-hidden border-white/0 bg-card/70"
+        >
           <CardHeader>
             <div className="flex items-center gap-2">
               <Ban className="h-5 w-5 text-destructive" />
@@ -283,15 +292,17 @@ export default function SettingsSocial() {
             {listsLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : !lists?.blocked?.length ? (
-              <p className="text-sm text-muted-foreground">No blocked users.</p>
+              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+                No blocked users.
+              </p>
             ) : (
               lists.blocked.map((u) => (
                 <div
                   key={u.userId}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-3"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-gray-100">
+                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
                       <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                         {u.name?.slice(0, 2).toUpperCase() || "?"}
@@ -304,6 +315,7 @@ export default function SettingsSocial() {
                     size="sm"
                     variant="outline"
                     disabled={unblockMutation.isPending}
+                    className="rounded-full border-stone-200"
                     onClick={() => unblockMutation.mutate(u.userId)}
                   >
                     Unblock

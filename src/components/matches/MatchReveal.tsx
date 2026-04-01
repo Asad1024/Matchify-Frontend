@@ -71,7 +71,7 @@ export default function MatchReveal({
         {/* Card */}
         <motion.div
           key={step}
-          className="relative z-10 w-full max-w-sm mx-4 bg-background rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto"
+          className="relative z-10 w-full max-w-sm mx-4 bg-background rounded-3xl overflow-hidden shadow-xl max-h-[90vh] overflow-y-auto border border-border/70"
           initial={{ scale: 0.92, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.92, opacity: 0 }}
@@ -114,7 +114,7 @@ export default function MatchReveal({
                 <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Heart className="w-8 h-8 text-primary fill-primary/50" />
                 </div>
-                <h2 className="text-xl font-black text-foreground">New Match!</h2>
+                <h2 className="text-xl font-bold text-foreground">New Match!</h2>
                 <p className="text-sm text-muted-foreground mt-1">
                   Someone likes you. Reveal to see who!
                 </p>
@@ -131,7 +131,7 @@ export default function MatchReveal({
                   >
                     <div className="text-center">
                       <Sparkles className="w-8 h-8 text-primary mx-auto mb-1" />
-                      <span className="text-xs font-bold text-primary">Tap to reveal</span>
+                      <span className="text-xs font-semibold text-primary">Tap to reveal</span>
                     </div>
                   </motion.div>
                 ) : (

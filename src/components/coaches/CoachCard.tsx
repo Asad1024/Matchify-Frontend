@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
-import { Star, DollarSign, Languages, CheckCircle, Clock } from "lucide-react";
+import { Star, DollarSign, Languages, Clock } from "lucide-react";
+import { VerifiedTick } from "@/components/common/VerifiedTick";
 
 interface CoachCardProps {
   id: string;
@@ -77,14 +78,14 @@ export default function CoachCard({
           <div className="flex items-end gap-4 mb-2">
             <Avatar className="w-20 h-20 border-4 border-white shadow-lg">
               <AvatarImage src={image} alt={name} />
-              <AvatarFallback className={`text-xl font-black text-white bg-gradient-to-br ${gradient}`}>
+              <AvatarFallback className={`text-xl font-bold text-white bg-gradient-to-br ${gradient}`}>
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div className="pb-1">
               <div className="flex items-center gap-1.5">
                 <h3 className="font-display font-bold text-base text-foreground">{name}</h3>
-                <CheckCircle className="w-4 h-4 text-primary fill-primary/20 flex-shrink-0" />
+                <VerifiedTick size="sm" />
               </div>
               <Badge className="bg-primary/10 text-primary border-0 text-[11px] mt-0.5 rounded-full">
                 {specialty}

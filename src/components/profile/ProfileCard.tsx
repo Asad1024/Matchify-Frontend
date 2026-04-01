@@ -1,9 +1,10 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, CheckCircle, Heart, MessageCircle, Sparkles, User } from "lucide-react";
+import { MapPin, Heart, MessageCircle, Sparkles, User } from "lucide-react";
 import { OnlineIndicator } from "@/components/profile/OnlineIndicator";
 import { motion } from "framer-motion";
+import { VerifiedTick } from "@/components/common/VerifiedTick";
 
 interface ProfileCardProps {
   id: string;
@@ -79,13 +80,13 @@ export default function ProfileCard({
           handleCardClick();
         }
       }}
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden cursor-pointer"
+      className="matchify-surface overflow-hidden cursor-pointer"
       onClick={handleCardClick}
       data-testid={`profile-card-${id}`}
     >
       {/* Cover / Avatar area */}
       <div
-        className="relative h-32 bg-gradient-to-br from-primary/20 via-primary/10 to-purple-100"
+        className="relative h-32 bg-gradient-to-br from-primary/20 via-primary/10 to-secondary"
         style={
           profileBanner?.trim()
             ? {
@@ -97,7 +98,7 @@ export default function ProfileCard({
         }
       >
         {compatibility !== undefined && (
-          <div className="absolute top-3 right-3 bg-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow">
+          <div className="absolute top-3 right-3 matchify-pill-active px-2.5 py-1 text-xs shadow-sm">
             <Sparkles className="w-3 h-3 inline mr-0.5" />
             {compatibility}%
           </div>
@@ -128,8 +129,8 @@ export default function ProfileCard({
         {/* Name & info */}
         <div className="mb-2">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="font-bold text-gray-900 text-base">{name}{age ? `, ${age}` : ''}</span>
-            {verified && <CheckCircle className="w-4 h-4 text-primary fill-primary/20 flex-shrink-0" />}
+            <span className="font-semibold text-gray-900 text-base">{name}{age ? `, ${age}` : ''}</span>
+            {verified ? <VerifiedTick size="sm" /> : null}
           </div>
           {location && (
             <div className="flex items-center gap-1 text-xs text-gray-400">

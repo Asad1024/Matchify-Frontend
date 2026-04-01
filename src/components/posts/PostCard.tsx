@@ -4,8 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  MoreHorizontal,
-  CheckCircle,
+  MoreVertical,
+  X,
   Trash2,
   Share2,
   Bookmark,
@@ -16,8 +16,9 @@ import {
   Ban,
   Flag,
 } from "lucide-react";
+import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { motion } from "framer-motion";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +57,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { formatPostRelativeTime } from "@/lib/formatPostTime";
+import { cn } from "@/lib/utils";
 
 interface PostCardProps {
   id: string;
@@ -133,6 +135,7 @@ export default function PostCard({
   isFollowingAuthor = false,
   detailHref = null,
 }: PostCardProps) {
+  const [, setLocation] = useLocation();
   const { userId: currentUserId } = useCurrentUser();
   const { toast } = useToast();
   const [liked, setLiked] = useState(!!likedByMe);
@@ -154,6 +157,7 @@ export default function PostCard({
   const sessionKey = `post_viewed_session_${id}`;
   const isOwner = !!currentUserId && !!authorId && currentUserId === authorId;
   const canSocial = !!currentUserId && !!authorId && !isOwner;
+  const authorProfileHref = authorId ? `/profile/social/user/${encodeURIComponent(authorId)}` : null;
 
   const invalidateSocial = () => {
     if (!currentUserId) return;
@@ -330,32 +334,71 @@ export default function PostCard({
       ref={cardRef}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full bg-white rounded-[20px] border border-[#F0F0F0] shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden"
+      className={cn(
+        "w-full bg-white rounded-[20px] border border-[#F0F0F0] shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden",
+        detailHref && "cursor-pointer",
+      )}
       data-testid={`post-card-${id}`}
+      onClick={(e) => {
+        if (!detailHref) return;
+        const t = e.target as HTMLElement | null;
+        if (!t) return;
+
+        // Don't hijack clicks on interactive elements inside the card.
+        const interactive = t.closest(
+          'a,button,input,textarea,select,option,[role="button"],[role="menuitem"],[data-no-post-nav="true"]',
+        );
+        if (interactive) return;
+
+        setLocation(detailHref);
+      }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-0">
         <div className="flex items-center gap-3">
-          <Avatar className="w-10 h-10">
-            <AvatarImage
-              src={author.image || author.avatar || undefined}
-              alt={author.name}
-            />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
-              {author.name.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          {authorProfileHref ? (
+            <Link href={authorProfileHref} className="shrink-0">
+              <Avatar className="w-10 h-10">
+                <AvatarImage
+                  src={author.image || author.avatar || undefined}
+                  alt={author.name}
+                />
+                <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
+                  {author.name.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </Link>
+          ) : (
+            <Avatar className="w-10 h-10">
+              <AvatarImage
+                src={author.image || author.avatar || undefined}
+                alt={author.name}
+              />
+              <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
+                {author.name.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          )}
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold text-gray-900">{author.name}</span>
+              {authorProfileHref ? (
+                <Link href={authorProfileHref} className="text-sm font-bold text-gray-900 hover:underline">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>{author.name}</span>
+                    {author.verified ? <VerifiedTick size="sm" /> : null}
+                  </span>
+                </Link>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-900">
+                  <span>{author.name}</span>
+                  {author.verified ? <VerifiedTick size="sm" /> : null}
+                </span>
+              )}
               {groupId && groupName?.trim() ? (
-                <span className="ml-1 inline-flex max-w-[10rem] items-center truncate rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                <span className="ml-1 inline-flex max-w-[10rem] items-center truncate rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                   {groupName.trim()}
                 </span>
               ) : null}
-              {author.verified && (
-                <CheckCircle className="w-3.5 h-3.5 text-primary fill-primary/20" />
-              )}
             </div>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
               <span className="text-gray-500">{timeLabel}</span>
@@ -367,18 +410,19 @@ export default function PostCard({
             </div>
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
-              aria-label="Post options"
-            >
-              <MoreHorizontal className="h-5 w-5" strokeWidth={2} aria-hidden />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[13rem]">
+        <div className="flex shrink-0 items-start gap-0.5 -mt-1.5 -mr-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                aria-label="Post options"
+              >
+                <MoreVertical className="h-5 w-5" strokeWidth={2} aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[13rem]">
             {isOwner ? (
               <>
                 <DropdownMenuItem
@@ -457,8 +501,23 @@ export default function PostCard({
                 ) : null}
               </>
             ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {!isOwner && canSocial ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100 -ml-1"
+              aria-label="Mute posts from user"
+              disabled={muteMutation.isPending}
+              onClick={() => muteMutation.mutate(true)}
+            >
+              <X className="h-5 w-5" strokeWidth={2} aria-hidden />
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {/* Content — px-4 aligns with header row; pt-2 separates from author block */}

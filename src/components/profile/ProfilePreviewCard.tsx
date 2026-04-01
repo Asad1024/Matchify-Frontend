@@ -17,22 +17,22 @@ export function ProfilePreviewCard({
   return (
     <section
       className={cn(
-        "rounded-3xl border border-stone-200/90 bg-white p-4 shadow-[0_1px_0_rgba(0,0,0,0.04),0_8px_28px_-12px_rgba(25,20,30,0.12)]",
+        "matchify-surface rounded-3xl border-white/0 bg-card/70 p-4 shadow-2xs",
         className,
       )}
     >
       <div className="mb-3 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-inner">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-2xs">
           <Icon className="h-5 w-5" strokeWidth={2} />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-[15px] font-black leading-tight text-foreground">{title}</h2>
+          <h2 className="font-display text-[15px] font-bold leading-tight text-foreground">{title}</h2>
           {description ? (
             <p className="mt-0.5 text-[11px] font-medium leading-snug text-muted-foreground">{description}</p>
           ) : null}
         </div>
       </div>
-      <div className="border-t border-stone-100/80 pt-3">{children}</div>
+      <div className="border-t border-border/70 pt-3">{children}</div>
     </section>
   );
 }

@@ -26,6 +26,7 @@ import { AI_MATCH_COOLDOWN_MS, getAiMatchCooldownLabel } from "@/lib/matchifyBra
 import type { User } from "@shared/schema";
 import { resetAIMatchmakerSubmission } from "@/services/aiMatchmaker.service";
 import { cn } from "@/lib/utils";
+import { useUpgrade } from "@/contexts/UpgradeContext";
 
 export default function AIMatchmaker() {
   const [activePage, setActivePage] = useState("menu");
@@ -33,6 +34,7 @@ export default function AIMatchmaker() {
   const { logout } = useAuth();
   const { userId } = useCurrentUser();
   const { toast } = useToast();
+  const { tier, requireTier } = useUpgrade();
   const [notifyWhenReady, setNotifyWhenReady] = useState(false);
   const { data: profile } = useQuery<
     User & {
@@ -51,6 +53,7 @@ export default function AIMatchmaker() {
   const hasBlueprint = !!profile?.attractionBlueprint;
   const matchmakerLocked = !!(profile as { matchmakerLocked?: boolean } | undefined)?.matchmakerLocked;
   const firstName = profile?.name?.split(" ")[0] || "there";
+  const aiAllowed = tier !== "free";
 
   useEffect(() => {
     try {
@@ -96,7 +99,7 @@ export default function AIMatchmaker() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] pb-28">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
       <Header
         showSearch={false}
         unreadNotifications={0}
@@ -110,7 +113,7 @@ export default function AIMatchmaker() {
         {/* Title + one line of context */}
         <div className="mb-6 text-center">
           <motion.div
-            className="mx-auto mb-3 grid h-14 w-14 place-items-center overflow-hidden rounded-2xl border border-white/60 bg-gradient-to-br from-[#722F37] to-[#8B2942] text-primary-foreground shadow-[0_18px_60px_-28px_rgba(114,47,55,0.55)]"
+            className="mx-auto mb-3 grid h-14 w-14 place-items-center overflow-hidden rounded-2xl border border-border/70 bg-primary text-primary-foreground shadow-lg"
             initial={{ opacity: 0, y: 6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 420, damping: 30 }}
@@ -146,6 +149,28 @@ export default function AIMatchmaker() {
           </p>
         </div>
 
+        {!aiAllowed ? (
+          <Card className="mb-4 overflow-hidden rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-22px_rgba(15,23,42,0.14)]">
+            <CardContent className="p-5">
+              <div className="font-display text-[16px] font-bold text-foreground">AI Matchmaker is a Plus feature</div>
+              <div className="mt-1 text-[13px] leading-5 text-muted-foreground">
+                Free plan doesn’t include AI picks. Upgrade to unlock.
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Button
+                  className="h-11 flex-1 rounded-full"
+                  onClick={() => requireTier({ feature: "AI Matchmaker", minTier: "plus" })}
+                >
+                  Upgrade
+                </Button>
+                <Button variant="outline" className="h-11 flex-1 rounded-full" onClick={() => setLocation("/menu")}>
+                  Back
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {!hasBlueprint && (
           <Card className="mb-4 border-amber-200 bg-amber-50/60">
             <CardContent className="flex items-start gap-3 p-4">
@@ -171,7 +196,7 @@ export default function AIMatchmaker() {
         )}
 
         {/* Timed pick — only relevant after questionnaire */}
-        {hasBlueprint && (
+        {hasBlueprint && aiAllowed && (
           <Card
             className={cn(
               "mb-4 overflow-hidden rounded-[24px] border border-white/60 bg-white/75 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)] backdrop-blur-lg",
@@ -201,7 +226,7 @@ export default function AIMatchmaker() {
                   <motion.div
                     animate={ready ? { opacity: 1 } : { opacity: [0.92, 1, 0.92] }}
                     transition={{ duration: 2.2, repeat: ready ? 0 : Infinity, ease: [0.22, 1, 0.36, 1] }}
-                    className="mt-1 font-display text-[26px] font-extrabold leading-none text-slate-900 tabular-nums"
+                    className="mt-1 font-display text-[26px] font-bold leading-none text-foreground tabular-nums"
                     aria-live="polite"
                   >
                     {ready ? "Ready" : formatCountdown(msLeft)}

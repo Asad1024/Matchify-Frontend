@@ -647,11 +647,13 @@ export default function Chat() {
     : "";
 
   return (
-    <PageWrapper className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-gray-50">
+    <PageWrapper className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-[hsl(var(--surface-2))]">
       {/* Full viewport column: header + chat card fills space above fixed BottomNav */}
       <div className="shrink-0">
         <Header
           showSearch={true}
+          title="Chat"
+          subtitle="Your conversations and new interests"
           onSearch={(query) => {
             const q = query.trim();
             if (q) {
@@ -671,23 +673,23 @@ export default function Chat() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col w-full max-w-lg mx-auto px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] rounded-b-2xl border border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+        <div className="matchify-surface flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] rounded-b-2xl">
         {/* Conversations List */}
         {!selectedChat ? (
-          <div className="flex flex-col flex-1 overflow-hidden bg-white min-h-0">
+          <div className="flex flex-col flex-1 overflow-hidden bg-transparent min-h-0">
             <div className="px-4 pt-3 pb-1">
-              <h1 className="text-lg font-bold text-gray-900 tracking-tight">Messages</h1>
+              <h1 className="text-lg font-semibold text-gray-900 tracking-tight">Messages</h1>
               <p className="text-xs text-gray-500 mt-0.5">Your conversations</p>
             </div>
             {/* Search */}
-            <div className="px-4 py-3 border-b border-gray-100">
+            <div className="px-4 py-3 border-b border-border/70">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search messages..."
-                  className="w-full pl-9 pr-4 py-2.5 bg-gray-100 rounded-2xl text-sm outline-none placeholder-gray-400"
+                  className="w-full pl-9 pr-4 py-2.5 bg-muted/60 rounded-2xl text-sm outline-none placeholder:text-muted-foreground/80"
                   data-testid="input-search-chats"
                 />
               </div>
@@ -725,7 +727,7 @@ export default function Chat() {
                         </p>
                       </div>
                       <button
-                        className="mt-1 bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-md shadow-primary/30 hover:bg-primary/90 transition-colors"
+                        className="mt-1 bg-primary text-primary-foreground text-sm font-semibold px-6 py-2.5 rounded-full shadow-2xs hover:bg-primary/90 transition-colors"
                         onClick={() => setLocation('/explore')}
                       >
                         Explore matches
@@ -750,8 +752,8 @@ export default function Chat() {
                           const unread = (conv as ConversationSummary).unreadCount ?? 0;
                           const ring =
                             unread > 0
-                              ? "bg-gradient-to-br from-primary via-[#7C3AED] to-[#06B6D4]"
-                              : "bg-[#F0F0F0]";
+                              ? "bg-primary"
+                              : "bg-border/70";
                           return (
                             <button
                               key={`top-${conv.id}`}
@@ -849,7 +851,7 @@ export default function Chat() {
           /* Chat Area */
           <div className="flex flex-col flex-1 overflow-hidden bg-white min-h-0">
             {/* Chat Header */}
-            <div className="px-4 py-3 bg-white border-b border-[#F0F0F0] flex items-center gap-3 shrink-0">
+            <div className="px-4 py-3 bg-card/70 backdrop-blur-md border-b border-border/70 flex items-center gap-3 shrink-0">
               <button
                 type="button"
                 className="w-9 h-9 rounded-full flex items-center justify-center bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors touch-manipulation"
@@ -883,20 +885,20 @@ export default function Chat() {
                 </p>
               </div>
               <div className="flex items-center gap-1">
-                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors hidden sm:flex border border-transparent hover:border-[#F0F0F0]">
+                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-foreground/[0.05] transition-colors hidden sm:flex border border-transparent hover:border-border/70">
                   <Phone className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
                 </button>
-                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors hidden sm:flex border border-transparent hover:border-[#F0F0F0]">
+                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-foreground/[0.05] transition-colors hidden sm:flex border border-transparent hover:border-border/70">
                   <Video className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
                 </button>
-                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors border border-transparent hover:border-[#F0F0F0]">
+                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-foreground/[0.05] transition-colors border border-transparent hover:border-border/70">
                   <MoreVertical className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
                 </button>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#F8F9FB] min-h-0">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[hsl(var(--surface-2))] min-h-0">
               <AnimatePresence initial={false}>
                 {safeMessages.map((msg, index) => {
                   if (!msg) return null;
@@ -1255,7 +1257,7 @@ export default function Chat() {
             </AnimatePresence>
 
             {/* Input area — voice mode replaces the text row (WhatsApp-style inline bar) */}
-            <div className="px-4 pt-3 pb-5 bg-white border-t border-[#F0F0F0] flex items-center gap-2 shrink-0 min-h-[3.25rem]">
+            <div className="px-4 pt-3 pb-5 bg-card/70 backdrop-blur-md border-t border-border/70 flex items-center gap-2 shrink-0 min-h-[3.25rem]">
               {showVoiceRecorder ? (
                 <VoiceNoteRecorder
                   layout="inline"
@@ -1266,7 +1268,7 @@ export default function Chat() {
                 />
               ) : (
                 <>
-                  <div className="flex-1 rounded-full border border-[#F0F0F0] bg-white/75 backdrop-blur-md px-3 py-2.5 flex items-center gap-1.5 min-w-0 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]">
+                  <div className="flex-1 rounded-full border border-border/70 bg-card/70 backdrop-blur-md px-3 py-2.5 flex items-center gap-1.5 min-w-0 shadow-2xs">
                     <input
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}

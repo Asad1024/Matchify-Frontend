@@ -26,7 +26,7 @@ import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { apiRequestJson } from "@/services/api";
+import { apiRequestJson, buildApiUrl, getAuthHeaders } from "@/services/api";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { cn } from "@/lib/utils";
 import {
@@ -166,12 +166,60 @@ export default function Settings() {
     deleteAccountMutation.mutate();
   };
 
-  const handleExportData = () => {
-    // Export user data
-    toast({
-      title: "Data export",
-      description: "Your data export will be sent to your email",
-    });
+  const buildInviteLink = () => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/signup?ref=${encodeURIComponent(userId ?? "")}`;
+  };
+
+  const inviteFriends = async () => {
+    const link = buildInviteLink();
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Join me on Matchify",
+          text: "Join me on Matchify using my invite link.",
+          url: link,
+        });
+        toast({ title: "Invite shared" });
+        return;
+      }
+    } catch {
+      // ignore share cancel
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({ title: "Invite link copied" });
+    } catch {
+      toast({ title: "Could not copy link", description: link, variant: "destructive" });
+    }
+  };
+
+  const handleExportData = async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch(buildApiUrl(`/api/users/${userId}/export`), {
+        method: "GET",
+        headers: getAuthHeaders(false),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `matchify-export-${userId}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: "Export downloaded" });
+    } catch (e) {
+      toast({
+        title: "Could not export data",
+        description: e instanceof Error ? e.message : "Export failed",
+        variant: "destructive",
+      });
+    }
   };
 
   const maskedEmail = useMemo(() => {
@@ -183,14 +231,6 @@ export default function Settings() {
     const masked = `${u.slice(0, keep)}***@${d}`;
     return masked;
   }, [me?.email]);
-
-  const maskedPhone = useMemo(() => {
-    const raw = String((me as any)?.phone || "").trim();
-    if (!raw) return "";
-    const digits = raw.replace(/\D/g, "");
-    if (digits.length < 6) return raw;
-    return `${digits.slice(0, 2)}***${digits.slice(-2)}`;
-  }, [me]);
 
   const messageAccessLabel = useMemo(() => {
     switch (privacySettings.allowMessagesFrom) {
@@ -228,7 +268,7 @@ export default function Settings() {
 
   function SettingsCard({ children }: { children: React.ReactNode }) {
     return (
-      <div className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+      <div className="matchify-surface">
         <div className="px-4 py-2.5">{children}</div>
       </div>
     );
@@ -236,7 +276,7 @@ export default function Settings() {
 
   function IconBubble({ children }: { children: React.ReactNode }) {
     return (
-      <div className="grid h-9 w-9 place-items-center rounded-full bg-[#F4F4F7] text-slate-600">
+      <div className="grid h-9 w-9 place-items-center rounded-full bg-muted/60 text-slate-600">
         {children}
       </div>
     );
@@ -279,7 +319,7 @@ export default function Settings() {
               {badge ? (
                 <span
                   className={cn(
-                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
                     badge.tone === "help"
                       ? "border-sky-200 bg-sky-50 text-sky-700"
                       : "border-primary/20 bg-primary/[0.06] text-primary",
@@ -314,36 +354,16 @@ export default function Settings() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] pb-24">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
       <Header
         showSearch={false}
         onLogout={logout}
-        title="Marriage settings"
+        title="Settings"
       />
 
       <div className="mx-auto mt-2 max-w-lg space-y-3 px-3">
         <SettingsSectionTitle>Account settings</SettingsSectionTitle>
         <SettingsCard>
-          <Row
-            icon={<UserRound className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
-            label="Profile"
-            onClick={() => setLocation("/profile?marriage=1&tab=edit")}
-          />
-          <Row
-            icon={<Mail className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
-            label="Email"
-            value={maskedEmail}
-            onClick={() => toast({ title: "Email", description: "Email editing coming soon." })}
-          />
-          {maskedPhone ? (
-            <Row
-              icon={<Phone className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
-              label="Phone"
-              value={maskedPhone}
-              onClick={() => toast({ title: "Phone", description: "Phone editing coming soon." })}
-            />
-          ) : null}
-
           <div className="pt-2">
             {userId ? <ChangePasswordForm userId={userId} /> : null}
           </div>
@@ -474,18 +494,18 @@ export default function Settings() {
             icon={<HelpCircle className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
             label="Contact support"
             badge={{ label: "Help", tone: "help" }}
-            onClick={() => toast({ title: "Support", description: "Support chat coming soon." })}
+            onClick={() => setLocation("/support")}
           />
           <Row
             icon={<Shield className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
             label="Invite friends"
             badge={{ label: "New", tone: "new" }}
-            onClick={() => toast({ title: "Invite friends", description: "Share link coming soon." })}
+            onClick={inviteFriends}
           />
           <Row
             icon={<Download className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
             label="Export my data"
-            onClick={handleExportData}
+            onClick={() => void handleExportData()}
           />
           <Row
             icon={<Ban className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}

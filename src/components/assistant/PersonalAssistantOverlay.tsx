@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Mic, Plus, Send, Sparkles } from "lucide-react";
+import { Bot, Send, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { apiRequestJson, isClientOnlyApi } from "@/services/api";
+import { useUpgrade } from "@/contexts/UpgradeContext";
+import { dailyKey, dailyCount, incrementDailyCount, lunaDailyLimitForTier } from "@/lib/entitlements";
 
 type AssistantMessage = {
   id: string;
@@ -80,6 +82,7 @@ async function getAssistantOpener(params: { pathname: string }) {
 }
 
 export function LunaChatPanel() {
+  const { tier, requireTier } = useUpgrade();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -106,6 +109,18 @@ export function LunaChatPanel() {
     let cancelled = false;
     (async () => {
       try {
+        if (tier === "free") {
+          setOpenerLoading(false);
+          setMessages([
+            {
+              id: makeId(),
+              role: "assistant",
+              text: "Luna is available on Plus. Upgrade to unlock AI chat.",
+              createdAt: Date.now(),
+            },
+          ]);
+          return;
+        }
         const res = await getAssistantOpener({ pathname: String(context.pathname || "") });
         const replyText = String(res?.reply || "").trim();
         if (!replyText) return;
@@ -120,7 +135,7 @@ export function LunaChatPanel() {
     return () => {
       cancelled = true;
     };
-  }, [context.pathname]);
+  }, [context.pathname, tier]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -130,8 +145,26 @@ export function LunaChatPanel() {
   }, [messages.length]);
 
   const send = async () => {
+    if (!requireTier({ feature: "Luna (AI chat)", minTier: "plus", reason: "Free plan doesn’t include AI chat." })) {
+      return;
+    }
     const text = input.trim();
     if (!text || busy) return;
+
+    const limit = lunaDailyLimitForTier(tier);
+    if (Number.isFinite(limit)) {
+      const key = dailyKey("luna_msgs", "global");
+      const used = dailyCount(key);
+      if (used >= limit) {
+        requireTier({
+          feature: "Luna (AI chat)",
+          minTier: "premium",
+          reason: "You’ve hit today’s Luna message limit on Plus.",
+        });
+        return;
+      }
+      incrementDailyCount(key, 1);
+    }
 
     setInput("");
     const userMsg: AssistantMessage = { id: makeId(), role: "user", text, createdAt: Date.now() };
@@ -181,6 +214,7 @@ export function LunaChatPanel() {
   };
 
   const canSend = !busy && Boolean(input.trim());
+  // (Quick prompt chips removed for a simpler Luna chat.)
 
   return (
     <motion.div
@@ -284,18 +318,19 @@ export function LunaChatPanel() {
 
       <div className="safe-bottom px-4 pb-3 pt-2">
         <div className="mx-auto max-w-[720px]">
+          {tier === "free" ? (
+            <div className="mb-2 rounded-[18px] border border-primary/15 bg-primary/[0.06] px-4 py-3 text-[13px] text-slate-700">
+              <span className="font-semibold text-slate-900">Upgrade required.</span> Luna is available on Plus and above.
+              <Button
+                className="mt-3 h-10 w-full rounded-full"
+                onClick={() => requireTier({ feature: "Luna (AI chat)", minTier: "plus" })}
+              >
+                View plans
+              </Button>
+            </div>
+          ) : null}
           <div className="rounded-full border border-[#F0F0F0] bg-white/75 shadow-[0_18px_60px_-28px_rgba(15,23,42,0.35)] backdrop-blur-md">
             <div className="flex items-center gap-2 px-2 py-2">
-              <button
-                type="button"
-                aria-label="More"
-                title="More"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-transparent text-slate-600 hover:border-[#F0F0F0] hover:bg-white"
-                onClick={() => {}}
-              >
-                <Plus className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-              </button>
-
               <div className="relative flex-1">
                 <Sparkles
                   className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/70"
@@ -307,7 +342,7 @@ export function LunaChatPanel() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={busy ? "Luna is thinking…" : "Type a message…"}
-                  disabled={busy}
+                  disabled={busy || tier === "free"}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") send();
                   }}
@@ -316,21 +351,12 @@ export function LunaChatPanel() {
                     "placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0",
                   )}
                 />
-                <button
-                  type="button"
-                  aria-label="Voice"
-                  title="Voice"
-                  className="absolute right-1 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-transparent text-slate-600 hover:border-[#F0F0F0] hover:bg-white"
-                  onClick={() => {}}
-                >
-                  <Mic className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                </button>
               </div>
 
               <Button
                 type="button"
                 onClick={send}
-                disabled={!canSend}
+                disabled={!canSend || tier === "free"}
                 size="icon"
                 aria-label="Send"
                 className={cn(

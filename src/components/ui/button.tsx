@@ -17,10 +17,10 @@ const buttonVariants = cva(
         outline:
           // Shows the background color of whatever card / sidebar / accent background it is inside of.
           // Inherits the current text color.
-          " border [border-color:var(--button-outline)]  shadow-xs active:shadow-none ",
-        secondary: "border bg-secondary text-secondary-foreground border border-secondary-border ",
+          " border [border-color:var(--button-outline)] shadow-2xs active:shadow-none font-medium text-foreground/90",
+        secondary: "border bg-secondary text-secondary-foreground border border-secondary-border font-medium",
         // Add a transparent border so that when someone toggles a border on later, it doesn't shift layout/size.
-        ghost: "border border-transparent",
+        ghost: "border border-transparent font-medium text-foreground/85",
       },
       // Heights are set as "min" heights, because sometimes Ai will place large amount of content
       // inside buttons. With a min-height they will look appropriate with small amounts of content,
@@ -53,22 +53,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       className={cn(buttonVariants({ variant, size, className }))}
       ref={ref}
       {...props}
-      onMouseDown={(e: React.MouseEvent<HTMLButtonElement>) => {
-        // Add haptic-like feedback simulation
-        if (props.onMouseDown) {
-          props.onMouseDown(e as React.MouseEvent<HTMLButtonElement>);
-        }
-        // Visual feedback
-        const target = e.currentTarget as HTMLButtonElement;
-        if (target && target.style) {
-          target.style.transform = 'scale(0.98)';
-          setTimeout(() => {
-            if (target && target.style) {
-              target.style.transform = '';
-            }
-          }, 100);
-        }
-      }}
     />
   )
   },

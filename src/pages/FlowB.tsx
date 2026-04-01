@@ -1687,7 +1687,7 @@ export default function FlowB() {
                   }}
                   className={`relative aspect-square overflow-hidden rounded-xl transition-all ${
                     isSelected 
-                      ? 'ring-2 ring-primary shadow-[0_0_22px_hsl(349_52%_38%/0.45)] sm:ring-[3px]' 
+                      ? 'ring-2 ring-primary shadow-2xs sm:ring-[3px]' 
                       : 'ring-1 ring-white/20 hover:ring-primary/40 sm:ring-2'
                   }`}
                   data-testid={`option-${q.id}-${opt.id}`}
@@ -1746,7 +1746,7 @@ export default function FlowB() {
                         times: [0, 0.5, 1]
                       }}
                     >
-                      <Heart className="h-6 w-6 fill-primary text-primary drop-shadow-[0_0_14px_hsl(349_52%_38%/0.85)] sm:h-8 sm:w-8" />
+                      <Heart className="h-6 w-6 fill-primary text-primary sm:h-8 sm:w-8" />
                     </motion.div>
                   )}
                   
@@ -1842,8 +1842,8 @@ export default function FlowB() {
                   className={`rounded-full px-3 py-2.5 text-left text-xs font-medium backdrop-blur-md transition-all sm:px-4 sm:py-3 sm:text-sm ${
                     isSelected 
                       ? isDealbreaker 
-                        ? 'bg-red-500/30 text-red-200 ring-2 ring-red-400/50 shadow-[0_0_15px_rgba(239,68,68,0.3)] sm:ring-[3px]' 
-                        : 'bg-primary/25 text-white ring-2 ring-primary/60 shadow-[0_0_16px_hsl(349_52%_38%/0.35)] sm:ring-[3px]'
+                        ? 'bg-red-500/30 text-red-200 ring-2 ring-red-400/50 shadow-2xs sm:ring-[3px]' 
+                        : 'bg-primary/25 text-white ring-2 ring-primary/60 shadow-2xs sm:ring-[3px]'
                       : 'border border-white/20 bg-white/10 text-white/70 hover:bg-white/15'
                   }`}
                   data-testid={`option-${q.id}-${opt.id}`}

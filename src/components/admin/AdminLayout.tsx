@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { Surface } from "@/components/common/Surface";
 
 const adminMenuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
@@ -83,22 +84,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] flex">
       {/* ── DESKTOP SIDEBAR (md+) ── */}
       <aside className={cn(
-        "hidden md:flex flex-col bg-card border-r transition-all duration-300",
+        "hidden md:flex flex-col bg-card/80 backdrop-blur-md border-r border-border/70 transition-all duration-300",
         collapsed ? "w-16" : "w-64"
       )}>
-        <div className="p-4 border-b flex items-center justify-between">
-          {!collapsed && <h2 className="text-lg font-semibold truncate">Admin Panel</h2>}
+        <div className="p-4 border-b border-border/70 flex items-center justify-between">
+          {!collapsed && <h2 className="text-[15px] font-semibold truncate text-foreground/90">Admin</h2>}
           <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)}>
             {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
           </Button>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           <NavItems showLabels={!collapsed} />
         </nav>
-        <div className="p-2 border-t">
+        <div className="p-2 border-t border-border/70">
           <Button
             variant="ghost"
             className={cn("w-full justify-start text-destructive hover:text-destructive", collapsed ? "px-2" : "px-4")}
@@ -111,12 +112,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* ── MOBILE TOP BAR (< md) ── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-card border-b flex items-center gap-3 px-4 h-14">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b border-border/70 flex items-center gap-3 px-4 h-14">
         <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)}>
           <Menu className="w-5 h-5" />
         </Button>
         <span className="font-bold text-base flex-1 truncate">Matchify</span>
-        <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">ADMIN</span>
+        <span className="matchify-pill-active px-2 py-0.5 text-[10px]">ADMIN</span>
         <span className="text-xs text-muted-foreground truncate max-w-[100px]">{currentPage}</span>
       </div>
 
@@ -130,11 +131,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="absolute inset-0 bg-black/50" />
           {/* Drawer */}
           <div
-            className="relative bg-card w-72 h-full flex flex-col shadow-2xl"
+            className="relative bg-card/90 backdrop-blur-md w-72 h-full flex flex-col shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Admin Panel</h2>
+            <div className="p-4 border-b border-border/70 flex items-center justify-between">
+              <h2 className="text-[15px] font-semibold text-foreground/90">Admin</h2>
               <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(false)}>
                 <X className="w-5 h-5" />
               </Button>
@@ -142,7 +143,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
               <NavItems showLabels={true} />
             </nav>
-            <div className="p-2 border-t">
+            <div className="p-2 border-t border-border/70">
               <Button
                 variant="ghost"
                 className="w-full justify-start px-4 text-destructive hover:text-destructive"
@@ -158,7 +159,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* ── MAIN CONTENT ── */}
       <main className="flex-1 overflow-y-auto md:pt-0 pt-14">
-        {children}
+        <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
+          <Surface className="p-0 overflow-hidden">
+            {children}
+          </Surface>
+        </div>
       </main>
     </div>
   );

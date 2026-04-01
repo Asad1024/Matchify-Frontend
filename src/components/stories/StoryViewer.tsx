@@ -98,7 +98,9 @@ export default function StoryViewer({
       return res;
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/stories"] });
+      await queryClient.invalidateQueries({
+        predicate: (q) => typeof q.queryKey?.[0] === "string" && q.queryKey[0].startsWith("/api/stories"),
+      });
       toast({ title: "Story removed" });
       onClose();
     },

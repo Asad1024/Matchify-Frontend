@@ -12,6 +12,7 @@ import { Home, Users, Calendar, MessageCircle, User as UserIcon, Compass, Bell, 
 import { useQuery } from "@tanstack/react-query";
 import { getMockData } from "@/lib/mockData";
 import type { User, Event, Group, Post } from "@shared/schema";
+import { VerifiedTick } from "@/components/common/VerifiedTick";
 
 /** Dispatched by Header search button so the palette opens from the icon tap. */
 export const OPEN_GLOBAL_SEARCH_EVENT = "matchify-open-global-search";
@@ -119,10 +120,10 @@ export function GlobalSearch() {
                       onSelect={() => handleSelect(`/profile/${user.id}`)}
                     >
                       <UserIcon className="h-4 w-4" />
-                      <span>{user.name}</span>
-                      {user.verified && (
-                        <span className="ml-2 text-xs text-primary">✓</span>
-                      )}
+                      <span className="flex items-center gap-1.5">
+                        <span>{user.name}</span>
+                        {user.verified ? <VerifiedTick size="xs" /> : null}
+                      </span>
                     </CommandItem>
                   ))}
                 </CommandGroup>

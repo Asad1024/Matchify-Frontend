@@ -12,6 +12,7 @@ import NotificationItem from "./NotificationItem";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { queryClient } from "@/lib/queryClient";
 import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 import {
   isMarriageSyntheticNotificationId,
   markMarriageSyntheticNotificationRead,
@@ -29,7 +30,9 @@ type Notification = {
     | "system"
     | "curated_match"
     | "marriage_chat_request"
-    | "marriage_chat_accepted";
+    | "marriage_chat_accepted"
+    | "chat_request"
+    | "chat_request_accepted";
   title: string;
   message: string;
   read: boolean | null;
@@ -42,6 +45,7 @@ export function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
+  const { toast } = useToast();
   const [marriageEpoch, setMarriageEpoch] = useState(0);
   const [actionNotificationId, setActionNotificationId] = useState<string | null>(null);
 
@@ -56,6 +60,18 @@ export function NotificationCenter() {
     enabled: !!userId,
     refetchInterval: 30_000,
   });
+
+  useEffect(() => {
+    if (!userId) return;
+    const es = new EventSource(`/api/users/${encodeURIComponent(userId)}/notifications/stream`);
+    es.onmessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+    };
+    es.onerror = () => {
+      // Browser will auto-retry. No-op.
+    };
+    return () => es.close();
+  }, [userId]);
 
   const safeNotifications = Array.isArray(notifications) ? notifications : [];
 
@@ -103,6 +119,25 @@ export function NotificationCenter() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "marriage-incoming"] });
+    },
+  });
+
+  const respondChatReqMutation = useMutation({
+    mutationFn: async (vars: { requestId: string; decision: "approved" | "rejected" }) => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await fetch(buildApiUrl(`/api/users/${userId}/chat-requests/${vars.requestId}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
+        credentials: "include",
+        body: JSON.stringify({ decision: vars.decision }),
+      });
+      if (!res.ok) throw new Error("Failed to respond");
+      return res.json() as Promise<{ conversationId?: string }>;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+      if (vars.decision === "approved") toast({ title: "Request accepted" });
+      else toast({ title: "Request declined" });
     },
   });
 
@@ -168,13 +203,23 @@ export function NotificationCenter() {
                   const other = row?.relatedUserId || null;
                   if (!reqId || !other) return;
                   setActionNotificationId(id);
-                  respondMarriageReqMutation.mutate({ requestId: reqId, decision: "approved" }, {
-                    onSuccess: () => {
-                      // Recipient accepted → jump to chat with sender.
-                      setLocation(`/chat?user=${encodeURIComponent(other)}`);
-                    },
-                    onSettled: () => setActionNotificationId(null),
-                  });
+                  if (row?.type === "chat_request") {
+                    respondChatReqMutation.mutate(
+                      { requestId: reqId, decision: "approved" },
+                      {
+                        onSuccess: () => setLocation(`/chat?user=${encodeURIComponent(other)}`),
+                        onSettled: () => setActionNotificationId(null),
+                      },
+                    );
+                  } else {
+                    respondMarriageReqMutation.mutate(
+                      { requestId: reqId, decision: "approved" },
+                      {
+                        onSuccess: () => setLocation(`/chat?user=${encodeURIComponent(other)}`),
+                        onSettled: () => setActionNotificationId(null),
+                      },
+                    );
+                  }
                 }}
                 onDecline={(id) => {
                   if (actionNotificationId) return;
@@ -182,12 +227,21 @@ export function NotificationCenter() {
                   const reqId = (row as any)?.relatedEntityId as string | undefined;
                   if (!reqId) return;
                   setActionNotificationId(id);
-                  respondMarriageReqMutation.mutate(
-                    { requestId: reqId, decision: "rejected" },
-                    { onSettled: () => setActionNotificationId(null) },
-                  );
+                  if (row?.type === "chat_request") {
+                    respondChatReqMutation.mutate(
+                      { requestId: reqId, decision: "rejected" },
+                      { onSettled: () => setActionNotificationId(null) },
+                    );
+                  } else {
+                    respondMarriageReqMutation.mutate(
+                      { requestId: reqId, decision: "rejected" },
+                      { onSettled: () => setActionNotificationId(null) },
+                    );
+                  }
                 }}
-                actionsDisabled={actionNotificationId === n.id || respondMarriageReqMutation.isPending}
+                actionsDisabled={
+                  actionNotificationId === n.id || respondMarriageReqMutation.isPending || respondChatReqMutation.isPending
+                }
                 onClick={(id) => {
                   if (userId && isMarriageSyntheticNotificationId(id)) {
                     markMarriageSyntheticNotificationRead(userId, id);
@@ -203,6 +257,8 @@ export function NotificationCenter() {
                       setLocation("/directory?tab=curated");
                     } else if (row?.type === "match" && row.relatedUserId) {
                       setLocation(`/profile/${encodeURIComponent(row.relatedUserId)}`);
+                    } else if (row?.type === "chat_request_accepted" && row.relatedUserId) {
+                      setLocation(`/chat?user=${encodeURIComponent(row.relatedUserId)}`);
                     } else if (row?.type === "marriage_chat_accepted" && row.relatedUserId) {
                       setLocation(`/chat?user=${encodeURIComponent(row.relatedUserId)}`);
                     } else if (row?.type === "message" && row.relatedUserId) {

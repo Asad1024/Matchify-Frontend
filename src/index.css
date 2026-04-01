@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Nunito:wght@700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -65,11 +65,12 @@
   --success: 142 45% 40%;
   --success-foreground: 0 0% 98%;
 
-  /* Clean Tech typography — Inter/Outfit */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Cute-modern typography — single font system */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: 'SF Mono', Monaco, 'Cascadia Code', Consolas, 'Courier New', monospace;
-  --font-display: 'Outfit', 'Inter', 'Plus Jakarta Sans', sans-serif;
+  /* Single-font system for a cohesive UI */
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --radius: 0.875rem;
   --shadow-2xs: 0px 1px 2px 0px hsl(270 20% 10% / 0.05);
@@ -82,6 +83,20 @@
   --shadow-2xl: 0px 30px 50px -12px hsl(270 20% 10% / 0.20);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+
+  /* Semantic surfaces (modern defaults) */
+  --hairline: 220 13% 90%;
+  --surface: 0 0% 100%;
+  --surface-2: 350 32% 98%;
+  --surface-border: 220 13% 91%;
+  --focus-ring: 349 52% 38%;
+
+  /* Chips / pills */
+  --chip: 0 0% 100%;
+  --chip-foreground: 220 10% 30%;
+  --chip-border: 220 13% 90%;
+  --chip-active: 349 52% 38%;
+  --chip-active-foreground: 40 33% 98%;
 
   /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
 
@@ -180,6 +195,18 @@
   --shadow-xl: 0px 20px 30px -6px hsl(0 0% 0% / 0.35), 0px 8px 12px -6px hsl(0 0% 0% / 0.25);
   --shadow-2xl: 0px 30px 50px -12px hsl(0 0% 0% / 0.45);
 
+  --hairline: 350 12% 22%;
+  --surface: 220 14% 12%;
+  --surface-2: 350 18% 14%;
+  --surface-border: 220 12% 20%;
+  --focus-ring: 348 48% 55%;
+
+  --chip: 350 18% 14%;
+  --chip-foreground: 350 30% 88%;
+  --chip-border: 350 12% 22%;
+  --chip-active: 348 48% 55%;
+  --chip-active-foreground: 350 25% 8%;
+
   /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
   
   /* Fallback for older browsers */
@@ -221,6 +248,14 @@
   }
 }
 
+@layer base {
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.
@@ -242,6 +277,44 @@
  * need to be distinguished from eachother visually.
  */
 @layer utilities {
+
+  /* Matchify shared surfaces / pills to keep UI consistent */
+  .matchify-surface {
+    @apply rounded-[24px] border bg-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md;
+    border-color: hsl(var(--surface-border));
+  }
+
+  .matchify-surface-strong {
+    @apply rounded-[24px] border bg-white shadow-[0_10px_30px_-22px_rgba(15,23,42,0.14)];
+    border-color: hsl(var(--surface-border));
+  }
+
+  .matchify-pill {
+    @apply inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium shadow-sm;
+    background-color: hsl(var(--chip) / 0.75);
+    border-color: hsl(var(--chip-border));
+    color: hsl(var(--chip-foreground));
+  }
+
+  .matchify-pill-strong {
+    @apply inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm;
+    background-color: hsl(var(--chip));
+    border-color: hsl(var(--chip-border));
+    color: hsl(var(--foreground));
+  }
+
+  .matchify-pill-active {
+    @apply inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm;
+    background-color: hsl(var(--chip-active));
+    border-color: hsl(var(--chip-active));
+    color: hsl(var(--chip-active-foreground));
+  }
+
+  .matchify-icon-btn {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-full border bg-white/80 shadow-sm backdrop-blur-md transition hover:bg-white;
+    border-color: hsl(var(--surface-border));
+    color: hsl(var(--foreground) / 0.78);
+  }
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {

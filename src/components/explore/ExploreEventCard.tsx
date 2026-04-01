@@ -71,12 +71,12 @@ export function ExploreEventCard({ event, onClick, className }: Props) {
 
       <div className="flex gap-3 p-3">
         <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-2xl border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]">
-          <span className="text-[10px] font-bold text-slate-500">{month}</span>
-          <span className="text-[16px] font-extrabold leading-none text-slate-900 tabular-nums">{day}</span>
+          <span className="text-[10px] font-medium text-muted-foreground">{month}</span>
+          <span className="text-[16px] font-semibold leading-none text-foreground tabular-nums">{day}</span>
         </div>
 
         <div className="min-w-0 flex-1 py-0.5">
-          <h3 className="line-clamp-2 font-display text-[15px] font-extrabold leading-snug text-slate-900 group-hover:text-primary">
+          <h3 className="line-clamp-2 font-display text-[15px] font-semibold leading-snug text-foreground group-hover:text-primary">
             {event.title}
           </h3>
           <div className="mt-1.5 flex flex-col gap-1 text-[12px] text-slate-600">

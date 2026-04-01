@@ -16,7 +16,6 @@ import {
   Heart,
   Users,
   Sparkles,
-  CheckCircle,
   UserMinus,
   Share2,
   MapPin,
@@ -31,6 +30,7 @@ import {
   AlignLeft,
   HeartHandshake,
 } from "lucide-react";
+import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { queryClient } from "@/lib/queryClient";
@@ -227,7 +227,7 @@ export default function Profile() {
 
   if (!userId || isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] flex items-center justify-center">
         <LoadingState message="Loading your profile..." showMascot={true} />
       </div>
     );
@@ -235,7 +235,7 @@ export default function Profile() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3 p-4">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] flex flex-col items-center justify-center gap-3 p-4">
         <p className="text-gray-400">Profile not found</p>
         <Button variant="outline" onClick={() => setLocation("/menu")}>
           Go back
@@ -246,9 +246,9 @@ export default function Profile() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#F9FAFB] pb-6">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-6">
         {/* Full-screen profile chrome (no app Header / BottomNav) */}
-        <div className="sticky top-0 z-50 bg-white border-b border-[#F0F0F0]">
+        <div className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border/70">
           <div className="max-w-lg mx-auto w-full pt-[env(safe-area-inset-top)]">
             <div className="flex items-center h-12 px-1">
               <div className="w-11 shrink-0 flex justify-start">
@@ -263,7 +263,7 @@ export default function Profile() {
                   <X className="w-5 h-5" />
                 </Button>
               </div>
-              <h1 className="flex-1 min-w-0 text-center text-base font-bold text-gray-900 truncate px-2">
+              <h1 className="flex-1 min-w-0 text-center text-base font-semibold text-gray-900 truncate px-2">
                 {user.name}
               </h1>
               <div className="w-11 shrink-0 flex justify-end">
@@ -284,7 +284,7 @@ export default function Profile() {
               </div>
             </div>
             <div className="px-3 pb-3">
-              <div className="rounded-full bg-[#F1F2F4] p-1">
+              <div className="rounded-full bg-muted/60 p-1">
                 <div className="grid grid-cols-2 gap-1">
                   <button
                     type="button"
@@ -297,7 +297,7 @@ export default function Profile() {
                     )}
                   >
                     {profileTab === "preview" ? (
-                      <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
+                      <span className="absolute inset-0 rounded-full bg-background shadow-2xs" />
                     ) : null}
                     <span className="relative">Preview</span>
                   </button>
@@ -313,7 +313,7 @@ export default function Profile() {
                     )}
                   >
                     {profileTab === "edit" ? (
-                      <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
+                      <span className="absolute inset-0 rounded-full bg-background shadow-2xs" />
                     ) : null}
                     <span className="relative">Edit</span>
                   </button>
@@ -327,7 +327,7 @@ export default function Profile() {
           {profileTab === "preview" && (
             <div className="space-y-3 px-3 pb-10 pt-2">
               {/* Hero — taller photo area */}
-              <div className="overflow-hidden rounded-3xl border border-stone-200/90 bg-white shadow-[0_12px_40px_-20px_rgba(55,30,40,0.25)]">
+              <div className="matchify-surface overflow-hidden rounded-3xl">
                 <div className="relative isolate aspect-[3/4] w-full min-h-[300px] max-h-[min(520px,78vh)] bg-muted">
                   {profileAvatarUrl ? (
                     <img
@@ -360,18 +360,18 @@ export default function Profile() {
                     className="absolute left-3 top-3 z-[3] flex flex-wrap items-center gap-2"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <Badge className="rounded-full border-0 bg-white/95 px-2.5 py-1 text-[10px] font-bold text-gray-900 shadow-md sm:text-xs">
+                    <Badge className="rounded-full border-0 bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-gray-900 shadow-2xs sm:text-xs">
                       {membershipBadgeLabel(user.createdAt)}
                     </Badge>
                     {user.verified ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground shadow-md">
-                        <CheckCircle className="h-3 w-3" />
+                      <span className="matchify-pill-active inline-flex items-center gap-1 px-2.5 py-1 text-[10px] shadow-sm">
+                        <VerifiedTick size="xs" />
                         Verified
                       </span>
                     ) : null}
                   </div>
                   <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[3] p-4 text-white">
-                    <h2 className="font-display text-2xl font-black leading-tight tracking-tight drop-shadow-sm">
+                    <h2 className="font-display text-2xl font-bold leading-tight tracking-tight drop-shadow-sm">
                       {user.name}
                       {user.age != null ? (
                         <span className="font-bold text-white/90"> · {user.age}</span>
@@ -394,8 +394,8 @@ export default function Profile() {
                   </div>
                 </div>
                 {user.membershipTier && user.membershipTier !== "free" ? (
-                  <div className="border-t border-stone-100 bg-stone-50/90 px-4 py-2.5">
-                    <p className="text-center text-[11px] font-bold uppercase tracking-wide text-primary">
+                  <div className="border-t border-border/70 bg-card/60 px-4 py-2.5">
+                    <p className="text-center text-[11px] font-semibold uppercase tracking-wide text-primary">
                       {user.membershipTier} member
                     </p>
                   </div>
@@ -603,14 +603,14 @@ export default function Profile() {
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">Your answers are saved.</p>
                     {user.relationshipReadiness?.score != null ? (
-                      <div className="rounded-2xl bg-stone-50 px-3 py-3">
+                      <div className="rounded-2xl bg-card/60 px-3 py-3 border border-border/70">
                         <div className="mb-2 flex items-center justify-between">
-                          <span className="text-xs font-bold text-muted-foreground">Readiness</span>
-                          <span className="text-sm font-black text-primary">{user.relationshipReadiness.score}%</span>
+                          <span className="text-xs font-semibold text-muted-foreground">Readiness</span>
+                          <span className="text-sm font-bold text-primary">{user.relationshipReadiness.score}%</span>
                         </div>
-                        <div className="h-2.5 overflow-hidden rounded-full bg-stone-200">
+                        <div className="h-2.5 overflow-hidden rounded-full bg-muted/70">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-primary to-primary/80"
+                            className="h-full rounded-full bg-primary"
                             style={{ width: `${user.relationshipReadiness.score}%` }}
                           />
                         </div>
@@ -626,7 +626,7 @@ export default function Profile() {
                   </div>
                 ) : (
                   <Button
-                    className="h-12 w-full rounded-2xl bg-primary font-black text-primary-foreground shadow-md shadow-primary/20"
+                    className="h-12 w-full rounded-2xl bg-primary font-bold text-primary-foreground shadow-2xs"
                     onClick={() => void goAIMatchmaker()}
                   >
                     Start AI Matchmaker
@@ -640,15 +640,15 @@ export default function Profile() {
                 description="Partner tools and guided support."
               >
                 {user.partnerId ? (
-                  <div className="flex items-center gap-3 rounded-2xl border border-stone-100 bg-stone-50/80 p-3">
+                  <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/60 p-3">
                     <Avatar className="h-12 w-12 border-2 border-primary/20 shadow-sm">
                       <AvatarImage src={partner?.avatar || undefined} alt={partner?.name} />
-                      <AvatarFallback className="bg-primary/10 font-black text-primary">
+                      <AvatarFallback className="bg-primary/10 font-bold text-primary">
                         {partner?.name?.slice(0, 2).toUpperCase() || "?"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-black text-foreground">{partner?.name ?? "…"}</p>
+                      <p className="truncate text-sm font-semibold text-foreground">{partner?.name ?? "…"}</p>
                       {partner?.username ? (
                         <p className="text-xs text-muted-foreground">@{partner.username}</p>
                       ) : null}
@@ -676,7 +676,7 @@ export default function Profile() {
                   <>
                     <p className="text-sm text-muted-foreground">Link a partner to unlock coaching.</p>
                     <Button
-                      className="mt-3 h-11 w-full rounded-2xl font-black"
+                      className="mt-3 h-11 w-full rounded-2xl font-bold"
                       onClick={() => setAddPartnerOpen(true)}
                     >
                       <Users className="mr-2 h-4 w-4" /> Add partner

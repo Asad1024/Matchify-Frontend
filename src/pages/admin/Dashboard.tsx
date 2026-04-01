@@ -31,9 +31,9 @@ function StatCard({
   changeLabel?: string;
 }) {
   return (
-    <Card>
+    <Card className="border-border/70 bg-background/70 shadow-2xs backdrop-blur-md">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <CardTitle className="text-sm font-medium text-foreground/80">{title}</CardTitle>
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>

@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   MapPin,
   Heart,
-  CheckCircle,
   MessageCircle,
   ArrowLeft,
   Share2,
@@ -27,6 +26,7 @@ import {
   Languages as LanguagesIcon,
   AlignLeft,
 } from "lucide-react";
+import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { BlockReportDialog } from "@/components/common/BlockReportDialog";
@@ -236,8 +236,8 @@ export default function ViewProfile() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-24">
-        <div className="sticky top-0 z-40 border-b border-stone-200/80 bg-background/95 backdrop-blur">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
+        <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 backdrop-blur-md shadow-2xs">
           <div className="mx-auto flex h-12 max-w-lg items-center px-3">
             <Button
               variant="ghost"
@@ -260,8 +260,8 @@ export default function ViewProfile() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-24">
-        <div className="sticky top-0 z-40 border-b border-stone-200/80 bg-background/95 backdrop-blur">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
+        <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 backdrop-blur-md shadow-2xs">
           <div className="mx-auto flex h-12 max-w-lg items-center px-3">
             <Button
               variant="ghost"
@@ -294,26 +294,26 @@ export default function ViewProfile() {
   const isOwnProfile = user.id === currentUserId;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="sticky top-0 z-40 border-b border-stone-200/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
+      <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 backdrop-blur-md shadow-2xs supports-[backdrop-filter]:bg-card/70">
         <div className="mx-auto flex h-12 max-w-lg items-center gap-2 px-3">
           <Button
             variant="ghost"
             size="icon"
-            className="shrink-0 rounded-full hover-elevate"
+            className="shrink-0 rounded-full hover:bg-foreground/[0.05]"
             onClick={() => setLocation("/explore")}
             data-testid="button-back"
             aria-label="Back to Explore"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="min-w-0 flex-1 truncate text-center text-sm font-bold text-foreground">{user.name}</h1>
+          <h1 className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-foreground">{user.name}</h1>
           <div className="flex shrink-0 items-center gap-1">
             <Button
               type="button"
               size="icon"
               variant="ghost"
-              className="rounded-full hover-elevate"
+              className="rounded-full hover:bg-foreground/[0.05]"
               aria-label="Share profile"
               onClick={() => setShareOpen(true)}
             >
@@ -322,7 +322,7 @@ export default function ViewProfile() {
             {!isOwnProfile && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="icon" variant="ghost" className="rounded-full hover-elevate" aria-label="More options">
+                <Button size="icon" variant="ghost" className="rounded-full hover:bg-foreground/[0.05]" aria-label="More options">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -359,7 +359,7 @@ export default function ViewProfile() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="overflow-hidden rounded-3xl border border-stone-200/90 bg-white shadow-[0_12px_40px_-20px_rgba(55,30,40,0.25)]">
+        <div className="matchify-surface overflow-hidden rounded-3xl">
           <div className="relative isolate aspect-[3/4] w-full min-h-[300px] max-h-[min(520px,78vh)] bg-muted">
             {profileAvatarUrl ? (
               <img
@@ -381,40 +381,45 @@ export default function ViewProfile() {
               aria-hidden
             />
             <div className="absolute left-3 top-3 z-[3] flex flex-wrap items-center gap-2">
-              <Badge className="rounded-full border-0 bg-white/95 px-2.5 py-1 text-[10px] font-bold text-gray-900 shadow-md sm:text-xs">
+              <Badge className="rounded-full border-0 bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-gray-900 shadow-2xs sm:text-xs">
                 {membershipBadgeLabel(user.createdAt)}
               </Badge>
               {user.verified ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground shadow-md">
-                  <CheckCircle className="h-3 w-3" />
+                <span className="matchify-pill-active inline-flex items-center gap-1 px-2.5 py-1 text-[10px] shadow-2xs">
+                  <VerifiedTick size="xs" />
                   Verified
                 </span>
               ) : null}
             </div>
             <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[3] p-4 text-white">
-              <h2 className="font-display text-2xl font-black leading-tight tracking-tight drop-shadow-sm">
+              <h2
+                className="font-display text-2xl font-bold leading-tight tracking-tight"
+                style={{ textShadow: "0 2px 16px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.65)" }}
+              >
                 {user.name}
                 {user.age != null ? <span className="font-bold text-white/90"> · {user.age}</span> : null}
               </h2>
-              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-white/92">
-                {(city || country) && (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 opacity-90" />
-                    {[city, country].filter(Boolean).join(", ")}
-                  </span>
-                )}
-                {user.career ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Briefcase className="h-3.5 w-3.5 opacity-90" />
-                    {user.career}
-                  </span>
-                ) : null}
-              </div>
+              {(city || country || user.career) && (
+                <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-white/95">
+                  {(city || country) && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/25 px-2.5 py-1 backdrop-blur-md">
+                      <MapPin className="h-3.5 w-3.5 opacity-90" />
+                      {[city, country].filter(Boolean).join(", ")}
+                    </span>
+                  )}
+                  {user.career ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/25 px-2.5 py-1 backdrop-blur-md">
+                      <Briefcase className="h-3.5 w-3.5 opacity-90" />
+                      {user.career}
+                    </span>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
           {user.membershipTier && user.membershipTier !== "free" ? (
-            <div className="border-t border-stone-100 bg-stone-50/90 px-4 py-2.5">
-              <p className="text-center text-[11px] font-bold uppercase tracking-wide text-primary">
+            <div className="border-t border-border/70 bg-card/60 px-4 py-2.5">
+              <p className="text-center text-[11px] font-semibold uppercase tracking-wide text-primary">
                 {user.membershipTier} member
               </p>
             </div>
@@ -433,7 +438,7 @@ export default function ViewProfile() {
           </Button>
           <Button
             variant="outline"
-            className="h-10 flex-1 gap-2 text-sm hover-elevate sm:h-11 sm:text-base"
+            className="h-10 flex-1 gap-2 text-sm shadow-2xs sm:h-11 sm:text-base"
             data-testid="button-like"
             disabled={!currentUserId || isOwnProfile || likeProfileMutation.isPending}
             onClick={() => {
@@ -465,8 +470,8 @@ export default function ViewProfile() {
             <div className="space-y-4">
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-foreground">Match score</span>
-                  <span className="text-lg font-black text-primary">{compatibilityScore}%</span>
+                  <span className="text-sm font-semibold text-foreground">Match score</span>
+                  <span className="text-lg font-bold text-primary">{compatibilityScore}%</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <motion.div

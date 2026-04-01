@@ -448,7 +448,7 @@ export default function Events() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
       <Header
         showSearch={true}
         title="Events"
@@ -463,21 +463,21 @@ export default function Events() {
       {currentUserProfile?.selfDiscoveryCompleted && aiQuartetEndsAt != null && (
         <div className="mx-auto max-w-lg px-4 pt-3">
           <div
-            className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-red-950/10 to-primary/5 p-4 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm"
+            className="matchify-surface rounded-2xl border-primary/25 bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center gap-4"
             data-testid="banner-ai-date-night"
           >
             <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center flex-shrink-0">
               <Sparkles className="w-6 h-6 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-foreground">AI Date Night — 4 couples</p>
+              <p className="font-semibold text-foreground">AI Date Night — 4 couples</p>
               <p className="text-sm text-muted-foreground mt-0.5">
                 You&apos;re all set. We&apos;re auto-forming a small group table; spots finalize when
                 the timer hits zero.
               </p>
             </div>
             <div className="text-left sm:text-right flex-shrink-0">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Time left to lock group
               </p>
               <p className="text-xl font-display font-bold text-primary tabular-nums">

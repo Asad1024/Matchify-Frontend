@@ -54,6 +54,18 @@ export default function Notifications() {
     enabled: !!userId,
   });
 
+  useEffect(() => {
+    if (!userId) return;
+    const es = new EventSource(`/api/users/${encodeURIComponent(userId)}/notifications/stream`);
+    es.onmessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+    };
+    es.onerror = () => {
+      // Browser auto-retries.
+    };
+    return () => es.close();
+  }, [userId]);
+
   const markReadMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await apiRequest("PATCH", `/api/notifications/${id}/read`, {});
@@ -164,22 +176,22 @@ export default function Notifications() {
 
   return (
     <PageWrapper>
-      <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
         <Header showSearch={false} onLogout={logout} title="Notifications" />
 
-        <div className="max-w-lg mx-auto">
+        <div className="mx-auto max-w-lg px-3 pt-2">
           {isLoading ? (
-            <div className="py-12">
+            <div className="py-10">
               <LoadingState message="Loading notifications..." showMascot={true} />
             </div>
           ) : mergedNotifications.length === 0 ? (
-            <div className="py-12">
+            <div className="py-10">
               <EmptyNotifications />
             </div>
           ) : (
             <>
-              <div className="bg-white border-b border-gray-100 px-4 py-3">
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              <div className="matchify-surface p-2">
+                <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
                   {[
                     { value: "all", label: `All (${mergedNotifications.length})` },
                     { value: "matches", label: `Matches (${matchNotifications.length})` },
@@ -190,10 +202,10 @@ export default function Notifications() {
                     <button
                       key={tab.value}
                       onClick={() => setNotificationTab(tab.value)}
-                      className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      className={`flex-shrink-0 rounded-full px-3.5 py-2 text-[11px] font-medium transition-colors ${
                         notificationTab === tab.value
-                          ? "bg-primary text-white"
-                          : "bg-gray-100 text-gray-500"
+                          ? "bg-primary text-primary-foreground shadow-2xs"
+                          : "bg-muted/60 text-slate-600 hover:text-slate-900"
                       }`}
                       data-testid={`tab-${tab.value}`}
                     >
@@ -203,7 +215,8 @@ export default function Notifications() {
                 </div>
               </div>
 
-              <div className="divide-y divide-gray-50 bg-white">
+              <div className="mt-3 overflow-hidden matchify-surface">
+                <div className="divide-y divide-border/70">
                 {tabRows.map((row) => (
                   <NotificationItem
                     key={row.id}
@@ -220,6 +233,7 @@ export default function Notifications() {
                     }}
                   />
                 ))}
+                </div>
               </div>
             </>
           )}

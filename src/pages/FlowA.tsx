@@ -175,7 +175,7 @@ export default function FlowA() {
 
   if (step === "intro") {
     return (
-      <div className="min-h-screen h-[100dvh] bg-gradient-to-br from-black via-purple-950 to-indigo-950 flex flex-col overflow-hidden safe-top safe-bottom">
+      <div className="min-h-screen h-[100dvh] bg-gradient-to-br from-zinc-950 via-red-950/90 to-zinc-950 flex flex-col overflow-hidden safe-top safe-bottom">
         {/* Header with back button */}
         <div className="px-4 pt-3 pb-2 flex items-center gap-3">
           <button
@@ -194,7 +194,7 @@ export default function FlowA() {
             className="flex flex-col items-center"
           >
             <img src={logoImage} alt="Matchify" className="h-28 w-auto object-contain brightness-110 mb-4" />
-            <div className="w-32 h-1.5 bg-purple-500/50 rounded-full mx-auto mb-8">
+            <div className="w-32 h-1.5 bg-primary/40 rounded-full mx-auto mb-8">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: "100%" }}
@@ -222,7 +222,7 @@ export default function FlowA() {
           >
             <Button 
               size="lg"
-              className="rounded-full px-8 py-6 bg-white text-purple-900 hover:bg-white/90 font-bold text-base shadow-2xl"
+              className="rounded-full px-8 py-6 bg-white text-primary hover:bg-white/90 font-semibold text-base shadow-xl"
               onClick={() => setStep("looks")}
               data-testid="button-start-flow-a"
             >
@@ -458,7 +458,7 @@ export default function FlowA() {
   }
 
   return (
-    <div className="min-h-screen h-[100dvh] bg-gradient-to-br from-black via-purple-950 to-indigo-950 flex flex-col overflow-hidden safe-top safe-bottom relative">
+    <div className="min-h-screen h-[100dvh] bg-gradient-to-br from-zinc-950 via-red-950/90 to-zinc-950 flex flex-col overflow-hidden safe-top safe-bottom relative">
       {/* Header with back button and progress */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
         <button
@@ -491,7 +491,7 @@ export default function FlowA() {
           <img src={logoImage} alt="Matchify" className="h-10 w-auto object-contain brightness-110" />
           <div className="relative flex-1 min-w-0">
             <Progress value={getProgress()} className="h-2 bg-white/10" />
-            <div className="absolute inset-0 h-2 bg-gradient-to-r from-red-900/50 via-primary/45 to-indigo-900/50 rounded-full blur-sm" />
+            <div className="absolute inset-0 h-2 bg-gradient-to-r from-red-950/40 via-primary/45 to-red-950/40 rounded-full blur-sm" />
           </div>
         </div>
       </div>
@@ -643,7 +643,7 @@ export default function FlowA() {
                         } : { scale: 1, y: 0 }}
                         className={`rounded-xl px-5 py-3 text-center backdrop-blur-md transition-all duration-300 ${
                           isSelected 
-                            ? 'bg-white/95 text-purple-900 shadow-2xl font-bold' 
+                            ? 'bg-white/95 text-primary shadow-xl font-semibold' 
                             : 'bg-black/60 text-white border border-white/20 group-hover:bg-black/70 group-hover:border-white/30'
                         }`}
                       >
@@ -659,7 +659,7 @@ export default function FlowA() {
                         {card.description && (
                           <motion.p 
                             className={`text-xs mt-1 ${
-                              isSelected ? 'text-purple-700' : 'text-white/70'
+                              isSelected ? 'text-primary' : 'text-white/70'
                             }`}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}

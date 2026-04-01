@@ -91,7 +91,9 @@ export default function CreateStoryDialog({
       return apiRequest("POST", "/api/stories", storyData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/stories'] });
+      queryClient.invalidateQueries({
+        predicate: (q) => typeof q.queryKey?.[0] === "string" && q.queryKey[0].startsWith("/api/stories"),
+      });
       toast({
         title: "Story created!",
         description: "Your story has been posted successfully",

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { MatchifyMascot, NoMatchesMascot, SearchingMascot, CelebrationMascot } from "./MascotIllustrations";
+import { cn } from "@/lib/utils";
 
 interface EmptyStateProps {
   icon?: LucideIcon;
@@ -44,14 +45,14 @@ export function EmptyState({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className={className || "p-8 sm:p-12 text-center"}>
+      <Card className={cn("matchify-surface p-8 sm:p-12 text-center", className)}>
         <div className="flex flex-col items-center justify-center gap-6 sm:gap-8">
           {useMascot ? (
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, type: "spring", bounce: 0.4 }}
-              className="flex items-center justify-center rounded-[2rem] bg-gradient-to-b from-primary/12 via-primary/5 to-transparent px-6 py-5 ring-1 ring-primary/20 shadow-[0_12px_40px_-12px_hsl(346_96%_62%/0.3)]"
+              className="flex items-center justify-center rounded-[2rem] bg-primary/10 px-6 py-5 ring-1 ring-primary/15 shadow-2xs"
             >
               {renderMascot()}
             </motion.div>
@@ -79,8 +80,6 @@ export function EmptyState({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               className="w-full sm:w-auto"
             >
               <Button

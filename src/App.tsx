@@ -16,6 +16,7 @@ import { useEffect, useState, lazy, Suspense, useRef } from "react";
 import type React from "react";
 import { LunaFab } from "@/components/assistant/LunaFab";
 import EventRevealWatcher from "@/components/events/EventRevealWatcher";
+import { UpgradeProvider } from "@/contexts/UpgradeContext";
 
 // Lazy load pages for code splitting
 const Landing = lazy(() => import("@/pages/Landing"));
@@ -31,6 +32,7 @@ const ExploreMuzz = lazy(() => import("@/pages/ExploreMuzz"));
 const ViewProfile = lazy(() => import("@/pages/ViewProfile"));
 const SocialSelfProfile = lazy(() => import("@/pages/SocialSelfProfile"));
 const SocialEditProfile = lazy(() => import("@/pages/SocialEditProfile"));
+const SocialUserProfile = lazy(() => import("@/pages/SocialUserProfile"));
 const GroupDetailPage = lazy(() => import("@/pages/GroupDetailPage"));
 const GroupCreatePostPage = lazy(() => import("@/pages/GroupCreatePostPage"));
 const Subscriptions = lazy(() => import("@/pages/Subscriptions"));
@@ -46,6 +48,7 @@ const LunaPage = lazy(() => import("@/pages/Luna"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const SettingsSocial = lazy(() => import("@/pages/SettingsSocial"));
 const SocialConnectionsPage = lazy(() => import("@/pages/SocialConnectionsPage"));
+const Support = lazy(() => import("@/pages/Support"));
 const EventDetail = lazy(() => import("@/pages/EventDetail"));
 const EventMatchDemo = lazy(() => import("@/pages/EventMatchDemo"));
 const CreateEvent = lazy(() => import("@/pages/CreateEvent"));
@@ -411,6 +414,7 @@ function AppContent() {
             <Route path="/chat" component={Chat} />
             <Route path="/profile/social/edit" component={SocialEditProfile} />
             <Route path="/profile/social" component={SocialSelfProfile} />
+            <Route path="/profile/social/user/:id" component={SocialUserProfile} />
             <Route path="/profile/:id" component={ViewProfile} />
             <Route path="/profile" component={Profile} />
             <Route path="/subscriptions" component={Subscriptions} />
@@ -431,6 +435,7 @@ function AppContent() {
             <Route path="/luna" component={LunaPage} />
             <Route path="/settings/social/connections" component={SocialConnectionsPage} />
             <Route path="/settings/social" component={SettingsSocial} />
+            <Route path="/support" component={Support} />
             <Route path="/settings" component={Settings} />
             <Route path="/login">
               <Redirect to="/" />
@@ -474,10 +479,12 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <UserProvider>
-          <TooltipProvider>
-            <Toaster />
-            <AppContent />
-          </TooltipProvider>
+          <UpgradeProvider>
+            <TooltipProvider>
+              <Toaster />
+              <AppContent />
+            </TooltipProvider>
+          </UpgradeProvider>
         </UserProvider>
       </QueryClientProvider>
     </ErrorBoundary>

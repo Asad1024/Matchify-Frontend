@@ -12,6 +12,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { buildApiUrl } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { VerifiedTick } from "@/components/common/VerifiedTick";
 
 export default function Users() {
   const [search, setSearch] = useState("");
@@ -173,7 +174,10 @@ export default function Users() {
                               <AvatarFallback>{user.name?.[0] || 'U'}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="font-medium">{user.name}</div>
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <span>{user.name}</span>
+                                {user.verified ? <VerifiedTick size="xs" /> : null}
+                              </div>
                               <div className="text-sm text-muted-foreground">@{user.username}</div>
                             </div>
                           </div>

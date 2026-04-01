@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import SwipeableEventCard from "@/components/events/SwipeableEventCard";
 import {
-  CheckCircle,
   Compass,
   Filter,
   LayoutGrid,
@@ -29,6 +28,7 @@ import {
   History,
   Plus,
 } from "lucide-react";
+import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { pushExploreHistory } from "@/lib/muzzEconomy";
@@ -43,6 +43,7 @@ import { ExploreEventCard } from "@/components/explore/ExploreEventCard";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import FeedFilterPills from "@/components/feed/FeedFilterPills";
 import { Calendar } from "@/components/ui/calendar";
+import CreatePostDialog from "@/components/posts/CreatePostDialog";
 
 type PublicUser = {
   id: string;
@@ -176,7 +177,7 @@ function formatCardTime(iso: string | null | undefined): string {
   return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-const exploreSectionTitle = "text-lg font-bold text-gray-900 sm:text-xl";
+const exploreSectionTitle = "text-lg font-bold text-foreground sm:text-xl";
 
 type LikeReceivedRow = {
   user?: PublicUser | null;
@@ -281,22 +282,17 @@ function ExplorePeopleCard({
         pushExploreHistory(user.id);
         onOpen(user.id);
       }}
-      className="group relative aspect-[3/4] w-full min-h-0 overflow-hidden rounded-[24px] border border-[#F0F0F0] bg-gray-100 text-left transition-transform hover:scale-[1.01]"
+      className="group relative aspect-[3/4] w-full min-h-0 overflow-hidden rounded-[24px] border bg-muted text-left"
+      style={{ borderColor: "hsl(var(--surface-border))" }}
     >
       {user.avatar ? (
-        sharpImage ? (
-          <img
-            src={user.avatar}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div
-            className="absolute inset-0 scale-110 bg-cover bg-center opacity-90 blur-md"
-            style={{ backgroundImage: `url(${user.avatar})` }}
-          />
-        )
+        <img
+          src={user.avatar}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-stone-300 to-stone-200" />
       )}
@@ -307,8 +303,7 @@ function ExplorePeopleCard({
         {topBadge ? (
           <span
             className={cn(
-              "inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide",
-              "border border-white/35 bg-white/20 text-white shadow-sm backdrop-blur-md",
+              "matchify-pill-active px-2.5 py-1 text-[10px] font-semibold shadow-sm backdrop-blur-lg",
               topBadgeClassName ?? "",
             )}
           >
@@ -329,7 +324,7 @@ function ExplorePeopleCard({
           </span>
         ) : cornerIcon === "heart" ? (
           <span
-            className="inline-flex items-center justify-center rounded-full border border-white/35 bg-white/20 p-2 text-white backdrop-blur-md"
+            className="matchify-pill-active inline-flex items-center justify-center p-2 shadow-sm backdrop-blur-lg"
             aria-label="Liked"
             title="Liked"
           >
@@ -341,17 +336,17 @@ function ExplorePeopleCard({
       {/* Bottom overlay */}
       <div className="absolute bottom-0 left-0 right-0 space-y-1 px-3 pb-3 pt-14">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="truncate text-[15px] font-extrabold leading-tight text-white tracking-[0.2px]">
+          <span className="truncate text-[15px] font-semibold leading-tight text-white tracking-[0.2px]">
             {user.name}
             {ageLine !== "—" ? `, ${ageLine}` : ""}
           </span>
-          {user.verified ? <CheckCircle className="h-4 w-4 shrink-0 text-sky-200" strokeWidth={1.75} /> : null}
+          {user.verified ? <VerifiedTick size="md" className="translate-y-[0.5px]" /> : null}
         </div>
         <div className="flex items-center gap-1.5 text-[12px] font-medium text-white/85">
           <MapPin className="h-3.5 w-3.5 shrink-0 text-white/80" strokeWidth={1.75} aria-hidden />
           <span className="truncate">{locationLabel}</span>
         </div>
-        <div className="text-[10px] font-semibold text-white/65 tabular-nums">{time}</div>
+        <div className="text-[10px] font-medium text-white/65 tabular-nums">{time}</div>
       </div>
     </button>
   );
@@ -362,6 +357,18 @@ export default function ExploreMuzz() {
   const [searchParams] = useSearchParams();
   const { logout } = useAuth();
   const { userId } = useCurrentUser();
+  const [createPostOpen, setCreatePostOpen] = useState(false);
+  const effectiveUserId = useMemo(() => {
+    if (userId) return userId;
+    try {
+      const raw = localStorage.getItem("currentUser");
+      if (!raw) return null;
+      const u = JSON.parse(raw) as { id?: string; userId?: string };
+      return (u.id || u.userId || null) as string | null;
+    } catch {
+      return null;
+    }
+  }, [userId]);
   const prefersReducedMotion = useReducedMotion();
   const [tab, setTab] = useState<"foryou" | "events" | "history">("foryou");
   const [historySub, setHistorySub] = useState<
@@ -569,21 +576,27 @@ export default function ExploreMuzz() {
       };
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] pb-28">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
       <Header
         showSearch={false}
         title="Discover"
-        titleClassName="!text-2xl sm:!text-[1.75rem] !leading-tight"
+        subtitle="Likes, visits, and new members — in one place"
         unreadNotifications={0}
         onNotifications={() => setLocation("/notifications")}
-        onCreate={() => setLocation("/community")}
+        onCreate={() => {
+          if (!effectiveUserId) {
+            setLocation("/login");
+            return;
+          }
+          setCreatePostOpen(true);
+        }}
         onLogout={logout}
       />
 
       <div className="mx-auto max-w-lg px-3 pt-2">
         <div className="flex items-stretch gap-2">
           <LayoutGroup id="explore-tabs">
-            <div className="flex-1 rounded-[24px] border border-[#F0F0F0] bg-white/70 p-1 shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
+            <div className="matchify-surface flex-1 p-1">
               <div className="flex w-full items-stretch gap-0.5">
                 {(
                   [
@@ -599,7 +612,7 @@ export default function ExploreMuzz() {
                       type="button"
                       onClick={() => setTab(id)}
                       className={cn(
-                        "relative flex-1 rounded-[20px] px-2.5 py-2.5 text-[12px] font-bold transition sm:text-[13px]",
+                        "relative flex-1 rounded-[20px] px-2.5 py-2.5 text-[12px] font-medium transition-colors sm:text-[13px]",
                         active ? "text-white" : "text-slate-500 hover:text-slate-800",
                       )}
                       aria-current={active ? "page" : undefined}
@@ -611,7 +624,7 @@ export default function ExploreMuzz() {
                       {active ? (
                         <motion.span
                           layoutId="explore-tab-bg"
-                          className="absolute inset-0 -z-10 rounded-[20px] bg-[#722F37] shadow-[0_10px_30px_-18px_rgba(114,47,55,0.45)]"
+                          className="absolute inset-0 -z-10 rounded-[20px] bg-primary shadow-sm"
                           transition={{ type: "spring", stiffness: 380, damping: 32 }}
                         />
                       ) : null}
@@ -626,11 +639,11 @@ export default function ExploreMuzz() {
             type="button"
             variant="outline"
             size="icon"
-            className="h-[46px] w-[46px] shrink-0 rounded-[18px] border-[#F0F0F0] bg-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md hover:bg-white"
+            className="matchify-icon-btn h-[46px] w-[46px] shrink-0 rounded-[18px]"
             onClick={() => setLocation("/directory")}
             aria-label="Discover"
           >
-            <Sparkles className="h-5 w-5 text-[#722F37]" strokeWidth={1.75} aria-hidden />
+            <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden />
           </Button>
         </div>
 
@@ -645,7 +658,7 @@ export default function ExploreMuzz() {
                 <div className="mb-1 flex flex-wrap items-center gap-2.5">
                   <h2 className={exploreSectionTitle}>Liked your profile</h2>
                   <span
-                    className="inline-grid h-8 min-w-8 shrink-0 place-items-center rounded-full border border-[#e8d5c8] bg-[#f5ebe3] px-2 text-sm font-black tabular-nums text-stone-800 shadow-sm"
+                    className="inline-grid h-8 min-w-8 shrink-0 place-items-center rounded-full border border-border/70 bg-card/60 px-2 text-sm font-semibold tabular-nums text-foreground shadow-2xs"
                     aria-label={`${profileLikers.length} people`}
                   >
                     {profileLikers.length}
@@ -676,7 +689,7 @@ export default function ExploreMuzz() {
                 <div className="mb-1 flex flex-wrap items-center gap-2.5">
                   <h2 className={exploreSectionTitle}>Liked your posts</h2>
                   <span
-                    className="inline-grid h-8 min-w-8 shrink-0 place-items-center rounded-full border border-[#e8d5c8] bg-[#f5ebe3] px-2 text-sm font-black tabular-nums text-stone-800 shadow-sm"
+                    className="inline-grid h-8 min-w-8 shrink-0 place-items-center rounded-full border border-border/70 bg-card/60 px-2 text-sm font-semibold tabular-nums text-foreground shadow-2xs"
                     aria-label={`${postLikers.length} people`}
                   >
                     {postLikers.length}
@@ -904,7 +917,7 @@ export default function ExploreMuzz() {
                         months: "w-full",
                         month: "w-full space-y-3",
                         caption: "flex items-center justify-between px-2 pt-1",
-                        caption_label: "text-sm font-extrabold text-slate-900",
+                        caption_label: "text-sm font-semibold text-foreground",
                         nav: "flex items-center gap-1",
                         nav_button:
                           "flex h-8 w-8 items-center justify-center rounded-full border border-[#F0F0F0] bg-white p-0 text-slate-700 shadow-sm hover:bg-stone-50",
@@ -958,10 +971,10 @@ export default function ExploreMuzz() {
                                     </div>
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#722F37]">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
                                       {e.time?.trim() || "Time TBA"}
                                     </p>
-                                    <p className="mt-1 font-display text-[16px] font-extrabold leading-tight text-slate-900">
+                                    <p className="mt-1 font-display text-[16px] font-semibold leading-tight text-foreground">
                                       {e.title}
                                     </p>
                                     <p className="mt-1 text-sm text-slate-600">
@@ -1039,6 +1052,14 @@ export default function ExploreMuzz() {
       </div>
 
       <BottomNav active="explore" onNavigate={() => {}} />
+
+      {effectiveUserId ? (
+        <CreatePostDialog
+          open={createPostOpen}
+          onOpenChange={setCreatePostOpen}
+          userId={effectiveUserId}
+        />
+      ) : null}
     </div>
   );
 }
