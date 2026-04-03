@@ -363,7 +363,8 @@ export default function SocialSelfProfile() {
     setLocation(`/settings/social/connections?tab=${tab}`);
   };
 
-  const followingCount = socialSummary?.followingIds?.length ?? 0;
+  const followingCount =
+    socialSummary?.followingCount ?? socialSummary?.followingIds?.length ?? 0;
   const followerCount = socialSummary?.followerCount ?? 0;
   const statDisplay = (n: number) => (socialSummaryLoading ? "–" : String(n));
 
@@ -629,6 +630,7 @@ export default function SocialSelfProfile() {
                           likes={likeN}
                           comments={commentN}
                           likedByMe={p.likedByMe}
+                          visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                           savedByMe={!!p.savedByMe}
                           isFollowingAuthor={followingIds.has(p.userId || "")}
                           firstComment={p.firstComment ?? null}
@@ -724,6 +726,7 @@ export default function SocialSelfProfile() {
                           likes={likeN}
                           comments={commentN}
                           likedByMe={p.likedByMe ?? false}
+                          visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                           savedByMe
                           isFollowingAuthor={followingIds.has(p.userId || "")}
                           firstComment={p.firstComment ?? null}
@@ -868,6 +871,7 @@ export default function SocialSelfProfile() {
                           likes={likeN}
                           comments={commentN}
                           likedByMe={p.likedByMe ?? true}
+                          visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                           savedByMe={!!p.savedByMe}
                           isFollowingAuthor={followingIds.has(p.userId || "")}
                           firstComment={p.firstComment ?? null}

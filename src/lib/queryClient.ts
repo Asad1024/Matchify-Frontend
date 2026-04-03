@@ -24,33 +24,48 @@ export function getQueryFn<T>(options: {
         headers: getAuthHeaders(false),
       });
 
-      if (options.on401 === "returnNull" && res.status === 401) {
-        return null as T;
+      if (res.status === 401) {
+        if (options.on401 === "returnNull") {
+          return null as T;
+        }
+        await throwIfResNotOk(res);
       }
 
-      // If backend is not available (404, 500, 503, 502) or any error, use mock data silently
-      // Suppress console errors for backend unavailability or missing endpoints
-      if (res.status === 404 || res.status === 500 || res.status === 503 || res.status === 502 || !res.ok) {
+      // Auth / client errors must surface — do not silently return [] (breaks "My bookings", etc.)
+      if (res.status === 403) {
+        await throwIfResNotOk(res);
+      }
+
+      // Backend down or missing route: prefer mock/offline data, else empty list
+      if (res.status === 404 || res.status === 500 || res.status === 503 || res.status === 502) {
         const mockData = getMockData(url);
         if (mockData !== null && mockData !== undefined) {
           return mockData as T;
         }
-        // If no mock data available, return empty array/object based on expected type
         return [] as T;
       }
 
-      await throwIfResNotOk(res);
+      if (!res.ok) {
+        await throwIfResNotOk(res);
+      }
+
       const jsonData = await res.json();
       return jsonData as T;
     } catch (error) {
-      // Network errors or other fetch failures - use mock data silently
-      // Suppress console errors for network failures
       const url = queryKey.join("/");
+      // Never substitute mock data for the real notifications list (hides DB rows; breaks AI invites after refresh).
+      if (url.includes("/notifications")) {
+        throw error instanceof Error ? error : new Error(String(error));
+      }
+      // Do not mask auth failures with empty mock data (e.g. 403 when URL userId ≠ JWT sub).
+      if (error instanceof Error && /^(401|403):/.test(error.message)) {
+        throw error;
+      }
+      // Network errors or other fetch failures - use mock data silently
       const mockData = getMockData(url);
       if (mockData !== null && mockData !== undefined) {
         return mockData as T;
       }
-      // If no mock data available, return empty array/object
       return [] as T;
     }
   };

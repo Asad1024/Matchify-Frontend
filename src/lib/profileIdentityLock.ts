@@ -1,4 +1,7 @@
 /** ~6 months — name/username can only be changed after this window from last change (client-side rule). */
+
+import { markClientStateDirty } from "@/lib/clientStateSync";
+
 const LOCK_MS = 183 * 24 * 60 * 60 * 1000;
 
 function key(userId: string) {
@@ -36,4 +39,5 @@ export function getProfileIdentityLockState(userId: string | null | undefined): 
 
 export function recordProfileIdentityChange(userId: string) {
   localStorage.setItem(key(userId), new Date().toISOString());
+  markClientStateDirty();
 }

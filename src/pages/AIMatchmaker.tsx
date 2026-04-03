@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/common/Header";
 import PageWrapper from "@/components/common/PageWrapper";
 import BottomNav from "@/components/common/BottomNav";
@@ -15,17 +15,15 @@ import {
   Users,
   CheckCircle2,
   AlertCircle,
-  Trash2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAiMatchCooldown, formatCountdown } from "@/hooks/useAiMatchCooldown";
-import { useToast } from "@/hooks/use-toast";
 import { AI_MATCH_COOLDOWN_MS, getAiMatchCooldownLabel } from "@/lib/matchifyBranding";
 import type { User } from "@shared/schema";
-import { resetAIMatchmakerSubmission } from "@/services/aiMatchmaker.service";
 import { cn } from "@/lib/utils";
+import { markClientStateDirty } from "@/lib/clientStateSync";
 import { useUpgrade } from "@/contexts/UpgradeContext";
 
 export default function AIMatchmaker() {
@@ -33,7 +31,6 @@ export default function AIMatchmaker() {
   const [, setLocation] = useLocation();
   const { logout } = useAuth();
   const { userId } = useCurrentUser();
-  const { toast } = useToast();
   const { tier, requireTier } = useUpgrade();
   const [notifyWhenReady, setNotifyWhenReady] = useState(false);
   const { data: profile } = useQuery<
@@ -67,6 +64,7 @@ export default function AIMatchmaker() {
   useEffect(() => {
     try {
       localStorage.setItem("matchify_notify_ai_pick_ready", notifyWhenReady ? "true" : "false");
+      markClientStateDirty();
     } catch {
       /* ignore */
     }
@@ -77,26 +75,6 @@ export default function AIMatchmaker() {
     const elapsed = AI_MATCH_COOLDOWN_MS - msLeft;
     return Math.min(100, Math.max(0, (elapsed / AI_MATCH_COOLDOWN_MS) * 100));
   }, [msLeft, ready]);
-
-  const resetSubmissionMutation = useMutation({
-    mutationFn: async () => {
-      if (!userId) throw new Error("Not signed in");
-      await resetAIMatchmakerSubmission(userId);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Submission deleted",
-        description: "You can now fill the 30-question flow again.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Something went wrong",
-        description: "Could not delete your submission.",
-        variant: "destructive",
-      });
-    },
-  });
 
   return (
     <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
@@ -142,7 +120,7 @@ export default function AIMatchmaker() {
               ? (
                 <>
                   <span className="font-semibold text-slate-900">{`Hi ${firstName},`}</span>{" "}
-                  <span className="font-normal text-slate-600">{`one curated pick per ${getAiMatchCooldownLabel()}.`}</span>
+                  <span className="font-normal text-slate-600">{`one AI match per ${getAiMatchCooldownLabel()}.`}</span>
                 </>
               )
               : `Hi ${firstName} — finish 30 questions once to unlock timed picks and smarter Discover.`}
@@ -221,7 +199,7 @@ export default function AIMatchmaker() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Next curated pick
+                    Next AI match
                   </p>
                   <motion.div
                     animate={ready ? { opacity: 1 } : { opacity: [0.92, 1, 0.92] }}
@@ -233,7 +211,7 @@ export default function AIMatchmaker() {
                   </motion.div>
                   <p className="mt-1 text-xs leading-relaxed text-slate-600">
                     {ready
-                      ? "Your pick appears automatically in Discover — Curated picks."
+                      ? "Your match appears automatically in Discover — AI Matching."
                       : "Time remaining until your next pick."}
                   </p>
                 </div>
@@ -262,7 +240,7 @@ export default function AIMatchmaker() {
                 data-testid="button-ai-reveal-matches"
               >
                 <Users className="mr-2 h-4 w-4" />
-                {ready ? "Open curated pick in Discover" : `Wait ${formatCountdown(msLeft)}`}
+                {ready ? "Open AI match in Discover" : `Wait ${formatCountdown(msLeft)}`}
               </Button>
 
               {!ready ? (
@@ -327,33 +305,24 @@ export default function AIMatchmaker() {
                   </div>
                 </div>
 
-                <Button
-                  className="h-12 w-full rounded-full bg-gradient-to-br from-[#722F37] to-[#8B2942] text-base font-bold text-white shadow-[0_18px_60px_-28px_rgba(114,47,55,0.55)] hover:brightness-[0.98]"
-                  onClick={() => setLocation("/ai-matchmaker/flow-b")}
-                >
-                  <Sparkles className="mr-2 h-5 w-5" strokeWidth={1.75} />
-                  Update questionnaire
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-full text-xs text-slate-500 hover:text-destructive"
-                  disabled={resetSubmissionMutation.isPending}
-                  onClick={() => resetSubmissionMutation.mutate()}
-                >
-                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                  {resetSubmissionMutation.isPending ? "Deleting..." : "Reset submission"}
-                </Button>
+                <p className="rounded-2xl border border-[#F0F0F0] bg-slate-50/80 px-4 py-3 text-sm leading-relaxed text-slate-600">
+                  To change your answers after submission, please{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-primary underline-offset-2 hover:underline"
+                    onClick={() => setLocation("/support")}
+                  >
+                    contact support
+                  </button>
+                  .
+                </p>
               </>
             )}
           </CardContent>
         </Card>
 
         <p className="px-2 pb-4 text-center text-[12px] leading-[1.6] text-slate-500">
-          AI uses only what you share. Questionnaire responses are locked after submission.
+          AI uses only what you share. Answers are kept on file; use Support if you need them updated.
         </p>
       </PageWrapper>
 

@@ -11,7 +11,10 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { LoadingState } from "@/components/common/LoadingState";
 import { pullClientStateFromBackend, pushClientStateToBackend } from "@/lib/clientStateSync";
-import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import { reconcileCurrentUserIdWithJwt } from "@/lib/authUserIdReconcile";
+import { isNotificationsStreamSyncPayload } from "@/lib/notificationStream";
+import { buildApiUrl, getAuthHeaders, getNotificationsStreamUrl } from "@/services/api";
+import { notificationCreatedAtMs } from "@/lib/utils";
 import { useEffect, useState, lazy, Suspense, useRef } from "react";
 import type React from "react";
 import { LunaFab } from "@/components/assistant/LunaFab";
@@ -44,7 +47,6 @@ const FlowB = lazy(() => import("@/pages/FlowB"));
 const NextCuratedMatch = lazy(() => import("@/pages/NextCuratedMatch"));
 const EmpathyObserver = lazy(() => import("@/pages/EmpathyObserver"));
 const RelationshipCoaching = lazy(() => import("@/pages/RelationshipCoaching"));
-const LunaPage = lazy(() => import("@/pages/Luna"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const SettingsSocial = lazy(() => import("@/pages/SettingsSocial"));
 const SocialConnectionsPage = lazy(() => import("@/pages/SocialConnectionsPage"));
@@ -59,17 +61,16 @@ const AdminUsers = lazy(() => import("@/pages/admin/Users"));
 const AdminMatches = lazy(() => import("@/pages/admin/Matches"));
 const AdminPosts = lazy(() => import("@/pages/admin/Posts"));
 const AdminEvents = lazy(() => import("@/pages/admin/Events"));
+const AdminVenues = lazy(() => import("@/pages/admin/Venues"));
 const AdminGroups = lazy(() => import("@/pages/admin/Groups"));
 const AdminCourses = lazy(() => import("@/pages/admin/Courses"));
 const AdminCoaches = lazy(() => import("@/pages/admin/Coaches"));
 const AdminMessages = lazy(() => import("@/pages/admin/Messages"));
 const AdminQuestions = lazy(() => import("@/pages/admin/Questions"));
-const AdminOnboardingQuestionnaire = lazy(
-  () => import("@/pages/admin/OnboardingQuestionnaire"),
-);
 const AdminModeration = lazy(() => import("@/pages/admin/Moderation"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const AdminAI = lazy(() => import("@/pages/admin/AI"));
+const AdminNotifications = lazy(() => import("@/pages/admin/Notifications"));
 const Login = lazy(() => import("@/pages/Login"));
 const Signup = lazy(() => import("@/pages/Signup"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
@@ -88,6 +89,7 @@ type ConversationSummaryLite = {
   id: string;
   participant1Id: string;
   participant2Id: string;
+  unreadCount?: number;
   lastMessage: {
     id: string;
     senderId: string;
@@ -103,6 +105,10 @@ type UserLite = { id: string; name?: string | null };
 function GlobalMessageToaster({ userId, location }: { userId: string | null; location: string }) {
   const { toast } = useToast();
   const seenByConvRef = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    seenByConvRef.current = {};
+  }, [userId]);
 
   const { data: summaries = [] } = useQuery<ConversationSummaryLite[]>({
     queryKey: [`/api/users/${userId}/conversation-summaries`],
@@ -123,7 +129,15 @@ function GlobalMessageToaster({ userId, location }: { userId: string | null; loc
     for (const conv of safeSummaries) {
       const last = conv?.lastMessage;
       if (!conv?.id || !last?.id) continue;
-      if (last.senderId === userId) continue;
+      if (last.senderId === userId) {
+        seenByConvRef.current[conv.id] = last.id;
+        continue;
+      }
+      const unread = Number(conv.unreadCount ?? 0);
+      if (unread <= 0) {
+        seenByConvRef.current[conv.id] = last.id;
+        continue;
+      }
       if (seenByConvRef.current[conv.id] === last.id) continue;
 
       const otherId = conv.participant1Id === userId ? conv.participant2Id : conv.participant1Id;
@@ -142,6 +156,113 @@ function GlobalMessageToaster({ userId, location }: { userId: string | null; loc
       seenByConvRef.current[conv.id] = last.id;
     }
   }, [summaries, users, userId, location, toast]);
+
+  return null;
+}
+
+/** Unread AI invites older than this still show in the bell but skip a toast (avoids spamming stale rows). */
+const AI_EVENT_INVITE_TOAST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+type NotificationsListRow = {
+  id: string;
+  type?: string;
+  title?: string;
+  message?: string;
+  read?: boolean | null;
+  createdAt?: Date | string | null;
+};
+
+/** Subscribes to notification SSE app-wide so pushes (e.g. AI event invites) refresh the bell and show a toast. */
+function GlobalNotificationToaster() {
+  const { toast } = useToast();
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const { userId } = useCurrentUser();
+
+  const { data: notifications } = useQuery<NotificationsListRow[]>({
+    queryKey: ["/api/users", userId, "notifications"],
+    enabled: !!userId,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
+  // Toasts for invitees when SSE missed (tab closed / disconnected): surface from fetched list once per id.
+  useEffect(() => {
+    if (!userId || !notifications || !Array.isArray(notifications)) return;
+    const now = Date.now();
+    for (const n of notifications) {
+      if (String(n.type) !== "ai_event_invite" || !n.id) continue;
+      if (n.read) continue;
+      const id = String(n.id);
+      if (seenIdsRef.current.has(id)) continue;
+      const age = now - notificationCreatedAtMs(n.createdAt);
+      if (age > AI_EVENT_INVITE_TOAST_MAX_AGE_MS) {
+        seenIdsRef.current.add(id);
+        continue;
+      }
+      seenIdsRef.current.add(id);
+      if (seenIdsRef.current.size > 400) seenIdsRef.current.clear();
+      const title = String(n.title || "").trim() || "You're invited to an event";
+      const message = String(n.message || "").trim();
+      toast({ title, description: message || undefined, duration: 8000 });
+    }
+  }, [notifications, userId, toast]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const url = getNotificationsStreamUrl(userId);
+    const es = new EventSource(url);
+
+    const invalidateNotifs = () => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+    };
+
+    es.onopen = () => {
+      invalidateNotifs();
+    };
+
+    es.onmessage = (ev) => {
+      try {
+        const raw = ev.data;
+        if (!raw) return;
+        const payload = JSON.parse(raw) as Record<string, unknown>;
+        if (!payload || typeof payload !== "object") return;
+
+        if (isNotificationsStreamSyncPayload(payload)) {
+          invalidateNotifs();
+          return;
+        }
+
+        if (raw === "{}") return;
+
+        invalidateNotifs();
+
+        const id = payload.id != null ? String(payload.id) : "";
+        const type = payload.type != null ? String(payload.type) : "";
+        const title = String(payload.title || "").trim();
+        const message = String(payload.message || "").trim();
+        if (!title) return;
+
+        // Message toasts are handled by GlobalMessageToaster (conversation polling).
+        if (type === "message") return;
+
+        if (id) {
+          if (seenIdsRef.current.has(id)) return;
+          seenIdsRef.current.add(id);
+          if (seenIdsRef.current.size > 300) seenIdsRef.current.clear();
+        }
+
+        toast({ title, description: message || undefined, duration: type === "ai_event_invite" ? 8000 : 5000 });
+      } catch {
+        invalidateNotifs();
+      }
+    };
+
+    es.onerror = () => {
+      /* browser reconnects */
+    };
+
+    return () => es.close();
+  }, [userId, toast]);
 
   return null;
 }
@@ -175,12 +296,12 @@ const LazyErrorBoundary = ({ children }: { children: React.ReactNode }) => (
 );
 
 function readAuthState() {
+  reconcileCurrentUserIdWithJwt();
   const authToken = localStorage.getItem("authToken");
   if (!authToken) return { isAuthenticated: false, showOnboarding: false, userId: null as string | null };
-  const isAdmin = localStorage.getItem("isAdmin") === "true";
+  let isAdmin = localStorage.getItem("isAdmin") === "true";
   const onboardingFlag = localStorage.getItem("onboardingCompleted") === "true";
   let userId: string | null = null;
-  let userOnboarded = onboardingFlag || isAdmin;
   const inferOnboardedFromUser = (u: any): boolean => {
     if (!u || typeof u !== "object") return false;
     // Do NOT trust stale onboardingCompleted=true if core fields are missing.
@@ -192,11 +313,18 @@ function readAuthState() {
       Number(u.age || 0) >= 18;
     return hasCoreProfile;
   };
+  let userOnboarded = onboardingFlag || isAdmin;
   try {
     const raw = localStorage.getItem("currentUser");
     if (raw) {
       const u = JSON.parse(raw);
       userId = u.id || u.userId || null;
+      if (u.isAdmin === true) {
+        isAdmin = true;
+        localStorage.setItem("isAdmin", "true");
+        userOnboarded = true;
+        localStorage.setItem("onboardingCompleted", "true");
+      }
       if (!userOnboarded && inferOnboardedFromUser(u)) {
         // Recover from stale onboarding flag if profile data is already complete.
         userOnboarded = true;
@@ -228,7 +356,7 @@ function AppContent() {
     return hasCoreProfile;
   };
 
-  // Re-check on route change and handle cross-tab updates
+  // Re-check on route change, same-tab auth (matchify-auth-changed), and cross-tab storage updates
   useEffect(() => {
     const sync = () => {
       const s = readAuthState();
@@ -238,7 +366,11 @@ function AppContent() {
     };
     sync();
     window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
+    window.addEventListener('matchify-auth-changed', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('matchify-auth-changed', sync);
+    };
   }, [location]);
 
   // Validate onboarding status against backend on login/app-load.
@@ -256,6 +388,22 @@ function AppContent() {
         if (!res.ok) return;
         const user = await res.json();
         if (cancelled) return;
+        if (user.isAdmin === true) {
+          localStorage.setItem("isAdmin", "true");
+          localStorage.setItem("onboardingCompleted", "true");
+          try {
+            const raw = localStorage.getItem("currentUser");
+            const cur = raw ? JSON.parse(raw) : {};
+            localStorage.setItem(
+              "currentUser",
+              JSON.stringify({ ...cur, ...user, onboardingCompleted: true }),
+            );
+          } catch {
+            /* ignore */
+          }
+          setShowOnboarding(false);
+          return;
+        }
         const onboarded = isLikelyOnboarded(user);
         if (onboarded) {
           localStorage.setItem("onboardingCompleted", "true");
@@ -312,6 +460,15 @@ function AppContent() {
       void pushClientStateToBackend(userId);
     }, 15000);
 
+    let dirtyTimer: ReturnType<typeof setTimeout> | undefined;
+    const onClientStateDirty = () => {
+      window.clearTimeout(dirtyTimer);
+      dirtyTimer = window.setTimeout(() => {
+        void pushClientStateToBackend(userId);
+      }, 450);
+    };
+    window.addEventListener("matchify-client-state-dirty", onClientStateDirty);
+
     const onUnload = () => {
       void pushClientStateToBackend(userId);
     };
@@ -320,6 +477,8 @@ function AppContent() {
     return () => {
       cancelled = true;
       window.clearInterval(pushInterval);
+      window.clearTimeout(dirtyTimer);
+      window.removeEventListener("matchify-client-state-dirty", onClientStateDirty);
       window.removeEventListener("beforeunload", onUnload);
     };
   }, [isAuthenticated, userId]);
@@ -389,6 +548,7 @@ function AppContent() {
       <AuthenticatedPresence />
       <CuratedMatchAutoClaim />
       <GlobalMessageToaster userId={userId} location={location} />
+      <GlobalNotificationToaster />
       <EventRevealWatcher />
       <LunaFab />
       <LazyErrorBoundary>
@@ -432,7 +592,9 @@ function AppContent() {
             </Route>
             <Route path="/empathy-observer" component={EmpathyObserver} />
             <Route path="/relationship-coaching" component={RelationshipCoaching} />
-            <Route path="/luna" component={LunaPage} />
+            <Route path="/luna">
+              <Redirect to="/relationship-coaching" />
+            </Route>
             <Route path="/settings/social/connections" component={SocialConnectionsPage} />
             <Route path="/settings/social" component={SettingsSocial} />
             <Route path="/support" component={Support} />
@@ -451,11 +613,15 @@ function AppContent() {
             <Route path="/admin/matches" component={AdminMatches} />
             <Route path="/admin/posts" component={AdminPosts} />
             <Route path="/admin/events" component={AdminEvents} />
+            <Route path="/admin/venues" component={AdminVenues} />
             <Route path="/admin/groups" component={AdminGroups} />
             <Route path="/admin/courses" component={AdminCourses} />
             <Route path="/admin/coaches" component={AdminCoaches} />
             <Route path="/admin/messages" component={AdminMessages} />
-            <Route path="/admin/onboarding-questionnaire" component={AdminOnboardingQuestionnaire} />
+            <Route path="/admin/notifications" component={AdminNotifications} />
+            <Route path="/admin/onboarding-questionnaire">
+              <Redirect to="/admin/questions" />
+            </Route>
             <Route path="/admin/questions" component={AdminQuestions} />
             <Route path="/admin/reports" component={AdminModeration} />
             <Route path="/admin/settings" component={AdminSettings} />

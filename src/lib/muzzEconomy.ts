@@ -1,5 +1,7 @@
 /** Client-side Muzz-style economy (boosts, compliments, Gold) — demo / product shell until billing exists. */
 
+import { markClientStateDirty } from "@/lib/clientStateSync";
+
 const P = "matchify_muzz_";
 
 export const getBoosts = (): number => {
@@ -9,6 +11,7 @@ export const getBoosts = (): number => {
 
 export const setBoosts = (n: number): void => {
   localStorage.setItem(`${P}boosts`, String(Math.max(0, n)));
+  markClientStateDirty();
 };
 
 export const getCompliments = (): number => {
@@ -19,6 +22,7 @@ export const getCompliments = (): number => {
 
 export const setCompliments = (n: number): void => {
   localStorage.setItem(`${P}compliments`, String(Math.max(0, n)));
+  markClientStateDirty();
 };
 
 export const isGoldMember = (): boolean => localStorage.getItem(`${P}gold`) === "1";
@@ -26,6 +30,7 @@ export const isGoldMember = (): boolean => localStorage.getItem(`${P}gold`) === 
 export const setGoldMember = (v: boolean): void => {
   if (v) localStorage.setItem(`${P}gold`, "1");
   else localStorage.removeItem(`${P}gold`);
+  markClientStateDirty();
 };
 
 export const hasRevealedFilters = (profileUserId: string): boolean =>
@@ -33,6 +38,7 @@ export const hasRevealedFilters = (profileUserId: string): boolean =>
 
 export const revealFiltersFor = (profileUserId: string): void => {
   localStorage.setItem(`${P}reveal_${profileUserId}`, "1");
+  markClientStateDirty();
 };
 
 const HISTORY_KEY = `${P}explore_history`;
@@ -54,6 +60,7 @@ export const pushExploreHistory = (userId: string): void => {
   const prev = getExploreHistory().filter((e) => e.id !== userId);
   prev.unshift({ id: userId, at: new Date().toISOString() });
   localStorage.setItem(HISTORY_KEY, JSON.stringify(prev.slice(0, 40)));
+  markClientStateDirty();
 };
 
 export const buyMoreDemo = (kind: "boosts" | "compliments"): void => {

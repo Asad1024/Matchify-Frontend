@@ -1,4 +1,4 @@
-import { buildApiUrl, getAuthHeaders, isClientOnlyApi } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { getMockData } from "@/lib/mockData";
 import { setFeedMockMode } from "@/lib/feedMockMode";
 import { applyMockLikedToPosts } from "@/lib/mockLikesStore";
@@ -47,7 +47,7 @@ export async function fetchPostsFeed(): Promise<unknown[]> {
         setFeedMockMode(true);
         let rows = mock as unknown[];
         const uid = viewerUserIdFromStorage();
-        if (isClientOnlyApi() && uid) {
+        if (uid) {
           rows = await applySocialToMockPosts(rows as { id: string; userId?: string; authorId?: string }[], uid);
         }
         return withMockLikeOverlay(rows);
@@ -59,7 +59,7 @@ export async function fetchPostsFeed(): Promise<unknown[]> {
     setFeedMockMode(false);
     let okRows = (await res.json()) as unknown[];
     const uidOk = viewerUserIdFromStorage();
-    if (isClientOnlyApi() && uidOk && Array.isArray(okRows)) {
+    if (uidOk && Array.isArray(okRows)) {
       okRows = await applySocialToMockPosts(okRows as { id: string; userId?: string; authorId?: string }[], uidOk);
     }
     return okRows;
@@ -69,7 +69,7 @@ export async function fetchPostsFeed(): Promise<unknown[]> {
       setFeedMockMode(true);
       let rows = mock as unknown[];
       const uid = viewerUserIdFromStorage();
-      if (isClientOnlyApi() && uid) {
+      if (uid) {
         rows = await applySocialToMockPosts(rows as { id: string; userId?: string; authorId?: string }[], uid);
       }
       return withMockLikeOverlay(rows);

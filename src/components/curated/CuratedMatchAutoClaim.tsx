@@ -8,7 +8,7 @@ import { claimNextCuratedMatch } from "@/services/aiMatchmaker.service";
 import type { User } from "@shared/schema";
 
 /**
- * When the server says the cooldown has ended, claims the next curated pick (one per cycle),
+ * When the server says the cooldown has ended, claims the next AI match (one per cycle),
  * creates an in-app notification on the server, and shows a toast if a match was assigned.
  */
 export function CuratedMatchAutoClaim() {
@@ -56,13 +56,13 @@ export function CuratedMatchAutoClaim() {
 
         if (res.match) {
           toast({
-            title: "Your curated match is ready",
-            description: `${res.match.name} is listed under Discover → Curated picks.`,
+            title: "Your AI match is ready",
+            description: `${res.match.name} is listed under Discover → AI Matching.`,
           });
           try {
             if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-              new Notification("Matchify — curated match ready", {
-                body: `View ${res.match.name} in Discover under Curated picks.`,
+              new Notification("Matchify — AI match ready", {
+                body: `View ${res.match.name} in Discover under AI Matching.`,
               });
             }
           } catch {
@@ -79,7 +79,8 @@ export function CuratedMatchAutoClaim() {
       .finally(() => {
         inFlightRef.current = false;
       });
-  }, [ready, userId, hasBlueprint, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast identity changes often; would retrigger claim
+  }, [ready, userId, hasBlueprint]);
 
   return null;
 }

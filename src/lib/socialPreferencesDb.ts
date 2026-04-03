@@ -33,6 +33,10 @@ export type PostReportRow = {
   userId: string;
   postId: string;
   authorId?: string;
+  /** Snapshot at report time so Feed preferences can show real users without mock lookup. */
+  authorName?: string;
+  authorAvatar?: string | null;
+  postPreview?: string | null;
   reason?: string;
   details?: string;
   createdAt: string;
@@ -61,6 +65,14 @@ export class MatchifySocialDB extends Dexie {
   constructor() {
     super("matchify_social_db");
     this.version(1).stores({
+      savedPosts: "key, userId, postId",
+      follows: "key, userId, targetUserId",
+      mutedAuthors: "key, userId, authorId",
+      blockedUsers: "key, userId, blockedUserId",
+      postReports: "++id, userId, postId",
+      userReports: "++id, reporterId, reportedUserId",
+    });
+    this.version(2).stores({
       savedPosts: "key, userId, postId",
       follows: "key, userId, targetUserId",
       mutedAuthors: "key, userId, authorId",

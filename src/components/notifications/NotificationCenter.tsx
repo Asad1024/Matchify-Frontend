@@ -11,7 +11,7 @@ import {
 import NotificationItem from "./NotificationItem";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { queryClient } from "@/lib/queryClient";
-import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import { buildApiUrl, getAuthHeaders, getNotificationsStreamUrl } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import {
   isMarriageSyntheticNotificationId,
@@ -27,6 +27,7 @@ type Notification = {
     | "match"
     | "message"
     | "event"
+    | "ai_event_invite"
     | "system"
     | "curated_match"
     | "marriage_chat_request"
@@ -59,14 +60,17 @@ export function NotificationCenter() {
     queryKey: ["/api/users", userId, "notifications"],
     enabled: !!userId,
     refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
     if (!userId) return;
-    const es = new EventSource(`/api/users/${encodeURIComponent(userId)}/notifications/stream`);
-    es.onmessage = () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+    const es = new EventSource(getNotificationsStreamUrl(userId));
+    const invalidate = () => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
     };
+    es.onopen = () => invalidate();
+    es.onmessage = () => invalidate();
     es.onerror = () => {
       // Browser will auto-retry. No-op.
     };
@@ -154,12 +158,14 @@ export function NotificationCenter() {
           {unreadCount > 0 && (
             <span
               className={
-                unreadCount > 9
-                  ? "absolute right-0.5 top-0.5 grid h-[18px] min-w-[22px] place-items-center rounded-full bg-primary px-1 text-[9px] font-bold tabular-nums leading-none tracking-tight text-white"
-                  : "absolute right-0.5 top-0.5 grid size-[18px] place-items-center rounded-full bg-primary text-[10px] font-bold tabular-nums leading-none text-white"
+                unreadCount > 99
+                  ? "absolute right-0 top-0 translate-x-[14%] -translate-y-[14%] grid h-[18px] min-w-[24px] place-items-center rounded-full bg-primary px-1 text-[9px] font-bold tabular-nums leading-none tracking-tight text-white"
+                  : unreadCount > 9
+                    ? "absolute right-0 top-0 translate-x-[14%] -translate-y-[14%] grid h-[18px] min-w-[22px] place-items-center rounded-full bg-primary px-1 text-[9px] font-bold tabular-nums leading-none tracking-tight text-white"
+                    : "absolute right-0 top-0 translate-x-[14%] -translate-y-[14%] grid size-[18px] place-items-center rounded-full bg-primary text-[10px] font-bold tabular-nums leading-none text-white"
               }
             >
-              {unreadCount > 9 ? "9+" : unreadCount}
+              {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </Button>
@@ -263,6 +269,11 @@ export function NotificationCenter() {
                       setLocation(`/chat?user=${encodeURIComponent(row.relatedUserId)}`);
                     } else if (row?.type === "message" && row.relatedUserId) {
                       setLocation(`/chat?user=${encodeURIComponent(row.relatedUserId)}`);
+                    } else if (
+                      (row?.type === "event" || row?.type === "ai_event_invite") &&
+                      row.relatedEntityId
+                    ) {
+                      setLocation(`/event/${encodeURIComponent(row.relatedEntityId)}`);
                     }
                   }
                   setOpen(false);
@@ -276,7 +287,10 @@ export function NotificationCenter() {
           <div className="border-t border-gray-100 px-4 py-2.5">
             <button
               className="text-xs text-primary font-semibold w-full text-center hover:underline"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                setLocation("/notifications");
+              }}
             >
               View all notifications
             </button>

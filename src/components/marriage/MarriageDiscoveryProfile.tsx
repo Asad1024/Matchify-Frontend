@@ -387,8 +387,8 @@ export function MarriageDiscoveryProfile({
         {/* Compact header: small photo + modern pills */}
         <Card className="matchify-surface overflow-hidden border-white/0 bg-card/70 shadow-lg">
           <CardContent className="p-4 sm:p-5">
-            <div className="flex items-start gap-3">
-              <div className="relative h-[96px] w-[78px] shrink-0 overflow-hidden rounded-2xl border border-stone-200 bg-stone-100 shadow-sm">
+            <div className="flex items-stretch gap-3">
+              <div className="relative w-[84px] shrink-0 self-stretch overflow-hidden rounded-2xl border border-stone-200 bg-stone-100 shadow-sm">
                 {heroImage ? (
                   <img
                     src={heroImage}

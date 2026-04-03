@@ -3,13 +3,14 @@ import { useLocation } from "wouter";
 import {
   LayoutDashboard, Users, BarChart3, FileText, Calendar,
   UsersRound, MessageSquare, Shield, Settings, TrendingUp,
-  Heart, BookOpen, GraduationCap, LogOut, Menu, X, ListChecks, ClipboardList,
-  ChevronLeft, ChevronRight,
+  Heart, BookOpen, GraduationCap, LogOut, Menu, X, ListChecks,
+  ChevronLeft, ChevronRight, MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Surface } from "@/components/common/Surface";
+import AdminNotificationBell from "@/components/admin/AdminNotificationBell";
 
 const adminMenuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
@@ -18,13 +19,8 @@ const adminMenuItems = [
   { id: 'matches', label: 'Matches', icon: Heart, path: '/admin/matches' },
   { id: 'posts', label: 'Posts', icon: FileText, path: '/admin/posts' },
   { id: 'events', label: 'Events', icon: Calendar, path: '/admin/events' },
-  { id: 'questions', label: 'Setup Questions', icon: ListChecks, path: '/admin/questions' },
-  {
-    id: 'onboarding-q',
-    label: 'Onboarding Q&A',
-    icon: ClipboardList,
-    path: '/admin/onboarding-questionnaire',
-  },
+  { id: 'venues', label: 'Venues', icon: MapPin, path: '/admin/venues' },
+  { id: 'questions', label: 'Questions', icon: ListChecks, path: '/admin/questions' },
   { id: 'groups', label: 'Groups', icon: UsersRound, path: '/admin/groups' },
   { id: 'courses', label: 'Courses', icon: BookOpen, path: '/admin/courses' },
   { id: 'coaches', label: 'Coaches', icon: GraduationCap, path: '/admin/coaches' },
@@ -87,19 +83,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-[hsl(var(--surface-2))] flex">
       {/* ── DESKTOP SIDEBAR (md+) ── */}
       <aside className={cn(
-        "hidden md:flex flex-col bg-card/80 backdrop-blur-md border-r border-border/70 transition-all duration-300",
+        "hidden md:flex md:sticky md:top-0 md:h-screen md:max-h-screen md:flex-col md:shrink-0",
+        "bg-card/80 backdrop-blur-md border-r border-border/70 transition-all duration-300",
         collapsed ? "w-16" : "w-64"
       )}>
-        <div className="p-4 border-b border-border/70 flex items-center justify-between">
+        <div className="p-4 border-b border-border/70 flex items-center justify-between shrink-0">
           {!collapsed && <h2 className="text-[15px] font-semibold truncate text-foreground/90">Admin</h2>}
           <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)}>
             {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
           </Button>
         </div>
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+        <nav className="flex-1 min-h-0 p-2 space-y-1 overflow-y-auto overscroll-contain">
           <NavItems showLabels={!collapsed} />
         </nav>
-        <div className="p-2 border-t border-border/70">
+        <div className="p-2 border-t border-border/70 shrink-0">
           <Button
             variant="ghost"
             className={cn("w-full justify-start text-destructive hover:text-destructive", collapsed ? "px-2" : "px-4")}
@@ -112,13 +109,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* ── MOBILE TOP BAR (< md) ── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b border-border/70 flex items-center gap-3 px-4 h-14">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b border-border/70 flex items-center gap-2 px-3 h-14">
         <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)}>
           <Menu className="w-5 h-5" />
         </Button>
-        <span className="font-bold text-base flex-1 truncate">Matchify</span>
-        <span className="matchify-pill-active px-2 py-0.5 text-[10px]">ADMIN</span>
-        <span className="text-xs text-muted-foreground truncate max-w-[100px]">{currentPage}</span>
+        <span className="font-bold text-base flex-1 truncate min-w-0">Matchify</span>
+        <AdminNotificationBell />
+        <span className="matchify-pill-active px-2 py-0.5 text-[10px] shrink-0">ADMIN</span>
+        <span className="text-xs text-muted-foreground truncate max-w-[72px] shrink-0">{currentPage}</span>
       </div>
 
       {/* ── MOBILE DRAWER OVERLAY ── */}
@@ -158,8 +156,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <main className="flex-1 overflow-y-auto md:pt-0 pt-14">
+      <main className="flex-1 min-h-0 overflow-y-auto md:pt-0 pt-14">
         <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
+          <div className="hidden md:flex justify-end mb-3">
+            <AdminNotificationBell />
+          </div>
           <Surface className="p-0 overflow-hidden">
             {children}
           </Surface>

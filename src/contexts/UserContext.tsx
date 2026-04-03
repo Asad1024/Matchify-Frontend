@@ -1,5 +1,10 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { getCurrentUserId, setCurrentUserId } from "@/lib/mockData";
+import { setCurrentUserId } from "@/lib/mockData";
+import {
+  getReconciledStoredUserId,
+  getStoredUserIdFromCurrentUserJson,
+  reconcileCurrentUserIdWithJwt,
+} from "@/lib/authUserIdReconcile";
 
 interface UserContextType {
   userId: string | null;
@@ -14,26 +19,24 @@ const UserContext = createContext<UserContextType>({
 });
 
 function getStoredUserId(): string | null {
-  try {
-    const raw = localStorage.getItem("currentUser");
-    if (raw) {
-      const u = JSON.parse(raw);
-      if (u?.id) return u.id;
-      if (u?.userId) return u.userId;
-    }
-  } catch {
-    /* ignore */
-  }
-  return getCurrentUserId();
+  return getReconciledStoredUserId();
 }
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(getStoredUserId);
 
   const syncUser = () => {
-    const id = getStoredUserId();
+    const fixed = reconcileCurrentUserIdWithJwt();
+    const id = getStoredUserIdFromCurrentUserJson();
     setUserId(id);
     if (id) setCurrentUserId(id);
+    if (fixed) {
+      try {
+        window.dispatchEvent(new Event("matchify-auth-changed"));
+      } catch {
+        /* ignore */
+      }
+    }
   };
 
   // Keep in sync when another tab logs in/out or currentUser is updated

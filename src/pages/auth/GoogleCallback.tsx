@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { notifyHeaderUserUpdated } from "@/components/common/Header";
 import { queryClient } from "@/lib/queryClient";
 import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import {
+  closeOAuthPopupAndNavigate,
+  MATCHIFY_GOOGLE_OAUTH_WINDOW_NAME,
+} from "@/lib/googleOAuthPopup";
 
 export default function GoogleCallback() {
   const [, setLocation] = useLocation();
@@ -56,10 +59,15 @@ export default function GoogleCallback() {
         
         const isNewUser = isNewUserParam === 'true';
 
+        const go = (href: string) => {
+          if (closeOAuthPopupAndNavigate(href)) return;
+          setLocation(href);
+        };
+
         if (userData.isAdmin) {
           localStorage.setItem("isAdmin", "true");
           localStorage.setItem("onboardingCompleted", "true");
-          setLocation("/admin");
+          go("/admin");
         } else if (!isNewUserParam || isNewUserParam === "false") {
           // Existing Google account: do not force onboarding again due stale flags.
           localStorage.setItem("onboardingCompleted", "true");
@@ -76,13 +84,13 @@ export default function GoogleCallback() {
           } catch {
             /* ignore */
           }
-          setLocation("/");
+          go("/");
         } else if (isNewUser || !userData.onboardingCompleted) {
           localStorage.removeItem("onboardingCompleted");
-          setLocation("/");
+          go("/");
         } else {
           localStorage.setItem("onboardingCompleted", "true");
-          setLocation("/");
+          go("/");
         }
       } catch (e) {
         console.error("Failed to parse user data from Google callback:", e);
@@ -126,31 +134,65 @@ export default function GoogleCallback() {
     void run();
   }, [setLocation]);
 
+  const shellClass =
+    "flex h-[100dvh] w-full max-w-lg flex-col overflow-hidden bg-background";
+
+  const leaveToLogin = () => {
+    if (window.name === MATCHIFY_GOOGLE_OAUTH_WINDOW_NAME) {
+      window.close();
+      return;
+    }
+    setLocation("/login");
+  };
+
+  const backBar = (
+    <div className="flex shrink-0 items-center gap-1 border-b border-border/60 px-2 py-1.5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-10 w-10 shrink-0 rounded-full text-foreground/80 hover:bg-muted"
+        onClick={leaveToLogin}
+        aria-label="Back to login"
+      >
+        <ArrowLeft className="h-5 w-5" strokeWidth={2} />
+      </Button>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <LoadingState message="Completing Google Login..." showMascot={true} />
+      <div className="min-h-[100dvh] flex justify-center bg-background">
+        <div className={shellClass}>
+          {backBar}
+          <div className="safe-bottom flex min-h-0 flex-1 flex-col items-center justify-center px-6">
+            <LoadingState message="Completing Google Login..." showMascot={true} />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <Card className="w-full max-w-md">
-        <CardContent className="p-6 text-center space-y-4">
-          {error ? (
-            <>
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-              <Button onClick={() => setLocation("/login")}>Back to Login</Button>
-            </>
-          ) : (
-            <p className="text-muted-foreground">Redirecting...</p>
-          )}
-        </CardContent>
-      </Card>
+    <div className="min-h-[100dvh] flex justify-center bg-background">
+      <div className={shellClass}>
+        {backBar}
+        <div className="safe-bottom flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-6 py-6">
+          <div className="mx-auto w-full max-w-md space-y-4 text-center">
+            {error ? (
+              <>
+                <Alert variant="destructive" className="text-left">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+                <Button onClick={leaveToLogin}>Back to Login</Button>
+              </>
+            ) : (
+              <p className="text-muted-foreground">Redirecting...</p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import {
   Heart,
@@ -29,6 +31,7 @@ import {
   Languages as LanguagesIcon,
   AlignLeft,
   HeartHandshake,
+  Shield,
 } from "lucide-react";
 import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -51,6 +54,7 @@ import ProfileEditTab, { type ProfileEditUser } from "@/components/profile/Profi
 import { ProfilePreviewCard } from "@/components/profile/ProfilePreviewCard";
 import { ImageLightbox } from "@/components/profile/ImageLightbox";
 import { cn } from "@/lib/utils";
+import { apiRequest } from "@/services/api";
 
 type User = ProfileEditUser & {
   id: string;
@@ -85,6 +89,11 @@ type User = ProfileEditUser & {
   ethnicity?: string | null;
   smoking?: string | null;
   drinksAlcohol?: string | null;
+  verificationRequest?: {
+    status?: string;
+    message?: string;
+    submittedAt?: string;
+  } | null;
 };
 
 function formatLanguages(raw: string | string[] | null | undefined): string {
@@ -103,6 +112,9 @@ export default function Profile() {
   );
   const [addPartnerOpen, setAddPartnerOpen] = useState(false);
   const [securityDialogOpen, setSecurityDialogOpen] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyNote, setVerifyNote] = useState("");
+  const VERIFICATION_NOTE_MIN = 10;
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const { userId } = useCurrentUser();
   const { toast } = useToast();
@@ -125,6 +137,40 @@ export default function Profile() {
   >({
     queryKey: [`/api/users/${user?.partnerId}`],
     enabled: !!user?.partnerId,
+  });
+
+  const submitVerificationRequest = useMutation({
+    mutationFn: async (message: string) => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await apiRequest("POST", `/api/users/${userId}/verification-request`, { message });
+      if (!res.ok) {
+        let msg = "Request failed";
+        try {
+          const j = (await res.json()) as { message?: string };
+          if (j?.message) msg = j.message;
+        } catch {
+          /* use default */
+        }
+        throw new Error(msg);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+      toast({
+        title: "Request sent",
+        description: "Our team will review your message. You will get a notification when you are verified.",
+      });
+      setVerifyOpen(false);
+      setVerifyNote("");
+    },
+    onError: (e: Error) => {
+      toast({
+        title: "Could not send request",
+        description: e.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const removePartner = useMutation({
@@ -324,6 +370,84 @@ export default function Profile() {
         </div>
 
         <div className="max-w-lg mx-auto">
+          {user && !user.verified ? (
+            <div className="px-3 pt-2">
+              <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-start gap-2">
+                  <Shield className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Get verified</p>
+                    <p className="text-xs text-muted-foreground">
+                      {user.verificationRequest?.status === "pending"
+                        ? "Your request is with our team. We will notify you when your profile is verified."
+                        : "Submit a short note for reviewers. If approved, you will get the verification badge on your name."}
+                    </p>
+                  </div>
+                </div>
+                {user.verificationRequest?.status !== "pending" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 rounded-full"
+                    onClick={() => setVerifyOpen(true)}
+                  >
+                    Request verification
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          <Dialog open={verifyOpen} onOpenChange={setVerifyOpen}>
+            <DialogContent className="max-w-md rounded-2xl">
+              <DialogHeader>
+                <DialogTitle>Request profile verification</DialogTitle>
+                <DialogDescription>
+                  Introduce yourself to our reviewers (for example what confirms your identity or why you want the badge).
+                  This is only visible to admins.
+                </DialogDescription>
+              </DialogHeader>
+              <Textarea
+                id="verification-request-note"
+                value={verifyNote}
+                onChange={(e) => setVerifyNote(e.target.value)}
+                placeholder={`Write at least ${VERIFICATION_NOTE_MIN} characters…`}
+                className="min-h-[120px] rounded-xl"
+                aria-describedby="verification-request-hint"
+              />
+              <p
+                id="verification-request-hint"
+                className={`text-xs leading-relaxed ${verifyNote.trim().length < VERIFICATION_NOTE_MIN ? "text-muted-foreground" : "text-primary/90"}`}
+              >
+                {verifyNote.trim().length < VERIFICATION_NOTE_MIN ? (
+                  <>
+                    Send request stays disabled until you write at least{" "}
+                    <span className="font-semibold text-foreground">{VERIFICATION_NOTE_MIN} characters</span> so
+                    reviewers have enough context ({verifyNote.trim().length}/{VERIFICATION_NOTE_MIN}).
+                  </>
+                ) : (
+                  <>You&apos;re good to send — {verifyNote.trim().length} characters.</>
+                )}
+              </p>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={() => setVerifyOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={
+                    verifyNote.trim().length < VERIFICATION_NOTE_MIN || submitVerificationRequest.isPending
+                  }
+                  className="disabled:pointer-events-none disabled:opacity-50"
+                  onClick={() => submitVerificationRequest.mutate(verifyNote.trim())}
+                >
+                  {submitVerificationRequest.isPending ? "Sending…" : "Send request"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {profileTab === "preview" && (
             <div className="space-y-3 px-3 pb-10 pt-2">
               {/* Hero — taller photo area */}
@@ -692,6 +816,7 @@ export default function Profile() {
               <ProfileEditTab
                 user={user}
                 hasPartner={Boolean(user.partnerId)}
+                marriageRestrictedEdit={marriageMenuFocus}
                 onOpenSecurity={() => setSecurityDialogOpen(true)}
                 onOpenAddPartner={() => setAddPartnerOpen(true)}
                 onGoCoaching={() => setLocation("/relationship-coaching")}

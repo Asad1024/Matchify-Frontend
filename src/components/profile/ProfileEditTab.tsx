@@ -182,6 +182,8 @@ type ProfileEditTabProps = {
   onGoCoaching: () => void;
   onGoAIMatchmaker: () => void;
   hasPartner: boolean;
+  /** Marriage menu → edit: only photos; hide basics/banner/shortcuts; onboarding fields read-only. */
+  marriageRestrictedEdit?: boolean;
   /** Open full-screen image viewer (preview hero + edit photos). Optional list includes unsaved gallery state. */
   onImagePreview?: (url: string, galleryUrls?: string[]) => void;
 };
@@ -204,9 +206,11 @@ export default function ProfileEditTab({
   onGoCoaching,
   onGoAIMatchmaker,
   hasPartner,
+  marriageRestrictedEdit = false,
   onImagePreview,
 }: ProfileEditTabProps) {
   const [, setLocation] = useLocation();
+  const onboardingLocked = marriageRestrictedEdit;
   const { toast } = useToast();
   const [avatar, setAvatar] = useState(user.avatar || "");
   const [extraPhotos, setExtraPhotos] = useState<string[]>(() =>
@@ -413,7 +417,11 @@ export default function ProfileEditTab({
     <ProfilePreviewCard
       icon={Camera}
       title="Photos"
-      description="Main photo plus up to four gallery shots — same as your preview layout."
+      description={
+        marriageRestrictedEdit
+          ? "Update your main photo and gallery here. Name, bio, and other details were set in onboarding."
+          : "Main photo plus up to four gallery shots — same as your preview layout."
+      }
     >
         <div className="flex justify-center rounded-2xl bg-stone-50/80 py-4">
           <PhotoUpload
@@ -446,6 +454,16 @@ export default function ProfileEditTab({
     <div className="space-y-3">
       {photosCard}
 
+      {marriageRestrictedEdit ? (
+        <div
+          className="rounded-2xl border border-amber-200/90 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+          role="note"
+        >
+          To change your answers after submission, please contact support.
+        </div>
+      ) : null}
+
+      {!marriageRestrictedEdit ? (
       <ProfilePreviewCard
         icon={UserRound}
         title="Basics"
@@ -537,11 +555,16 @@ export default function ProfileEditTab({
           </div>
         </div>
       </ProfilePreviewCard>
+      ) : null}
 
       <ProfilePreviewCard
         icon={Globe2}
         title="Languages & background"
-        description="Nationality, ethnicity, languages, smoking, and alcohol — same as profile preview."
+        description={
+          onboardingLocked
+            ? "Read-only — set during onboarding."
+            : "Nationality, ethnicity, languages, smoking, and alcohol — same as profile preview."
+        }
       >
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -553,6 +576,7 @@ export default function ProfileEditTab({
               value={form.nationality}
               onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))}
               placeholder="e.g. Emirati, British"
+              disabled={onboardingLocked}
             />
           </div>
           <div className="space-y-1.5">
@@ -562,6 +586,7 @@ export default function ProfileEditTab({
             <Select
               value={form.ethnicity || "unset"}
               onValueChange={(v) => setForm((f) => ({ ...f, ethnicity: v === "unset" ? "" : v }))}
+              disabled={onboardingLocked}
             >
               <SelectTrigger className={triggerCls}>
                 <SelectValue placeholder="Select" />
@@ -585,6 +610,7 @@ export default function ProfileEditTab({
               value={form.languages}
               onChange={(e) => setForm((f) => ({ ...f, languages: e.target.value }))}
               placeholder="English, Arabic…"
+              disabled={onboardingLocked}
             />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -595,6 +621,7 @@ export default function ProfileEditTab({
               <Select
                 value={form.smoking || "unset"}
                 onValueChange={(v) => setForm((f) => ({ ...f, smoking: v === "unset" ? "" : v }))}
+                disabled={onboardingLocked}
               >
                 <SelectTrigger className={triggerCls}>
                   <SelectValue placeholder="Select" />
@@ -618,6 +645,7 @@ export default function ProfileEditTab({
                 onValueChange={(v) =>
                   setForm((f) => ({ ...f, drinksAlcohol: v === "unset" ? "" : v }))
                 }
+                disabled={onboardingLocked}
               >
                 <SelectTrigger className={triggerCls}>
                   <SelectValue placeholder="Select" />
@@ -639,14 +667,22 @@ export default function ProfileEditTab({
       <ProfilePreviewCard
         icon={HeartHandshake}
         title="Goals & commitment"
-        description="What you’re looking for and where you are on the path to marriage."
+        description={
+          onboardingLocked
+            ? "Read-only — set during onboarding."
+            : "What you’re looking for and where you are on the path to marriage."
+        }
       >
         <div className="space-y-4">
           <div className="space-y-1.5 rounded-2xl bg-stone-50/90 px-3.5 py-3">
             <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Primary relationship goal
             </Label>
-            <Select value={form.relationshipGoal} onValueChange={(v) => setForm((f) => ({ ...f, relationshipGoal: v }))}>
+            <Select
+              value={form.relationshipGoal}
+              onValueChange={(v) => setForm((f) => ({ ...f, relationshipGoal: v }))}
+              disabled={onboardingLocked}
+            >
               <SelectTrigger className={cn(triggerCls, "mt-1 border-white bg-white")}>
                 <SelectValue />
               </SelectTrigger>
@@ -666,6 +702,7 @@ export default function ProfileEditTab({
             <Select
               value={form.commitmentIntention}
               onValueChange={(v) => setForm((f) => ({ ...f, commitmentIntention: v }))}
+              disabled={onboardingLocked}
             >
               <SelectTrigger className={cn(triggerCls, "mt-1 border-white bg-white")}>
                 <SelectValue />
@@ -686,6 +723,7 @@ export default function ProfileEditTab({
             <Select
               value={form.marriageTimeline || "unset"}
               onValueChange={(v) => setForm((f) => ({ ...f, marriageTimeline: v === "unset" ? "" : v }))}
+              disabled={onboardingLocked}
             >
               <SelectTrigger className={cn(triggerCls, "mt-1 border-white bg-white")}>
                 <SelectValue placeholder="Select" />
@@ -707,6 +745,7 @@ export default function ProfileEditTab({
             <Select
               value={form.marriageApproach || "unset"}
               onValueChange={(v) => setForm((f) => ({ ...f, marriageApproach: v === "unset" ? "" : v }))}
+              disabled={onboardingLocked}
             >
               <SelectTrigger className={cn(triggerCls, "mt-1 border-white bg-white")}>
                 <SelectValue placeholder="Select" />
@@ -728,6 +767,7 @@ export default function ProfileEditTab({
             <Select
               value={form.wantsChildren || "unset"}
               onValueChange={(v) => setForm((f) => ({ ...f, wantsChildren: v === "unset" ? "" : v }))}
+              disabled={onboardingLocked}
             >
               <SelectTrigger className={cn(triggerCls, "mt-1 border-white bg-white")}>
                 <SelectValue placeholder="Select" />
@@ -748,7 +788,11 @@ export default function ProfileEditTab({
       <ProfilePreviewCard
         icon={Brain}
         title="Personality"
-        description="Love language, values, and lifestyle — matches your preview cards."
+        description={
+          onboardingLocked
+            ? "Read-only — set during onboarding."
+            : "Love language, values, and lifestyle — matches your preview cards."
+        }
       >
         <div className="space-y-4">
           <div className="space-y-1.5 rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.06] to-transparent px-3.5 py-3">
@@ -756,6 +800,7 @@ export default function ProfileEditTab({
             <Select
               value={form.loveLanguage || "unset"}
               onValueChange={(v) => setForm((f) => ({ ...f, loveLanguage: v === "unset" ? "" : v }))}
+              disabled={onboardingLocked}
             >
               <SelectTrigger className={cn(triggerCls, "mt-1 bg-white")}>
                 <SelectValue placeholder="Optional" />
@@ -779,6 +824,7 @@ export default function ProfileEditTab({
                   type="button"
                   className={chipClass(form.values.includes(v))}
                   onClick={() => setForm((f) => ({ ...f, values: toggleListItem(f.values, v) }))}
+                  disabled={onboardingLocked}
                 >
                   {v}
                 </button>
@@ -794,6 +840,7 @@ export default function ProfileEditTab({
                   type="button"
                   className={chipClass(form.lifestyle.includes(v))}
                   onClick={() => setForm((f) => ({ ...f, lifestyle: toggleListItem(f.lifestyle, v) }))}
+                  disabled={onboardingLocked}
                 >
                   {v}
                 </button>
@@ -806,7 +853,11 @@ export default function ProfileEditTab({
       <ProfilePreviewCard
         icon={GraduationCap}
         title="Education & work"
-        description="Schooling, job, birth date, and optional income — shown on preview."
+        description={
+          onboardingLocked
+            ? "Read-only — set during onboarding."
+            : "Schooling, job, birth date, and optional income — shown on preview."
+        }
       >
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -814,6 +865,7 @@ export default function ProfileEditTab({
             <Select
               value={form.education || "unset"}
               onValueChange={(v) => setForm((f) => ({ ...f, education: v === "unset" ? "" : v }))}
+              disabled={onboardingLocked}
             >
               <SelectTrigger className={triggerCls}>
                 <SelectValue placeholder="Select" />
@@ -838,6 +890,7 @@ export default function ProfileEditTab({
               value={form.career}
               onChange={(e) => setForm((f) => ({ ...f, career: e.target.value }))}
               placeholder="e.g. Teacher, engineer"
+              disabled={onboardingLocked}
             />
           </div>
           <div className="space-y-1.5">
@@ -845,6 +898,7 @@ export default function ProfileEditTab({
             <Select
               value={form.incomeRange || "unset"}
               onValueChange={(v) => setForm((f) => ({ ...f, incomeRange: v === "unset" ? "" : v }))}
+              disabled={onboardingLocked}
             >
               <SelectTrigger className={triggerCls}>
                 <SelectValue placeholder="Optional" />
@@ -865,6 +919,7 @@ export default function ProfileEditTab({
               <Select
                 value={form.zodiacSign || "unset"}
                 onValueChange={(v) => setForm((f) => ({ ...f, zodiacSign: v === "unset" ? "" : v }))}
+                disabled={onboardingLocked}
               >
                 <SelectTrigger className={triggerCls}>
                   <SelectValue placeholder="Optional" />
@@ -889,6 +944,7 @@ export default function ProfileEditTab({
                 type="date"
                 value={form.birthDate}
                 onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
+                disabled={onboardingLocked}
               />
             </div>
           </div>
@@ -898,7 +954,11 @@ export default function ProfileEditTab({
       <ProfilePreviewCard
         icon={Flame}
         title="Interests & languages"
-        description="Comma-separated interests and languages — same pills and line on preview."
+        description={
+          onboardingLocked
+            ? "Read-only — set during onboarding."
+            : "Comma-separated interests and languages — same pills and line on preview."
+        }
       >
         <div className="space-y-4">
           <div className="space-y-1.5 rounded-2xl bg-stone-50/90 px-3.5 py-3">
@@ -911,6 +971,7 @@ export default function ProfileEditTab({
               value={form.interests}
               onChange={(e) => setForm((f) => ({ ...f, interests: e.target.value }))}
               placeholder="Travel, fitness, reading…"
+              disabled={onboardingLocked}
             />
           </div>
           <div className="space-y-1.5 rounded-2xl bg-stone-50/90 px-3.5 py-3">
@@ -923,6 +984,7 @@ export default function ProfileEditTab({
               value={form.languages}
               onChange={(e) => setForm((f) => ({ ...f, languages: e.target.value }))}
               placeholder="English, Arabic, …"
+              disabled={onboardingLocked}
             />
           </div>
         </div>
@@ -931,14 +993,22 @@ export default function ProfileEditTab({
       <ProfilePreviewCard
         icon={Globe2}
         title="Faith & communities"
-        description="Background and how we surface groups — mirrors preview."
+        description={
+          onboardingLocked
+            ? "Read-only — set during onboarding."
+            : "Background and how we surface groups — mirrors preview."
+        }
       >
         <div className="space-y-4">
           <div className="space-y-1.5 rounded-2xl bg-stone-50/90 px-3.5 py-3">
             <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Background / faith
             </Label>
-            <Select value={form.religion} onValueChange={(v) => setForm((f) => ({ ...f, religion: v }))}>
+            <Select
+              value={form.religion}
+              onValueChange={(v) => setForm((f) => ({ ...f, religion: v }))}
+              disabled={onboardingLocked}
+            >
               <SelectTrigger className={cn(triggerCls, "mt-1 border-white bg-white")}>
                 <SelectValue />
               </SelectTrigger>
@@ -955,7 +1025,11 @@ export default function ProfileEditTab({
             <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Community highlights
             </Label>
-            <Select value={form.meetPreference} onValueChange={(v) => setForm((f) => ({ ...f, meetPreference: v }))}>
+            <Select
+              value={form.meetPreference}
+              onValueChange={(v) => setForm((f) => ({ ...f, meetPreference: v }))}
+              disabled={onboardingLocked}
+            >
               <SelectTrigger className={cn(triggerCls, "mt-1 border-white bg-white")}>
                 <SelectValue />
               </SelectTrigger>
@@ -971,6 +1045,7 @@ export default function ProfileEditTab({
         </div>
       </ProfilePreviewCard>
 
+      {!marriageRestrictedEdit ? (
       <ProfilePreviewCard
         icon={ImageIcon}
         title="Profile banner"
@@ -995,7 +1070,9 @@ export default function ProfileEditTab({
           />
         </div>
       </ProfilePreviewCard>
+      ) : null}
 
+      {!marriageRestrictedEdit ? (
       <Button
         className="h-12 w-full rounded-2xl bg-primary font-semibold text-primary-foreground shadow-2xs"
         onClick={handleSave}
@@ -1010,7 +1087,9 @@ export default function ProfileEditTab({
           "Save changes"
         )}
       </Button>
+      ) : null}
 
+      {!marriageRestrictedEdit ? (
       <ProfilePreviewCard
         icon={LayoutGrid}
         title="Shortcuts"
@@ -1046,6 +1125,7 @@ export default function ProfileEditTab({
           </button>
         </div>
       </ProfilePreviewCard>
+      ) : null}
 
       <ProfilePreviewCard icon={AtSign} title="Account" description="Sign-in identity — read only here.">
         <div className="space-y-2">

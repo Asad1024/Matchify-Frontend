@@ -6,6 +6,11 @@ export interface AttractionBlueprint {
   energyPreferences?: string[];
   lifestylePreferences?: string[];
   futureVision?: string[];
+  presencePreferences?: string[];
+  rhythmPreferences?: string[];
+  presentationStylePreferences?: string[];
+  earlyConnectionPreferences?: string[];
+  /** @deprecated Legacy Flow B anatomy buckets; may still exist on older profiles. */
   bodyPreferences?: string[];
   faceShapePreferences?: string[];
   eyeShapePreferences?: string[];
@@ -94,7 +99,7 @@ export const saveAttractionBlueprint = async (
   }
 };
 
-export type AiRankingSource = "openai" | "fallback";
+export type AiRankingSource = "gemini" | "openai" | "fallback";
 
 export type AIMatchesResponse = {
   rankingSource: AiRankingSource;
@@ -104,7 +109,7 @@ export type AIMatchesResponse = {
 export type GetAIMatchesOptions = {
   /** 1–8; default 8 (Discover sorting / insights). */
   limit?: number;
-  /** Omit people already shown as curated picks (requires auth). */
+  /** Omit people already shown as AI matches (requires auth). */
   excludeShown?: boolean;
 };
 
@@ -134,7 +139,11 @@ export const getAIMatches = async (
   }
   const obj = data as { rankingSource?: string; matches?: AIMatch[] };
   const rankingSource: AiRankingSource =
-    obj.rankingSource === "openai" ? "openai" : "fallback";
+    obj.rankingSource === "gemini"
+      ? "gemini"
+      : obj.rankingSource === "openai"
+        ? "openai"
+        : "fallback";
   return {
     rankingSource,
     matches: Array.isArray(obj.matches) ? obj.matches : [],
@@ -211,7 +220,7 @@ export async function claimNextCuratedMatch(userId: string): Promise<ClaimNextCu
   }
 
   if (!response.ok) {
-    let message = "Could not claim curated match";
+    let message = "Could not claim AI match";
     try {
       const j = (await response.json()) as { message?: string };
       if (j?.message) message = j.message;
@@ -227,7 +236,7 @@ export async function claimNextCuratedMatch(userId: string): Promise<ClaimNextCu
   return data;
 }
 
-/** Remember a curated pick so the next `excludeShown` request can surface someone new. */
+/** Remember an AI match so the next `excludeShown` request can surface someone new. */
 export async function ackCuratedMatchShown(
   userId: string,
   shownUserId: string,
@@ -239,7 +248,7 @@ export async function ackCuratedMatchShown(
     body: JSON.stringify({ shownUserId }),
   });
   if (!response.ok) {
-    let message = "Failed to record curated match";
+    let message = "Failed to record AI match";
     try {
       const j = (await response.json()) as { message?: string };
       if (j?.message) message = j.message;

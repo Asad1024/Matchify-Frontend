@@ -18,30 +18,34 @@ const FLOW_B_MALE = {
     { id: "bold_adventurous", image: M.lifestyle[0].image, label: "Bold / Adventurous", description: "Spontaneous and daring" },
     { id: "romantic_soft", image: M.lifestyle[1].image, label: "Romantic / Soft", description: "Warm and loving" },
   ] as FlowBOption[],
-  physical_attraction: [
-    { id: "athletic_fit", image: M.energy[1].image, label: "Athletic / Fit", description: "Gal Gadot" },
-    { id: "soft_natural", image: M.lifestyle[0].image, label: "Soft / Natural", description: "Emma Watson" },
-    { id: "glamorous_polished", image: M.looks[0].image, label: "Glamorous / Polished", description: "Red-carpet ready" },
-    { id: "natural_elegant", image: M.looks[1].image, label: "Natural / Elegant", description: "Understated grace" },
+  /** Presence & vibe (replaces body/face/eye/lip anatomy questions). */
+  attraction_presence: [
+    { id: "warm_approachable", image: M.looks[1].image, label: "Warm & approachable", description: "Easy to open up to" },
+    { id: "quietly_confident", image: M.looks[0].image, label: "Quietly confident", description: "Steady self-assurance" },
+    { id: "playful_expressive", image: M.energy[0].image, label: "Playful & expressive", description: "Fun, animated energy" },
+    { id: "calm_grounded", image: M.energy[1].image, label: "Calm & grounded", description: "Centered presence" },
+    { id: "direct_honest", image: M.future[0].image, label: "Direct & honest", description: "Says what they mean" },
   ] as FlowBOption[],
-  face_shape_preference: [
-    { id: "sharp_jawline", image: M.lifestyle[1].image, label: "Sharp Jawline", description: "Margot Robbie" },
-    { id: "soft_rounded_face", image: M.future[0].image, label: "Soft Rounded Face", description: "Blake Lively" },
-    { id: "angular_strong", image: M.energy[0].image, label: "Angular / Strong", description: "Defined features" },
-    { id: "soft_gentle", image: M.future[1].image, label: "Soft / Gentle", description: "Natalie Portman" },
+  day_to_day_rhythm: [
+    { id: "very_active", image: M.lifestyle[0].image, label: "Very active", description: "Always on the move" },
+    { id: "moderately_active", image: M.energy[1].image, label: "Moderately active", description: "Balanced movement" },
+    { id: "relaxed_homebody", image: M.lifestyle[1].image, label: "Relaxed / homebody", description: "Cozy default" },
+    { id: "mix_both", image: M.future[1].image, label: "A mix of both", description: "Depends on the week" },
+    { id: "travel_heavy", image: M.future[0].image, label: "Travel-heavy", description: "Often planning trips" },
   ] as FlowBOption[],
-  eye_shape_preference: [
-    { id: "almond_intense", image: M.future[1].image, label: "Almond / Intense", description: "Angelina Jolie" },
-    { id: "large_expressive", image: M.looks[0].image, label: "Large / Expressive", description: "Anne Hathaway" },
-    { id: "soft_gentle", image: M.looks[1].image, label: "Soft / Gentle", description: "Natalie Portman" },
-    { id: "deep_soulful", image: M.energy[0].image, label: "Deep / Soulful", description: "Captivating gaze" },
-    { id: "bright_warm", image: M.energy[1].image, label: "Bright / Warm", description: "Approachable" },
+  presentation_style: [
+    { id: "natural_lowkey", image: M.looks[1].image, label: "Natural & low-key", description: "Minimal fuss" },
+    { id: "polished_intentional", image: M.looks[0].image, label: "Polished & intentional", description: "Put-together" },
+    { id: "creative_eclectic", image: M.energy[0].image, label: "Creative & eclectic", description: "Unique style" },
+    { id: "sporty_practical", image: M.energy[1].image, label: "Sporty & practical", description: "Comfort first" },
+    { id: "classic_minimal", image: M.future[0].image, label: "Classic & minimal", description: "Timeless simplicity" },
   ] as FlowBOption[],
-  lip_shape_preference: [
-    { id: "full_lips", image: M.energy[0].image, label: "Full Lips", description: "Margot Robbie" },
-    { id: "natural_subtle", image: M.energy[1].image, label: "Natural / Subtle", description: "Emma Watson" },
-    { id: "defined_bow", image: M.looks[0].image, label: "Defined / Cupid's bow", description: "Classic shape" },
-    { id: "soft_full", image: M.lifestyle[1].image, label: "Soft / Full", description: "Natural volume" },
+  early_connection_focus: [
+    { id: "humor_wit", image: M.energy[0].image, label: "Humor & wit", description: "Makes you laugh" },
+    { id: "conversation_curiosity", image: M.future[1].image, label: "Conversation & curiosity", description: "Asks great questions" },
+    { id: "kindness_others", image: M.looks[1].image, label: "Kindness to others", description: "How they treat people" },
+    { id: "reliability_followthrough", image: M.future[0].image, label: "Reliability & follow-through", description: "Does what they say" },
+    { id: "ambition_focus", image: M.lifestyle[0].image, label: "Ambition & focus", description: "Clear direction" },
   ] as FlowBOption[],
   energy_vibe: [
     { id: "dominant_powerful", image: M.lifestyle[0].image, label: "Dominant / Powerful", description: "Angelina Jolie" },
@@ -64,30 +68,33 @@ const FLOW_B_FEMALE = {
     { id: "ambitious_driven", image: F.lifestyle[0].image, label: "Ambitious / Driven", description: "Goal-oriented" },
     { id: "humor_warmth", image: F.looks[1].image, label: "Humor / Warmth", description: "Makes you laugh" },
   ] as FlowBOption[],
-  physical_attraction: [
-    { id: "athletic_muscular", image: F.lifestyle[0].image, label: "Athletic / Muscular", description: "Chris Hemsworth" },
-    { id: "lean_stylish", image: F.looks[1].image, label: "Lean / Stylish", description: "Timothée Chalamet" },
-    { id: "strong_structured", image: F.looks[0].image, label: "Strong / Structured", description: "Defined build" },
-    { id: "relaxed_natural", image: F.energy[1].image, label: "Relaxed / Natural", description: "Easy-going look" },
+  attraction_presence: [
+    { id: "warm_approachable", image: F.energy[1].image, label: "Warm & approachable", description: "Easy to open up to" },
+    { id: "quietly_confident", image: F.looks[0].image, label: "Quietly confident", description: "Steady self-assurance" },
+    { id: "playful_expressive", image: F.energy[0].image, label: "Playful & expressive", description: "Fun, animated energy" },
+    { id: "calm_grounded", image: F.future[0].image, label: "Calm & grounded", description: "Centered presence" },
+    { id: "direct_honest", image: F.future[1].image, label: "Direct & honest", description: "Says what they mean" },
   ] as FlowBOption[],
-  face_shape_preference: [
-    { id: "sharp_jaw_structured", image: F.looks[0].image, label: "Sharp Jaw / Structured", description: "Henry Cavill" },
-    { id: "soft_boyish", image: F.looks[1].image, label: "Soft / Boyish", description: "Timothée Chalamet" },
-    { id: "angular_strong", image: F.energy[0].image, label: "Angular / Strong", description: "Defined features" },
-    { id: "warm_approachable", image: F.future[0].image, label: "Warm / Approachable", description: "Friendly face" },
+  day_to_day_rhythm: [
+    { id: "very_active", image: F.lifestyle[0].image, label: "Very active", description: "Always on the move" },
+    { id: "moderately_active", image: F.energy[0].image, label: "Moderately active", description: "Balanced movement" },
+    { id: "relaxed_homebody", image: F.lifestyle[1].image, label: "Relaxed / homebody", description: "Cozy default" },
+    { id: "mix_both", image: F.looks[1].image, label: "A mix of both", description: "Depends on the week" },
+    { id: "travel_heavy", image: F.future[1].image, label: "Travel-heavy", description: "Often planning trips" },
   ] as FlowBOption[],
-  eye_shape_preference: [
-    { id: "deepset_intense", image: F.energy[0].image, label: "Deep-set / Intense", description: "Leonardo DiCaprio" },
-    { id: "soft_warm_eyes", image: F.energy[1].image, label: "Soft / Warm Eyes", description: "John Krasinski" },
-    { id: "sharp_focused", image: F.future[1].image, label: "Sharp / Focused", description: "Michael B. Jordan" },
-    { id: "soulful_deep", image: F.lifestyle[0].image, label: "Soulful / Deep", description: "Captivating" },
-    { id: "bright_friendly", image: F.lifestyle[1].image, label: "Bright / Friendly", description: "Approachable" },
+  presentation_style: [
+    { id: "natural_lowkey", image: F.looks[1].image, label: "Natural & low-key", description: "Minimal fuss" },
+    { id: "polished_intentional", image: F.looks[0].image, label: "Polished & intentional", description: "Put-together" },
+    { id: "creative_eclectic", image: F.energy[0].image, label: "Creative & eclectic", description: "Unique style" },
+    { id: "sporty_practical", image: F.energy[1].image, label: "Sporty & practical", description: "Comfort first" },
+    { id: "classic_minimal", image: F.future[0].image, label: "Classic & minimal", description: "Timeless simplicity" },
   ] as FlowBOption[],
-  lip_shape_preference: [
-    { id: "defined_strong", image: F.future[0].image, label: "Defined / Strong", description: "Chris Hemsworth" },
-    { id: "soft_subtle", image: F.lifestyle[1].image, label: "Soft / Subtle", description: "Ryan Gosling" },
-    { id: "full_balanced", image: F.looks[0].image, label: "Full / Balanced", description: "Classic look" },
-    { id: "natural_soft", image: F.looks[1].image, label: "Natural / Soft", description: "Understated" },
+  early_connection_focus: [
+    { id: "humor_wit", image: F.energy[0].image, label: "Humor & wit", description: "Makes you laugh" },
+    { id: "conversation_curiosity", image: F.future[1].image, label: "Conversation & curiosity", description: "Asks great questions" },
+    { id: "kindness_others", image: F.energy[1].image, label: "Kindness to others", description: "How they treat people" },
+    { id: "reliability_followthrough", image: F.future[0].image, label: "Reliability & follow-through", description: "Does what they say" },
+    { id: "ambition_focus", image: F.lifestyle[0].image, label: "Ambition & focus", description: "Clear direction" },
   ] as FlowBOption[],
   energy_vibe: [
     { id: "dominant_leader", image: F.looks[0].image, label: "Dominant Leader", description: "Henry Cavill" },
@@ -101,10 +108,10 @@ const FLOW_B_FEMALE = {
 
 const FLOW_B_QUESTION_IDS = [
   "personality_turn_on",
-  "physical_attraction",
-  "face_shape_preference",
-  "eye_shape_preference",
-  "lip_shape_preference",
+  "attraction_presence",
+  "day_to_day_rhythm",
+  "presentation_style",
+  "early_connection_focus",
   "energy_vibe",
 ] as const;
 

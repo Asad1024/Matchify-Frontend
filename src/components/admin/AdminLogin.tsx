@@ -99,6 +99,7 @@ export default function AdminLogin() {
       if (user.token) {
         localStorage.setItem("authToken", user.token);
       }
+      window.dispatchEvent(new Event("matchify-auth-changed"));
 
       toast({
         title: "Admin Login Successful",
@@ -120,16 +121,24 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <Card className="w-full max-w-md">
+    <div className="relative min-h-screen overflow-hidden bg-white text-primary flex items-center justify-center p-6">
+      <div
+        className="pointer-events-none absolute right-0 top-[20%] h-64 w-64 translate-x-1/3 rounded-full bg-primary/10 blur-[100px]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute bottom-[15%] left-0 h-56 w-56 -translate-x-1/3 rounded-full bg-primary/8 blur-[90px]"
+        aria-hidden
+      />
+      <Card className="relative z-10 w-full max-w-md border-zinc-200 bg-white/95 shadow-lg shadow-primary/5 backdrop-blur-sm">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <div className="p-3 bg-primary/10 rounded-full">
+            <div className="p-3 bg-primary/10 rounded-full ring-1 ring-primary/15">
               <Shield className="w-8 h-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
-          <CardDescription className="text-center">
+          <CardTitle className="text-2xl text-center text-primary font-display">Admin Login</CardTitle>
+          <CardDescription className="text-center text-primary/75">
             Enter your admin credentials to access the dashboard
           </CardDescription>
         </CardHeader>
@@ -143,7 +152,9 @@ export default function AdminLogin() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-primary">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -152,11 +163,14 @@ export default function AdminLogin() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
+                className="border-zinc-200 bg-white focus-visible:border-primary focus-visible:ring-primary/25"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-primary">
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -165,20 +179,21 @@ export default function AdminLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
+                className="border-zinc-200 bg-white focus-visible:border-primary focus-visible:ring-primary/25"
               />
             </div>
 
             <button
               type="button"
-              className="w-full text-xs text-muted-foreground bg-muted/50 rounded-lg py-2 px-3 text-left hover:bg-muted transition-colors"
+              className="w-full text-xs text-primary/80 bg-primary/5 border border-primary/15 rounded-lg py-2 px-3 text-left hover:bg-primary/10 transition-colors"
               onClick={() => { setEmail("admin@matchify.local"); setPassword("Admin123!"); }}
             >
-              <span className="font-semibold">Demo admin</span> — click to fill credentials
+              <span className="font-semibold text-primary">Demo admin</span> — click to fill credentials
             </button>
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
               disabled={isLoading || !email || !password}
             >
               {isLoading ? (
@@ -191,12 +206,12 @@ export default function AdminLogin() {
               )}
             </Button>
 
-            <div className="text-center text-sm text-muted-foreground space-y-2">
+            <div className="text-center text-sm text-primary/75 space-y-2">
               <div>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="p-0 h-auto"
+                  className="p-0 h-auto text-primary hover:bg-primary/10 hover:text-primary"
                   onClick={() => setLocation("/")}
                 >
                   Back to Home
@@ -207,7 +222,7 @@ export default function AdminLogin() {
                   <Button
                     type="button"
                     variant="ghost"
-                    className="p-0 h-auto text-xs text-muted-foreground"
+                    className="p-0 h-auto text-xs text-primary/70 hover:text-primary hover:bg-primary/10"
                     onClick={handleLogout}
                   >
                     Logout current user

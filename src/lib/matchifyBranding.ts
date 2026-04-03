@@ -20,8 +20,8 @@ export const MATCHIFY_LOGO_FALLBACK = MATCHIFY_LOGO_DEFAULT;
 export const MATCHIFY_PINK_HEX = "#8B2942";
 
 /**
- * AI Matchmaker + Directory boost shared cooldown (ms).
- * - Default: 1 hour. Override with `VITE_AI_MATCH_COOLDOWN_MS` in `.env.local` (e.g. `3600000` for 1 hour).
+ * AI Matchmaker + Directory curated-pick shared cooldown (ms).
+ * - Default: 48 hours. Override with `VITE_AI_MATCH_COOLDOWN_MS` in `.env.local` (must match backend `AI_MATCH_COOLDOWN_MS`).
  */
 function readAiMatchCooldownMs(): number {
   const raw =

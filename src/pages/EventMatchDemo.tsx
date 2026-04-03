@@ -60,8 +60,7 @@ export default function EventMatchDemo() {
   const [revealTargetTime, setRevealTargetTime] = useState<Date | null>(null);
 
   const handleStartCountdown = () => {
-    // 20 second countdown for demo
-    const target = new Date(Date.now() + 20 * 1000);
+    const target = new Date(Date.now() + 15 * 1000);
     setRevealTargetTime(target);
     setPhase("countdown");
   };
@@ -123,7 +122,7 @@ export default function EventMatchDemo() {
                 Event Match Reveal – Demo
               </h1>
               <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-                See how the countdown and match reveal work. Click below to start a 20-second countdown; when it finishes, sample matches will appear.
+                See how the countdown and match reveal work. Click below to start a 15-second countdown; when it finishes, sample matches will appear.
               </p>
             </div>
 
@@ -149,7 +148,7 @@ export default function EventMatchDemo() {
                 onClick={handleStartCountdown}
               >
                 <Heart className="w-5 h-5 mr-2" />
-                Start 20s countdown
+                Start 15s countdown
               </Button>
               <Button
                 variant="outline"

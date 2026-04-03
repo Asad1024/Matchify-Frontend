@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { normalizeTier, tierAtLeast, type MembershipTier } from "@/lib/entitlements";
 import { useCurrentUser } from "@/contexts/UserContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 
 type UpgradePrompt = {
@@ -31,19 +31,35 @@ type UpgradeContextValue = {
 };
 
 const UpgradeContext = createContext<UpgradeContextValue | null>(null);
-
 export function UpgradeProvider({ children }: { children: React.ReactNode }) {
   const { userId } = useCurrentUser();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState<UpgradePrompt>({ open: false });
 
   const { data: me } = useQuery<User & { membershipTier?: unknown }>({
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
-    staleTime: 30_000,
+    staleTime: 15_000,
   });
 
-  const tier = useMemo(() => normalizeTier((me as any)?.membershipTier), [me]);
+  useEffect(() => {
+    if (!userId) return;
+    const refetchMe = () => {
+      void queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+    };
+    const onStorage = (ev: StorageEvent) => {
+      if (ev.key === "currentUser") refetchMe();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("matchify-membership-updated", refetchMe);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("matchify-membership-updated", refetchMe);
+    };
+  }, [userId, queryClient]);
+
+  const tier = useMemo(() => normalizeTier((me as { membershipTier?: unknown })?.membershipTier), [me]);
 
   const openUpgrade = (args: { feature: string; minTier: MembershipTier; reason?: string }) => {
     setPrompt({ open: true, ...args });

@@ -8,7 +8,7 @@ type RsvpRow = { eventId: string };
 type EventRow = { id: string; matchRevealTime?: string | null };
 
 const CHECK_EVERY_MS = 2000;
-const REDIRECT_WINDOW_MS = 22_000; // keep in sync with match reveal countdown (~20s + buffer)
+const REDIRECT_WINDOW_MS = 18_000; // keep in sync with match reveal countdown (~15s + buffer)
 const SESSION_KEY = "matchify_last_reveal_redirect";
 
 export default function EventRevealWatcher() {

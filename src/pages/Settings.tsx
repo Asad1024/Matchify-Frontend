@@ -21,11 +21,15 @@ import {
   Phone,
   HelpCircle,
   UserRound,
+  Crown,
 } from "lucide-react";
 import { useCurrentUser } from "@/contexts/UserContext";
+import { useUpgrade } from "@/contexts/UpgradeContext";
+import type { MembershipTier } from "@/lib/entitlements";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { setUserBlocked } from "@/lib/socialPreferencesService";
 import { apiRequestJson, buildApiUrl, getAuthHeaders } from "@/services/api";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { cn } from "@/lib/utils";
@@ -61,11 +65,17 @@ type User = {
   };
 };
 
+function membershipTierLabel(tier: MembershipTier): string {
+  if (tier === "free") return "Free";
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
   const { toast } = useToast();
+  const { tier } = useUpgrade();
   
   const [privacySettings, setPrivacySettings] = useState({
     profileVisible: true,
@@ -147,16 +157,17 @@ export default function Settings() {
     },
     onSuccess: () => {
       toast({
-        title: "Account deleted",
-        description: "Your account has been permanently deleted",
+        title: "Deletion request sent",
+        description:
+          "We notified the team. Your account is still active until an administrator completes removal. You have been signed out.",
       });
       logout();
-      setLocation('/');
+      setLocation("/");
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to delete account. Please try again.",
+        description: "Could not submit your deletion request. Please try again.",
         variant: "destructive",
       });
     },
@@ -343,7 +354,14 @@ export default function Settings() {
   const unblockMutation = useMutation({
     mutationFn: (blockedId: string) =>
       apiRequest("DELETE", `/api/users/${userId}/blocks/${encodeURIComponent(blockedId)}`),
-    onSuccess: () => {
+    onSuccess: async (_data, blockedId) => {
+      if (userId) {
+        try {
+          await setUserBlocked(userId, blockedId, false);
+        } catch {
+          /* ignore */
+        }
+      }
       void queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/blocked`] });
       void queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "social-summary"] });
@@ -488,6 +506,16 @@ export default function Settings() {
           />
         </SettingsCard>
 
+        <SettingsSectionTitle>Membership</SettingsSectionTitle>
+        <SettingsCard>
+          <Row
+            icon={<Crown className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
+            label="Plans & upgrade"
+            value={`Current: ${membershipTierLabel(tier)}`}
+            onClick={() => setLocation("/subscriptions")}
+          />
+        </SettingsCard>
+
         <SettingsSectionTitle>Support</SettingsSectionTitle>
         <SettingsCard>
           <Row
@@ -540,8 +568,8 @@ export default function Settings() {
                   Delete Account
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete your account? This action cannot be undone. All your data, matches, and
-                  conversations will be permanently deleted.
+                  This sends a deletion request to our team. An administrator will remove your account from the system.
+                  Until then, you can keep using the app. After you confirm, you will be signed out.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -550,7 +578,7 @@ export default function Settings() {
                   onClick={handleDeleteAccount}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  Delete Account
+                  Request deletion
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

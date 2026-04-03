@@ -1,5 +1,7 @@
 /** Local persistence for Marriage tab: pass / like / favorite / compliment lists. */
 
+import { markClientStateDirty } from "@/lib/clientStateSync";
+
 const P = "matchify_marriage_deck_";
 
 export type DeckEntry = { id: string; at: string };
@@ -41,6 +43,7 @@ function readList(key: string): DeckEntry[] {
 
 function writeList(key: string, list: DeckEntry[]): void {
   localStorage.setItem(key, JSON.stringify(list.slice(0, 120)));
+  markClientStateDirty();
   emitUpdate();
 }
 
@@ -108,5 +111,6 @@ export function clearMarriageDeckListsForTesting(): void {
   } catch {
     /* ignore */
   }
+  markClientStateDirty();
   emitUpdate();
 }

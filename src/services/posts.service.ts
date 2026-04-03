@@ -7,6 +7,8 @@ export interface CreatePostData {
   images?: string[];
   /** Single image URL (server also accepts this alongside `images`). */
   image?: string | null;
+  /** Public posts appear in feed. Private posts stay on author's profile. */
+  visibility?: "public" | "private";
   /** When set, post is scoped to this community group (API requires membership). */
   groupId?: string | null;
 }

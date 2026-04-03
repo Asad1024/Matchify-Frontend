@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, Play, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { buildApiUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { queryClient } from "@/lib/queryClient";
 
 interface EventMatchAdminProps {
@@ -22,17 +22,35 @@ interface QuestionnaireSubmission {
   completed: boolean;
 }
 
+async function readFetchErrorMessage(res: Response, fallback: string): Promise<string> {
+  const text = await res.text().catch(() => "");
+  if (!text) return `${fallback} (${res.status})`;
+  try {
+    const j = JSON.parse(text) as { message?: string };
+    if (j?.message && typeof j.message === "string") return j.message;
+  } catch {
+    /* plain text */
+  }
+  return text.length > 200 ? `${text.slice(0, 197)}…` : text;
+}
+
 export default function EventMatchAdmin({ eventId, eventTitle }: EventMatchAdminProps) {
   const { toast } = useToast();
   const [matchRevealTime, setMatchRevealTime] = useState<Date | null>(null);
 
   // Fetch questionnaire submissions
-  const { data: submissions = [], isLoading } = useQuery<QuestionnaireSubmission[]>({
+  const { data: submissions = [], isLoading, isError, error } = useQuery<QuestionnaireSubmission[]>({
     queryKey: [`/api/events/${eventId}/questionnaire-submissions`],
     queryFn: async () => {
       const url = buildApiUrl(`/api/events/${eventId}/questionnaire-submissions`);
-      const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch submissions');
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Failed to fetch submissions (${res.status})`);
+      }
       return res.json();
     },
   });
@@ -43,15 +61,16 @@ export default function EventMatchAdmin({ eventId, eventTitle }: EventMatchAdmin
       const url = buildApiUrl(`/api/events/${eventId}/calculate-matches`);
       const res = await fetch(url, {
         method: "POST",
-        credentials: 'include',
+        credentials: "include",
+        headers: getAuthHeaders(),
       });
-      if (!res.ok) throw new Error('Failed to calculate matches');
+      if (!res.ok) throw new Error(await readFetchErrorMessage(res, "Failed to calculate matches"));
       return res.json();
     },
     onSuccess: () => {
       toast({
         title: "Matches calculated! ✅",
-        description: "Matches have been generated. Reveal starts in ~20 seconds for attendees.",
+        description: "Matches have been generated. Reveal starts in ~15 seconds for attendees.",
       });
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/matches`] });
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
@@ -72,11 +91,14 @@ export default function EventMatchAdmin({ eventId, eventTitle }: EventMatchAdmin
       const url = buildApiUrl(`/api/events/${eventId}/schedule-reveal`);
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: 'include',
+        credentials: "include",
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ revealTime: revealTime.toISOString() }),
       });
-      if (!res.ok) throw new Error('Failed to schedule reveal');
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Failed to schedule reveal");
+      }
       return res.json();
     },
     onSuccess: (data) => {
@@ -192,6 +214,10 @@ export default function EventMatchAdmin({ eventId, eventTitle }: EventMatchAdmin
             <h3 className="font-semibold mb-3">Questionnaire Submissions</h3>
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : isError ? (
+              <p className="text-sm text-destructive">
+                Could not load submissions. {error instanceof Error ? error.message : "Try signing in again."}
+              </p>
             ) : submissions.length === 0 ? (
               <p className="text-sm text-muted-foreground">No submissions yet</p>
             ) : (

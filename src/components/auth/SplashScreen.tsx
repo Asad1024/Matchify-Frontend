@@ -113,39 +113,111 @@ const FAQ_ITEMS = [
   },
 ];
 
+/** Matches the “Everything in one app.” full-bleed wine band */
+const WINE_FEATURES_BG = "linear-gradient(160deg, hsl(349 50% 38%) 0%, hsl(350 42% 30%) 100%)";
+
+const HERO_NAV_LINKS = [
+  { href: "#features", label: "Features" },
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#about", label: "About" },
+] as const;
+
+const HERO_SOCIAL_AVATARS = [
+  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=96&h=96&fit=crop&crop=face&q=80",
+  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=96&h=96&fit=crop&crop=face&q=80",
+  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=96&h=96&fit=crop&crop=face&q=80",
+  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=96&h=96&fit=crop&crop=face&q=80",
+];
+
+const PHONE_PROFILE_SRC =
+  "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=400&fit=crop&crop=faces&q=80";
+
 function PhoneMockup() {
   return (
-    <div className="relative w-[min(100%,280px)] mx-auto md:mx-0">
+    <div className="relative mx-auto w-[min(100%,252px)] sm:w-[min(100%,272px)] lg:mx-0 lg:justify-self-end">
+      {/* Soft wine-tinted glow (reads on white hero) */}
       <div
-        className="absolute -inset-4 rounded-[3rem] opacity-40 blur-2xl pointer-events-none"
-        style={{ background: "linear-gradient(145deg, #fff 0%, rgba(255,255,255,0.2) 100%)" }}
+        className="pointer-events-none absolute left-1/2 top-[42%] h-[min(320px,88%)] w-[min(360px,125%)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-50 blur-[100px] sm:opacity-60"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, hsl(349 52% 45% / 0.22) 0%, hsl(350 45% 40% / 0.12) 50%, transparent 72%)",
+        }}
       />
-      <div className="relative rounded-[2.5rem] bg-zinc-900 p-2 shadow-xl ring-1 ring-black/40">
-        <div className="rounded-[2rem] overflow-hidden bg-white aspect-[9/19] flex flex-col">
-          <div className="h-7 bg-white flex items-center justify-center shrink-0">
-            <div className="w-16 h-4 rounded-full bg-zinc-900/10" />
-          </div>
-          <div className="flex-1 bg-gradient-to-b from-primary/12 via-white to-red-50/60 p-3 flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <BrandLogo className="w-9 h-9 rounded-xl object-contain bg-white p-0.5" alt="" />
-              <div className="flex-1 space-y-1">
-                <div className="h-2.5 bg-zinc-200 rounded-full w-3/4" />
-                <div className="h-2 bg-zinc-100 rounded-full w-1/2" />
+      <div
+        className="pointer-events-none absolute left-[55%] top-[38%] h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute right-[12%] top-[58%] h-36 w-36 rounded-full bg-primary/8 blur-3xl"
+        aria-hidden
+      />
+
+      <div className="relative animate-hero-float">
+        <div
+          className="pointer-events-none absolute -inset-10 rounded-[4rem] opacity-40 blur-2xl sm:opacity-50"
+          style={{
+            background:
+              "linear-gradient(165deg, hsl(349 50% 45% / 0.18) 0%, hsl(350 42% 40% / 0.12) 50%, transparent 85%)",
+          }}
+        />
+        <div className="relative rounded-[2.5rem] bg-gradient-to-b from-zinc-700/90 via-zinc-900 to-zinc-950 p-[2.5px] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.2),0_0_40px_-12px_hsl(349_52%_38%_/_0.15)] ring-1 ring-zinc-200/80 sm:rounded-[2.65rem] sm:p-[3px]">
+          <div className="overflow-hidden rounded-[2.15rem] bg-zinc-950 p-1 sm:rounded-[2.5rem] sm:p-1.5">
+            {/* Shorter than 9/19.5 so the hero phone doesn’t dominate vertically */}
+            <div className="flex aspect-[9/16.25] flex-col overflow-hidden rounded-[1.9rem] bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] sm:rounded-[2.1rem]">
+              <div className="flex h-6 shrink-0 items-center justify-center bg-gradient-to-b from-zinc-50 to-white">
+                <div className="h-3.5 w-14 rounded-full bg-zinc-900/[0.12] sm:w-[4.25rem]" />
               </div>
-            </div>
-            <div className="rounded-2xl bg-white shadow-sm border border-zinc-100 p-3 space-y-2 mt-1">
-              <div className="flex gap-2">
-                <div className="w-10 h-10 rounded-full bg-primary/20 shrink-0" />
-                <div className="flex-1 space-y-1.5 pt-0.5">
-                  <div className="h-2 bg-zinc-200 rounded-full w-full" />
-                  <div className="h-2 bg-zinc-100 rounded-full w-4/5" />
+              <div className="flex min-h-0 flex-1 flex-col bg-gradient-to-b from-rose-50/90 via-white to-violet-50/50 px-2.5 pb-2.5 pt-0.5 sm:px-3 sm:pb-3 sm:pt-1">
+                <div className="mb-2 flex items-center justify-between sm:mb-2.5">
+                  <span className="text-[10px] font-bold tracking-wide text-zinc-800 sm:text-[11px]">Discover</span>
+                  <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[8px] font-semibold text-primary shadow-sm ring-1 ring-zinc-100 sm:px-2 sm:text-[9px]">
+                    For you
+                  </span>
+                </div>
+                <div className="rounded-xl border border-zinc-100/80 bg-white p-2 shadow-[0_12px_40px_-12px_rgba(127,29,29,0.15)] ring-1 ring-zinc-100/60 sm:rounded-2xl sm:p-2.5">
+                  <div className="relative mx-auto mb-2 aspect-square w-full max-w-[7.25rem] overflow-hidden rounded-xl bg-zinc-100 shadow-inner sm:mb-2.5 sm:max-w-[8.25rem] sm:rounded-2xl">
+                    <img
+                      src={PHONE_PROFILE_SRC}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent px-1.5 pb-1.5 pt-6 sm:px-2 sm:pb-2 sm:pt-8">
+                      <p className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">Maya, 28</p>
+                      <p className="text-[9px] font-medium text-white/90 sm:text-[10px]">San Francisco · 2 km away</p>
+                    </div>
+                  </div>
+                  <div className="mb-2 flex flex-wrap gap-1 sm:mb-2.5 sm:gap-1.5">
+                    {["Values", "Events", "Coach"].map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-semibold text-rose-800/90 ring-1 ring-rose-100"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mb-2 line-clamp-2 text-[9px] leading-snug text-zinc-600 sm:mb-2.5 sm:text-[10px]">
+                    Coffee, museums, and long walks. Looking for something intentional.
+                  </p>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-full bg-primary py-2 text-[10px] font-bold text-primary-foreground shadow-md shadow-black/15 sm:gap-2 sm:py-2.5 sm:text-xs"
+                  >
+                    <Heart className="h-3.5 w-3.5 fill-white/90" strokeWidth={2} />
+                    Match
+                  </button>
+                </div>
+                <div className="mt-auto flex items-center justify-between rounded-xl border border-zinc-100 bg-white/90 px-2 py-1.5 shadow-sm sm:rounded-2xl sm:px-2.5 sm:py-2">
+                  <div className="flex gap-0.5 sm:gap-1">
+                    <div className="h-7 w-7 rounded-full bg-zinc-100 sm:h-8 sm:w-8" />
+                    <div className="h-7 w-7 rounded-full bg-zinc-100 sm:h-8 sm:w-8" />
+                    <div className="h-7 w-7 rounded-full bg-zinc-100 sm:h-8 sm:w-8" />
+                  </div>
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-primary shadow-md sm:h-9 sm:w-9" />
                 </div>
               </div>
-              <div className="h-16 rounded-xl bg-gradient-to-br from-primary/30 to-violet-200/40" />
-            </div>
-            <div className="rounded-2xl bg-white/90 border border-zinc-100 p-2.5 flex gap-2 mt-auto">
-              <div className="flex-1 h-9 rounded-full bg-zinc-100" />
-              <div className="w-9 h-9 rounded-full bg-primary shrink-0" />
             </div>
           </div>
         </div>
@@ -162,90 +234,147 @@ interface SplashScreenProps {
 export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProps) {
   return (
     <div className="min-h-screen bg-white flex flex-col overflow-x-hidden">
-      {/* ═══ HERO — Muzz-style split: headline left, phone right ═══ */}
-      <section
-        className="relative text-white overflow-hidden"
-        style={{ background: "linear-gradient(165deg, hsl(349 52% 36%) 0%, hsl(350 48% 28%) 45%, hsl(280 35% 32%) 100%)" }}
-      >
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 right-0 w-[min(100%,600px)] h-[min(100%,600px)] rounded-full bg-white/[0.07] blur-3xl -translate-y-1/4 translate-x-1/4" />
-          <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-black/10 blur-3xl" />
-        </div>
-
-        <div className="relative max-w-6xl mx-auto px-5 sm:px-8 pt-8 pb-14 md:pt-10 md:pb-20">
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45 }}
-            className="flex justify-center md:justify-start mb-8 md:mb-10"
-          >
-            {/* White pill so the logo always pops on the gradient hero */}
-            <div className="inline-flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-lg">
+      {/* ═══ HERO — premium split + glass nav ═══ */}
+      <section className="relative flex min-h-[min(100dvh,960px)] flex-col overflow-hidden bg-white text-primary">
+        <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/75">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-5 py-1 sm:px-8 sm:py-1 lg:px-12 xl:px-16">
+            <a
+              href="#"
+              className="flex shrink-0 items-center transition-opacity hover:opacity-90"
+              aria-label="Matchify home"
+            >
               <BrandLogo
-                className="h-9 sm:h-11 w-auto max-w-[9rem] sm:max-w-[11rem] object-contain"
+                className="h-[3.5rem] w-auto max-w-[13rem] object-contain sm:h-16 sm:max-w-[15rem] md:h-[4.5rem] md:max-w-[17.5rem] lg:h-[5rem] lg:max-w-[19rem]"
                 alt="Matchify"
               />
+            </a>
+            <nav
+              className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 lg:flex"
+              aria-label="Page sections"
+            >
+              {HERO_NAV_LINKS.map(({ href, label }) => (
+                <a
+                  key={href}
+                  href={href}
+                  className="text-sm font-semibold text-primary/85 transition-colors hover:text-primary"
+                >
+                  {label}
+                </a>
+              ))}
+            </nav>
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              {onLogin && (
+                <button
+                  type="button"
+                  onClick={onLogin}
+                  className="hidden h-9 items-center rounded-full border-2 border-primary px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 sm:inline-flex sm:px-4 sm:text-sm"
+                  data-testid="button-login-nav"
+                >
+                  Log in
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onGetStarted?.()}
+                className="h-9 rounded-full bg-primary px-3 text-xs font-bold text-primary-foreground shadow-md shadow-primary/25 transition-colors hover:bg-primary/90 sm:px-4 sm:text-sm"
+                data-testid="button-get-started-nav"
+              >
+                Get Started
+              </button>
             </div>
-          </motion.div>
+          </div>
+          <nav
+            className="flex flex-wrap justify-center gap-x-3 gap-y-1 border-t border-zinc-100 bg-zinc-50/80 px-4 py-1.5 sm:px-8 lg:hidden"
+            aria-label="Page sections"
+          >
+            {HERO_NAV_LINKS.map(({ href, label }) => (
+              <a key={href} href={href} className="text-xs font-semibold text-primary/80 hover:text-primary">
+                {label}
+              </a>
+            ))}
+            {onLogin && (
+              <button type="button" onClick={onLogin} className="text-xs font-semibold text-primary/80 hover:text-primary">
+                Log in
+              </button>
+            )}
+          </nav>
+        </header>
 
-          <div className="grid md:grid-cols-2 gap-12 md:gap-8 items-center">
+        <div className="relative mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col justify-center px-6 pb-16 pt-10 sm:px-10 sm:pb-20 sm:pt-12 md:px-12 lg:px-14 lg:pb-24 lg:pt-6 xl:px-20">
+          <div className="grid flex-1 grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16 xl:gap-20">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="text-center md:text-left order-2 md:order-1"
+              transition={{ duration: 0.55 }}
+              className="order-2 text-center lg:order-1 lg:text-left"
             >
-              <p className="text-[11px] sm:text-xs font-bold tracking-[0.2em] uppercase text-white/70 mb-4">
+              <p className="mb-5 text-[11px] font-bold uppercase tracking-[0.22em] text-primary/75 sm:text-xs">
                 The relationship app
               </p>
-              <h1 className="font-display font-bold text-[2.125rem] sm:text-4xl md:text-[2.75rem] lg:text-5xl leading-[1.08] tracking-tight">
-                Where serious
+              <h1 className="font-display text-[2.35rem] font-bold leading-[1.02] tracking-tight text-primary sm:text-5xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-6xl">
+                Where serious people
                 <br />
-                people meet.
+                meet.
               </h1>
-              <p className="mt-4 text-sm sm:text-base text-white/85 leading-relaxed max-w-md mx-auto md:mx-0">
-                Matchify brings together matching, chat, community, events, and coaching — so you can go from hello to
-                something real.
+              <p className="mx-auto mt-6 max-w-md text-base font-light leading-snug text-primary/80 sm:text-lg lg:mx-0">
+                One app for matches, chat, events, and coaching — built for relationships that last.
               </p>
 
-              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-                <Button
-                  size="lg"
-                  className="h-12 sm:h-14 rounded-2xl bg-white text-primary hover:bg-white/95 font-bold text-[15px] px-8 shadow-lg shadow-black/20"
-                  onClick={onGetStarted}
+              <div className="mt-9 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center lg:justify-start">
+                <button
+                  type="button"
+                  onClick={() => onGetStarted?.()}
+                  className="inline-flex min-h-[3.25rem] items-center justify-center rounded-full bg-primary px-9 py-3.5 text-base font-bold text-primary-foreground shadow-xl shadow-primary/30 transition-colors hover:bg-primary/90 active:scale-[0.98]"
                   data-testid="button-get-started"
                 >
                   Get started — free
-                </Button>
+                </button>
                 {onLogin && (
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="h-12 sm:h-14 rounded-2xl border-2 border-white/40 bg-transparent text-white hover:bg-white/10 font-semibold"
+                  <button
+                    type="button"
                     onClick={onLogin}
+                    className="inline-flex min-h-[3.25rem] items-center justify-center rounded-full border-2 border-primary px-9 text-base font-semibold text-primary transition-colors hover:bg-primary/10"
                     data-testid="button-login"
                   >
                     Log in
-                  </Button>
+                  </button>
                 )}
               </div>
 
-              <div className="mt-6 flex items-center justify-center md:justify-start gap-2 text-white/80 text-sm">
-                <div className="flex">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-300 text-amber-300" />
+              <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center lg:justify-start lg:gap-4">
+                <div className="flex -space-x-2.5 rtl:space-x-reverse">
+                  {HERO_SOCIAL_AVATARS.map((src, i) => (
+                    <img
+                      key={src}
+                      src={src}
+                      alt=""
+                      width={40}
+                      height={40}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-10 w-10 rounded-full border-2 border-white object-cover ring-2 ring-primary/20 shadow-sm"
+                      style={{ zIndex: HERO_SOCIAL_AVATARS.length - i }}
+                    />
                   ))}
                 </div>
-                <span className="font-semibold text-white">4.8</span>
-                <span className="text-white/60">· Loved for intentional dating</span>
+                <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-primary/85 sm:justify-start">
+                  <span className="font-semibold tabular-nums text-primary">4.8</span>
+                  <span className="flex text-amber-500">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-500" />
+                    ))}
+                  </span>
+                  <span className="text-primary/50">·</span>
+                  <span className="font-light text-primary/80">Trusted by 50,000+ couples</span>
+                </div>
               </div>
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 24 }}
+              initial={{ opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, delay: 0.08 }}
-              className="order-1 md:order-2 flex justify-center md:justify-end"
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="order-1 flex justify-center lg:order-2 lg:justify-end lg:pl-4"
             >
               <PhoneMockup />
             </motion.div>
@@ -254,7 +383,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
       </section>
 
       {/* ═══ STATS STRIP — full-width bar like Muzz trust row ═══ */}
-      <section className="border-y border-zinc-100 bg-zinc-50/80">
+      <section id="pricing" className="scroll-mt-28 border-y border-zinc-100 bg-zinc-50/80">
         <div className="max-w-6xl mx-auto px-5 py-8 sm:py-10">
           <div className="grid grid-cols-3 gap-4 sm:gap-8 divide-x divide-zinc-200/80">
             {STATS.map(({ value, label, star }) => (
@@ -273,7 +402,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
       </section>
 
       {/* ═══ WHY — three bold rows, lots of whitespace ═══ */}
-      <section className="max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-20">
+      <section id="about" className="scroll-mt-28 mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -311,7 +440,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
       </section>
 
       {/* ═══ HOW IT WORKS — numbered steps (Muzz rhythm) ═══ */}
-      <section className="bg-zinc-50 border-y border-zinc-100 py-16 sm:py-20">
+      <section id="how-it-works" className="scroll-mt-28 border-y border-zinc-100 bg-zinc-50 py-16 sm:py-20">
         <div className="max-w-6xl mx-auto px-5 sm:px-8">
           <h2 className="font-display font-bold text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-12 sm:mb-14">
             How it works
@@ -337,8 +466,9 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
 
       {/* ═══ ALL FEATURES — full-bleed wine band ═══ */}
       <section
-        className="py-16 sm:py-20 text-white relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, hsl(349 50% 38%) 0%, hsl(350 42% 30%) 100%)" }}
+        id="features"
+        className="relative scroll-mt-28 overflow-hidden py-16 text-white sm:py-20"
+        style={{ background: WINE_FEATURES_BG }}
       >
         <div className="absolute inset-0 opacity-[0.08] pointer-events-none bg-[radial-gradient(circle_at_30%_20%,white_1px,transparent_1px)] bg-[length:24px_24px]" />
         <div className="relative max-w-6xl mx-auto px-5 sm:px-8">
@@ -482,7 +612,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
         >
           <div className="inline-flex items-center bg-white/95 rounded-2xl px-5 py-2.5 shadow-md mx-auto">
             <BrandLogo
-              className="h-10 sm:h-12 w-auto max-w-[10rem] object-contain"
+              className="h-14 w-auto max-w-[min(85vw,15rem)] object-contain sm:h-16 sm:max-w-[18rem] md:h-[4.25rem] md:max-w-[22rem]"
               alt="Matchify"
             />
           </div>

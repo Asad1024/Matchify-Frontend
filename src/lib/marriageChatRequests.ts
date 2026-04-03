@@ -4,6 +4,7 @@
  */
 
 import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import { markClientStateDirty } from "@/lib/clientStateSync";
 
 const P = "matchify_marriage_chat_v1_";
 
@@ -87,6 +88,7 @@ export function setOutgoingChatRecord(fromId: string, record: OutgoingChatRecord
     const j = raw ? (JSON.parse(raw) as Record<string, OutgoingChatRecord>) : {};
     j[record.toId] = record;
     localStorage.setItem(outgoingKey(fromId), JSON.stringify(j));
+    markClientStateDirty();
   } catch {
     /* ignore */
   }
@@ -136,6 +138,7 @@ export async function getIncomingChatRequestsRemote(
 
 function writeIncoming(recipientId: string, list: IncomingChatRequest[]): void {
   localStorage.setItem(incomingKey(recipientId), JSON.stringify(list.slice(0, 80)));
+  markClientStateDirty();
   emit();
 }
 
@@ -158,6 +161,7 @@ function pushUserEvent(userId: string, ev: SenderChatEvent): void {
   const prev = getUserChatEvents(userId);
   prev.unshift(ev);
   localStorage.setItem(userEventsKey(userId), JSON.stringify(prev.slice(0, 80)));
+  markClientStateDirty();
 }
 
 /**
@@ -326,6 +330,7 @@ export function markMarriageSyntheticNotificationRead(userId: string, syntheticI
   const list = getUserChatEvents(userId);
   const next = list.map((x) => (x.id === realId ? { ...x, read: true } : x));
   localStorage.setItem(userEventsKey(userId), JSON.stringify(next));
+  markClientStateDirty();
   emit();
 }
 
@@ -348,5 +353,6 @@ export function clearMarriageChatLocalStorageForTesting(): void {
   } catch {
     /* ignore */
   }
+  markClientStateDirty();
   emit();
 }

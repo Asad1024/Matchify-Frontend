@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { Star, DollarSign, Languages, Clock } from "lucide-react";
 import { VerifiedTick } from "@/components/common/VerifiedTick";
+import { cn } from "@/lib/utils";
 
 interface CoachCardProps {
   id: string;
@@ -16,6 +17,7 @@ interface CoachCardProps {
   pricePerSession: number;
   languages?: string[] | null;
   image?: string;
+  requestSent?: boolean;
   onBookSession?: (id: string) => void;
   onClick?: (id: string) => void;
 }
@@ -45,11 +47,12 @@ export default function CoachCard({
   pricePerSession,
   languages,
   image,
+  requestSent = false,
   onBookSession,
   onClick
 }: CoachCardProps) {
-  const gradient = getGradient(specialty);
   const initials = name.slice(0, 2).toUpperCase();
+  const gradient = getGradient(specialty);
 
   return (
     <motion.div
@@ -57,46 +60,38 @@ export default function CoachCard({
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
       <Card
-        className="overflow-hidden hover-elevate cursor-pointer transition-all border-0 shadow-md"
+        className="cursor-pointer overflow-hidden border border-border/70 bg-card shadow-sm transition-all hover:shadow-md"
         onClick={() => onClick?.(id)}
         data-testid={`card-coach-${id}`}
       >
-        {/* Colored header strip */}
-        <div className={`h-20 bg-gradient-to-r ${gradient} relative`}>
-          <div className="absolute inset-0 opacity-20"
-            style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)", backgroundSize: "30px 30px" }}
-          />
-          {/* Availability badge */}
-          <div className="absolute top-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-[11px] font-semibold text-green-700">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            Available
-          </div>
-        </div>
-
-        <CardContent className="p-5 space-y-4 -mt-10 relative">
-          {/* Avatar overlapping header */}
-          <div className="flex items-end gap-4 mb-2">
-            <Avatar className="w-20 h-20 border-4 border-white shadow-lg">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0">
+              <Avatar className="w-14 h-14 border border-border">
               <AvatarImage src={image} alt={name} />
-              <AvatarFallback className={`text-xl font-bold text-white bg-gradient-to-br ${gradient}`}>
+                <AvatarFallback className={cn("text-sm font-bold text-white bg-gradient-to-br", gradient)}>
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <div className="pb-1">
-              <div className="flex items-center gap-1.5">
-                <h3 className="font-display font-bold text-base text-foreground">{name}</h3>
-                <VerifiedTick size="sm" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="truncate font-display font-bold text-base text-foreground">{name}</h3>
+                  <VerifiedTick size="sm" />
+                </div>
+                <Badge className="mt-1 rounded-full border-0 bg-primary/10 text-[11px] text-primary">
+                  {specialty}
+                </Badge>
               </div>
-              <Badge className="bg-primary/10 text-primary border-0 text-[11px] mt-0.5 rounded-full">
-                {specialty}
-              </Badge>
+            </div>
+            <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Available
             </div>
           </div>
 
-          {/* Rating */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-0.5">
-              {[1,2,3,4,5].map((star) => (
+              {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
                   className={`w-3.5 h-3.5 ${star <= Math.round(rating) ? "fill-amber-400 text-amber-400" : "text-gray-200 fill-gray-200"}`}
@@ -107,10 +102,9 @@ export default function CoachCard({
             <span className="text-xs text-muted-foreground">({reviewCount} reviews)</span>
           </div>
 
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">{bio}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground line-clamp-2">{bio}</p>
 
-          {/* Details row */}
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <div className="flex items-center gap-1.5 font-bold text-foreground">
               <DollarSign className="w-4 h-4 text-green-600" />
               ${pricePerSession}<span className="text-xs font-normal text-muted-foreground">/session</span>
@@ -122,7 +116,7 @@ export default function CoachCard({
             {Array.isArray(languages) && languages.length > 0 && (
               <div className="flex items-center gap-1 text-muted-foreground">
                 <Languages className="w-3.5 h-3.5" />
-                <span className="text-xs">{languages.slice(0, 2).join(', ')}</span>
+                <span className="text-xs">{languages.slice(0, 2).join(", ")}</span>
               </div>
             )}
           </div>
@@ -133,9 +127,10 @@ export default function CoachCard({
               e.stopPropagation();
               onBookSession?.(id);
             }}
+            disabled={requestSent}
             data-testid={`button-book-${id}`}
           >
-            Book Session
+            {requestSent ? "Request sent" : "Book Session"}
           </Button>
         </CardContent>
       </Card>

@@ -7,8 +7,10 @@ export type PostCommentRow = {
   userId: string;
   content: string;
   createdAt: string;
+  replyToCommentId?: string | null;
   user?: { name?: string; avatar?: string | null } | null;
   likes?: number;
+  likedByMe?: boolean;
 };
 
 function mockCommentsStorageKey(postId: string): string {
@@ -49,13 +51,14 @@ export function postCommentsQueryKey(postId: string): readonly string[] {
   return ["post-comments", postId, isFeedMockMode() ? "mock" : "live"];
 }
 
-export async function fetchPostComments(postId: string): Promise<PostCommentRow[]> {
+export async function fetchPostComments(postId: string, viewerId?: string): Promise<PostCommentRow[]> {
   if (isFeedMockMode()) {
     const stored = readMockComments(postId);
     if (stored.length > 0) return stored;
     return getMockPostCommentSeeds(postId);
   }
-  const path = `/api/posts/${postId}/comments`;
+  const qs = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
+  const path = `/api/posts/${postId}/comments${qs}`;
   const res = await fetch(buildApiUrl(path), {
     credentials: "include",
     headers: getAuthHeaders(false),

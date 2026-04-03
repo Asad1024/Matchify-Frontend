@@ -9,15 +9,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Clock } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { buildApiUrl } from "@/services/api";
+import { apiRequest } from "@/services/api";
 import { useCurrentUser } from "@/contexts/UserContext";
 
 interface CoachBookingDialogProps {
@@ -26,7 +25,7 @@ interface CoachBookingDialogProps {
   coachId: string;
   coachName: string;
   pricePerSession: number;
-  onBookingSuccess?: () => void;
+  onBookingSuccess?: (booking: Record<string, unknown>) => void;
 }
 
 export default function CoachBookingDialog({
@@ -41,30 +40,27 @@ export default function CoachBookingDialog({
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState("");
+  const todayStart = startOfDay(new Date());
 
   const bookingMutation = useMutation({
-    mutationFn: async (data: { userId: string; coachId: string; sessionDate: string | null }) => {
-      const url = buildApiUrl("/api/coaches/bookings");
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || "Failed to book session");
-      }
-      return res.json();
+    mutationFn: async (data: {
+      userId: string;
+      coachId: string;
+      sessionDate: string | null;
+      paymentComplete: boolean;
+    }) => {
+      const res = await apiRequest("POST", "/api/coaches/bookings", data);
+      return res.json() as Promise<Record<string, unknown>>;
     },
-    onSuccess: () => {
+    onSuccess: (booking: Record<string, unknown>) => {
       toast({
-        title: "Booking confirmed! 🎉",
-        description: `Your session with ${coachName} has been booked successfully.`,
+        title: "Request sent",
+        description: `Your session request for ${coachName} was submitted. You’ll get updates when it’s confirmed or rescheduled.`,
       });
-      onBookingSuccess?.();
+      onBookingSuccess?.({
+        ...booking,
+        coach: (booking.coach as Record<string, unknown> | undefined) ?? { name: coachName },
+      });
       onOpenChange(false);
       // Reset form
       setSelectedDate(undefined);
@@ -72,8 +68,8 @@ export default function CoachBookingDialog({
     },
     onError: (error: Error) => {
       toast({
-        title: "Booking failed",
-        description: error.message || "Unable to book session. Please try again.",
+        title: "Could not send request",
+        description: error.message || "Please try again in a moment.",
         variant: "destructive",
       });
     },
@@ -99,21 +95,23 @@ export default function CoachBookingDialog({
       return;
     }
 
-    // Combine date and time if time is provided
-    let sessionDate: string | null = null;
-    if (selectedDate) {
-      const dateStr = format(selectedDate, "yyyy-MM-dd");
-      if (selectedTime) {
-        sessionDate = `${dateStr}T${selectedTime}:00`;
-      } else {
-        sessionDate = dateStr;
-      }
+    if (!selectedTime) {
+      toast({
+        title: "Time required",
+        description: "Please select a session time.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    const sessionDate = `${dateStr}T${selectedTime}:00`;
 
     bookingMutation.mutate({
       userId,
       coachId,
       sessionDate,
+      paymentComplete: true,
     });
   };
 
@@ -129,7 +127,7 @@ export default function CoachBookingDialog({
         <DialogHeader>
           <DialogTitle>Book Session with {coachName}</DialogTitle>
           <DialogDescription>
-            Select a date and time for your coaching session. Price: ${pricePerSession}
+            Choose a date and time, complete demo checkout, then submit. An admin confirms your session or suggests alternate slots if the coach is busy.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -138,23 +136,35 @@ export default function CoachBookingDialog({
               <Label htmlFor="date">Select Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
+                  <button
+                    type="button"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "flex h-10 w-full items-center justify-start gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm",
+                      "text-foreground shadow-sm ring-offset-background transition-colors",
+                      "hover:bg-accent/35 hover:text-foreground",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       !selectedDate && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
-                  </Button>
+                    <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">
+                      {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                    </span>
+                  </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent
+                  className="z-[140] w-auto p-0"
+                  align="start"
+                  side="bottom"
+                  sideOffset={-4}
+                  collisionPadding={8}
+                >
                   <Calendar
+                    compact
                     mode="single"
                     selected={selectedDate}
                     onSelect={setSelectedDate}
-                    disabled={(date) => date < new Date()}
+                    disabled={(date) => date < todayStart}
                     initialFocus
                   />
                 </PopoverContent>
@@ -162,7 +172,7 @@ export default function CoachBookingDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="time">Select Time (Optional)</Label>
+              <Label htmlFor="time">Select time</Label>
               <div className="relative">
                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <select
@@ -171,7 +181,7 @@ export default function CoachBookingDialog({
                   onChange={(e) => setSelectedTime(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="">Select a time</option>
+                  <option value="">Choose a time</option>
                   {timeSlots.map((time) => (
                     <option key={time} value={time}>
                       {time}
@@ -188,9 +198,15 @@ export default function CoachBookingDialog({
                   Date: {format(selectedDate, "PPP")}
                   {selectedTime && ` at ${selectedTime}`}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Total: ${pricePerSession}
-                </p>
+                {pricePerSession > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Session fee: ${pricePerSession} — demo checkout records payment as paid so the team can confirm your slot.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No fee on file for this coach; your request is still sent to the team for confirmation.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -203,8 +219,8 @@ export default function CoachBookingDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={bookingMutation.isPending || !selectedDate}>
-              {bookingMutation.isPending ? "Booking..." : "Confirm Booking"}
+            <Button type="submit" disabled={bookingMutation.isPending || !selectedDate || !selectedTime}>
+              {bookingMutation.isPending ? "Processing…" : "Pay & submit request"}
             </Button>
           </DialogFooter>
         </form>

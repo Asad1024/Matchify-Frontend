@@ -104,6 +104,12 @@ export default function CreateEvent() {
   });
 
   const editHydratedRef = useRef(false);
+  const templateSeededRef = useRef(false);
+
+  const { data: eventQuestionnaireTemplate } = useQuery<{ questions: EventQuestionItem[] }>({
+    queryKey: ["/api/event-questionnaire-template"],
+    enabled: !editEventId,
+  });
 
   const { data: existingEvent, isLoading: loadingExistingEvent } = useQuery({
     queryKey: ["/api/events", editEventId],
@@ -144,6 +150,14 @@ export default function CreateEvent() {
       questionnaireQuestions: questions,
     });
   }, [editEventId, existingEvent]);
+
+  useEffect(() => {
+    if (editEventId || templateSeededRef.current) return;
+    const q = eventQuestionnaireTemplate?.questions;
+    if (!Array.isArray(q) || q.length === 0) return;
+    templateSeededRef.current = true;
+    setFormData((fd) => ({ ...fd, questionnaireQuestions: q.map((x) => ({ ...x })) }));
+  }, [editEventId, eventQuestionnaireTemplate]);
 
   const saveEventMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -206,6 +220,9 @@ export default function CreateEvent() {
     onSuccess: (data: { id?: string }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/events"] });
+      if (currentUserId) {
+        void queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "notifications"] });
+      }
       if (editEventId) {
         queryClient.invalidateQueries({ queryKey: [`/api/events/${editEventId}`] });
       }
@@ -216,14 +233,22 @@ export default function CreateEvent() {
             ? "Changes are saved and visible in the app."
             : "The event is live (approved) in demo mode.",
         });
-        setLocation("/admin/events");
+        // Defer navigation so the toast can render (viewport uses a single-slot limit).
+        window.setTimeout(() => setLocation("/admin/events"), 200);
         return;
       }
-      toast({
-        title: "Event created",
-        description:
-          "Your event has been submitted for approval. You'll be notified once it's approved.",
-      });
+      if (editEventId) {
+        toast({
+          title: "Event updated",
+          description: "Your changes are saved.",
+        });
+      } else {
+        toast({
+          title: "Event created",
+          description:
+            "Your event has been submitted for approval. You'll be notified once it's approved.",
+        });
+      }
       const id = data?.id ?? editEventId;
       if (id) {
         setLocation(

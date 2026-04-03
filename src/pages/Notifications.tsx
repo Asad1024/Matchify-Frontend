@@ -10,6 +10,8 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getNotificationsStreamUrl } from "@/services/api";
+import { Button } from "@/components/ui/button";
 import {
   isMarriageSyntheticNotificationId,
   markMarriageSyntheticNotificationRead,
@@ -24,10 +26,13 @@ type Notification = {
     | "match"
     | "message"
     | "event"
+    | "ai_event_invite"
     | "system"
     | "curated_match"
     | "marriage_chat_request"
-    | "marriage_chat_accepted";
+    | "marriage_chat_accepted"
+    | "chat_request"
+    | "chat_request_accepted";
   title: string;
   message: string;
   read: boolean | null;
@@ -52,14 +57,18 @@ export default function Notifications() {
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ["/api/users", userId, "notifications"],
     enabled: !!userId,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
     if (!userId) return;
-    const es = new EventSource(`/api/users/${encodeURIComponent(userId)}/notifications/stream`);
-    es.onmessage = () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+    const es = new EventSource(getNotificationsStreamUrl(userId));
+    const invalidate = () => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
     };
+    es.onopen = () => invalidate();
+    es.onmessage = () => invalidate();
     es.onerror = () => {
       // Browser auto-retries.
     };
@@ -73,6 +82,23 @@ export default function Notifications() {
       return res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+    },
+  });
+
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await apiRequest("PATCH", `/api/users/${userId}/notifications/read-all`, {});
+      if (!res.ok) throw new Error("Failed to mark all as read");
+      for (const row of marriageNotificationsForUser(userId)) {
+        if (!row.read) {
+          markMarriageSyntheticNotificationRead(userId, row.id);
+        }
+      }
+    },
+    onSuccess: () => {
+      setMarriageEpoch((e) => e + 1);
       queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
     },
   });
@@ -101,8 +127,26 @@ export default function Notifications() {
     (n) => n.type === "match" || n.type === "curated_match",
   );
   const messageNotifications = mergedNotifications.filter((n) => n.type === "message");
-  const eventNotifications = mergedNotifications.filter((n) => n.type === "event");
+  const eventNotifications = mergedNotifications.filter(
+    (n) => n.type === "event" || n.type === "ai_event_invite",
+  );
   const systemNotifications = mergedNotifications.filter((n) => n.type === "system");
+
+  const unreadCount = mergedNotifications.filter((n) => !n.read).length;
+
+  const handleMarkReadOnly = useCallback(
+    (id: string) => {
+      const raw = mergedNotifications.find((x) => x.id === id);
+      if (!raw || raw.read) return;
+      if (userId && isMarriageSyntheticNotificationId(raw.id)) {
+        markMarriageSyntheticNotificationRead(userId, raw.id);
+        setMarriageEpoch((e) => e + 1);
+        return;
+      }
+      markReadMutation.mutate(id);
+    },
+    [mergedNotifications, userId, markReadMutation],
+  );
 
   const handleNotificationClick = useCallback(
     (n: Notification) => {
@@ -138,8 +182,9 @@ export default function Notifications() {
           }
           break;
         case "event":
+        case "ai_event_invite":
           if (entity) {
-            setLocation(`/events/${entity}`);
+            setLocation(`/event/${entity}`);
           } else {
             setLocation("/events");
           }
@@ -215,8 +260,24 @@ export default function Notifications() {
                 </div>
               </div>
 
-              <div className="mt-3 overflow-hidden matchify-surface">
-                <div className="divide-y divide-border/70">
+              {unreadCount > 0 ? (
+                <div className="mt-2 flex justify-end px-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 text-xs font-semibold text-primary hover:text-primary/90"
+                    disabled={markAllReadMutation.isPending}
+                    onClick={() => markAllReadMutation.mutate()}
+                    data-testid="button-mark-all-read"
+                  >
+                    Mark all as read
+                  </Button>
+                </div>
+              ) : null}
+
+              <div className="mt-1 overflow-hidden matchify-surface">
+                <div>
                 {tabRows.map((row) => (
                   <NotificationItem
                     key={row.id}
@@ -227,6 +288,8 @@ export default function Notifications() {
                     read={row.read}
                     timestamp={row.timestamp}
                     user={row.user}
+                    onMarkRead={!row.read ? handleMarkReadOnly : undefined}
+                    markReadDisabled={markReadMutation.isPending}
                     onClick={(id) => {
                       const raw = mergedNotifications.find((x) => x.id === id);
                       if (raw) handleNotificationClick(raw);

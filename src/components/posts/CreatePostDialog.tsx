@@ -63,6 +63,7 @@ export default function CreatePostDialog({
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
   const fileRef = useRef<HTMLInputElement>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
@@ -71,6 +72,7 @@ export default function CreatePostDialog({
       setContent("");
       setImageUrl("");
       setUploading(false);
+      setVisibility("public");
     }
   }, [open]);
 
@@ -113,16 +115,18 @@ export default function CreatePostDialog({
     const g = joinedGroups.find((x) => x.id === effectiveGroupId);
     return g?.name ?? null;
   }, [groupId, groupName, joinedGroups, effectiveGroupId]);
+  const requiresGroup = visibility === "public";
 
   const createMutation = useMutation({
     mutationFn: () => {
       const img = imageUrl.trim();
-      if (!effectiveGroupId) throw new Error("Pick a group to post in.");
+      if (requiresGroup && !effectiveGroupId) throw new Error("Pick a group to post in.");
       return postsService.create({
         userId,
         content: content.trim(),
+        visibility,
         ...(img ? { images: [img], image: img } : {}),
-        ...(effectiveGroupId ? { groupId: effectiveGroupId } : {}),
+        ...(requiresGroup && effectiveGroupId ? { groupId: effectiveGroupId } : {}),
       });
     },
     onSuccess: () => {
@@ -204,8 +208,11 @@ export default function CreatePostDialog({
 
             {!groupId ? (
               joinedGroups.length > 0 ? (
-                <Select value={effectiveGroupId} onValueChange={setSelectedGroupId}>
-                  <SelectTrigger className="h-9 w-full rounded-full bg-[#F4F4F7] px-3 text-[12px] font-semibold text-slate-800">
+                <Select
+                  value={effectiveGroupId ? effectiveGroupId : undefined}
+                  onValueChange={setSelectedGroupId}
+                >
+                  <SelectTrigger className="h-9 w-[72%] rounded-full bg-[#F4F4F7] px-3 text-[12px] font-semibold text-slate-800">
                     <SelectValue placeholder="Choose a group" />
                   </SelectTrigger>
                   <SelectContent>
@@ -248,6 +255,41 @@ export default function CreatePostDialog({
             className="min-h-[120px] rounded-xl"
             data-testid="input-post-content"
           />
+
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Visibility</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setVisibility("public")}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                  visibility === "public"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Public
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibility("private")}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                  visibility === "private"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Private
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {visibility === "public"
+                ? "Public posts appear in feed and on your profile."
+                : "Private posts appear only on your profile (group optional)."}
+            </p>
+          </div>
 
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Photo</Label>
@@ -315,7 +357,12 @@ export default function CreatePostDialog({
           </Button>
           <Button
             className={cn("rounded-full glow-primary")}
-            disabled={!content.trim() || !effectiveGroupId || createMutation.isPending || uploading}
+            disabled={
+              !content.trim() ||
+              (requiresGroup && !effectiveGroupId) ||
+              createMutation.isPending ||
+              uploading
+            }
             onClick={() => createMutation.mutate()}
             data-testid="button-submit-post"
           >

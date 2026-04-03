@@ -83,6 +83,10 @@ export const insertUserSchema = z.object({
     energyPreferences: z.array(z.string()).optional(),
     lifestylePreferences: z.array(z.string()).optional(),
     futureVision: z.array(z.string()).optional(),
+    presencePreferences: z.array(z.string()).optional(),
+    rhythmPreferences: z.array(z.string()).optional(),
+    presentationStylePreferences: z.array(z.string()).optional(),
+    earlyConnectionPreferences: z.array(z.string()).optional(),
     bodyPreferences: z.array(z.string()).optional(),
     faceShapePreferences: z.array(z.string()).optional(),
     eyeShapePreferences: z.array(z.string()).optional(),
@@ -140,7 +144,15 @@ export const insertGroupSchema = z.object({
   description: z.string().min(1),
   tags: z.array(z.string()).optional().nullable(),
   image: z.string().optional().nullable(),
-  /** Primary community this group is for, or all / interfaith */
+  /** When true, only users with matching profile religion see or join this group. */
+  filterByReligion: z.boolean().optional().default(false),
+  /** Stored religion key (same values as user profile `religion`). */
+  targetReligion: z.string().optional().nullable(),
+  filterByCountry: z.boolean().optional().default(false),
+  targetCountry: z.string().optional().nullable(),
+  /** open = auto-join eligible users after register/login/profile update; join = explicit Join. */
+  membershipMode: z.enum(["open", "join"]).optional().default("join"),
+  /** @deprecated use targetReligion — still accepted by API as alias */
   religionFocus: z
     .enum([
       "islam",
@@ -232,6 +244,10 @@ export const insertCourseSchema = z.object({
   duration: z.string().min(1),
   level: z.string().min(1),
   image: z.string().optional().nullable(),
+  resourceUrl: z.string().optional().nullable(),
+  resourceName: z.string().optional().nullable(),
+  isFree: z.boolean().optional().default(true),
+  price: z.number().int().min(0).optional().default(0),
 });
 
 export const insertCourseEnrollmentSchema = z.object({
@@ -324,6 +340,8 @@ export type Comment = InsertComment & {
 export type Group = InsertGroup & {
   id: string;
   members?: number;
+  memberCount?: number;
+  creatorId?: string | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 };
@@ -337,6 +355,14 @@ export type Event = InsertEvent & {
   id: string;
   rsvps?: number;
   attendeesCount?: number;
+  hostId?: string;
+  groupId?: string | null;
+  status?: string;
+  questionnaireQuestions?: unknown;
+  matchRevealTime?: Date | string | null;
+  venueId?: string | null;
+  aiGenerated?: boolean;
+  aiTheme?: string | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 };

@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users, Clock } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { getEventTheme } from "@/lib/eventCardTheme";
 
@@ -16,6 +16,8 @@ interface EventCardProps {
   capacity: number;
   price?: string;
   image?: string;
+  /** Matchify AI added this user to the guest list (show on the list, not only in the bell). */
+  youAreInvited?: boolean;
   isRSVPd?: boolean;
   isLoading?: boolean;
   onRSVP?: (id: string) => void;
@@ -34,6 +36,7 @@ export default function EventCard({
   capacity,
   price,
   image,
+  youAreInvited = false,
   isRSVPd = false,
   isLoading = false,
   onRSVP,
@@ -81,6 +84,17 @@ export default function EventCard({
               </span>
             ) : null}
           </div>
+          {youAreInvited && !isRSVPd ? (
+            <div className="pointer-events-none absolute left-3 right-3 top-14 z-10 sm:left-4 sm:right-4 sm:top-16">
+              <span
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-violet-300/90 bg-violet-600/95 px-3 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-white shadow-[0_4px_20px_rgba(91,33,182,0.45)] backdrop-blur-sm sm:text-xs"
+                title="You were picked for this meetup — RSVP to save your spot"
+              >
+                <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                You&apos;re invited — RSVP
+              </span>
+            </div>
+          ) : null}
         </div>
         <CardContent className="space-y-3 p-4 sm:space-y-4 sm:p-5">
           <div className="min-w-0">

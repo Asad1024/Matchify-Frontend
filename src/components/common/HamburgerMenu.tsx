@@ -40,11 +40,11 @@ const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
   {
     title: "Main",
     items: [
+      { icon: Sparkles, label: "AI Matchmaker", path: "/ai-matchmaker", highlight: true },
       { icon: HeartHandshake, label: "Marriage", path: "/" },
       { icon: Compass, label: "Discover", path: "/explore" },
       { icon: Globe, label: "Explore", path: "/community" },
       { icon: Users, label: "People", path: "/directory" },
-      { icon: Sparkles, label: "AI Matchmaker", path: "/ai-matchmaker", highlight: true },
       { icon: Calendar, label: "Events", path: "/events" },
       { icon: MessageCircle, label: "Chat", path: "/chat" },
       { icon: UserCircle, label: "Menu", path: "/menu" },
@@ -54,7 +54,7 @@ const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
   {
     title: "Coaching & learning",
     items: [
-      { icon: Heart, label: "Relationship Coach", path: "/relationship-coaching" },
+      { icon: Heart, label: "AI Luna Coach", path: "/relationship-coaching" },
       { icon: UserCircle, label: "Coaches", path: "/coaches" },
       { icon: GraduationCap, label: "Courses", path: "/courses" },
     ],

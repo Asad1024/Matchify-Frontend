@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Users, Shield, TrendingUp, Heart, FileText, Calendar, UsersRound, BookOpen, GraduationCap, MessageSquare, Sparkles } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { buildApiUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 
 const lunaData = [
@@ -55,7 +55,10 @@ export default function Dashboard() {
     queryKey: ['/api/admin/dashboard'],
     queryFn: async () => {
       const url = buildApiUrl('/api/admin/dashboard');
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, {
+        credentials: 'include',
+        headers: getAuthHeaders(false),
+      });
       if (!res.ok) {
         const contentType = res.headers.get('content-type');
         let errorMessage = `Failed to fetch dashboard stats: ${res.status}`;

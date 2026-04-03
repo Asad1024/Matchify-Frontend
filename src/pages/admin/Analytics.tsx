@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { buildApiUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -17,7 +17,10 @@ export default function Analytics() {
     queryKey: ['/api/admin/analytics'],
     queryFn: async () => {
       const url = buildApiUrl('/api/admin/analytics');
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, {
+        credentials: 'include',
+        headers: getAuthHeaders(false),
+      });
       if (!res.ok) {
         const contentType = res.headers.get('content-type');
         let errorMessage = `Failed to fetch analytics: ${res.status}`;

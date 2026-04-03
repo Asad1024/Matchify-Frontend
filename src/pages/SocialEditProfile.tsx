@@ -19,6 +19,7 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { markClientStateDirty } from "@/lib/clientStateSync";
 import { usersService } from "@/services/users.service";
 import { notifyHeaderUserUpdated } from "@/components/common/Header";
 import { cn } from "@/lib/utils";
@@ -92,6 +93,7 @@ export default function SocialEditProfile() {
     if (!userId) return;
     try {
       localStorage.setItem(`matchify:social:gallery:${userId}`, JSON.stringify(gallery));
+      markClientStateDirty();
     } catch {
       /* ignore */
     }
@@ -155,11 +157,13 @@ export default function SocialEditProfile() {
       if (nameChanged) {
         const until = now + SIX_MONTHS_MS;
         localStorage.setItem(lockKey("name", userId), String(until));
+        markClientStateDirty();
         setNameLockUntil(until);
       }
       if (usernameChanged) {
         const until = now + SIX_MONTHS_MS;
         localStorage.setItem(lockKey("username", userId), String(until));
+        markClientStateDirty();
         setUsernameLockUntil(until);
       }
 

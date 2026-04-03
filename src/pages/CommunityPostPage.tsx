@@ -215,6 +215,7 @@ export default function CommunityPostPage() {
               likes={Number(p.likes ?? p.likesCount) || 0}
               comments={Number(p.comments ?? p.commentsCount) || 0}
               likedByMe={!!p.likedByMe}
+              visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
               savedByMe={!!p.savedByMe}
               isFollowingAuthor={followingIds.has(p.userId || "")}
               firstComment={p.firstComment ?? null}

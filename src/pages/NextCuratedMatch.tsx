@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { LoadingState } from "@/components/common/LoadingState";
 
-/** Curated picks now live on Discover; this route stays for old links. */
+/** AI matches now live on Discover (AI Matching tab); this route stays for old links. */
 export default function NextCuratedMatch() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();

@@ -1,8 +1,12 @@
+import { markClientStateDirty } from "@/lib/clientStateSync";
+
 export type MembershipTier = "free" | "plus" | "premium" | "elite";
 
 export function normalizeTier(raw: unknown): MembershipTier {
   const t = String(raw || "").toLowerCase().trim();
   if (t === "plus" || t === "premium" || t === "elite") return t;
+  // Schema / seeds use "diamond" — treat as top paid tier for gating.
+  if (t === "diamond") return "elite";
   return "free";
 }
 
@@ -38,6 +42,7 @@ function safeGetInt(key: string): number {
 function safeSetInt(key: string, value: number): void {
   try {
     localStorage.setItem(key, String(Math.max(0, Math.floor(value))));
+    markClientStateDirty();
   } catch {
     /* ignore */
   }

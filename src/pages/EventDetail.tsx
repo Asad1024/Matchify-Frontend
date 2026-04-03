@@ -8,23 +8,11 @@ import EventCard from "@/components/events/EventCard";
 import EventMatchQuestionnaire from "@/components/events/EventMatchQuestionnaire";
 import MatchCountdown from "@/components/events/MatchCountdown";
 import EventMatchResults from "@/components/events/EventMatchResults";
-import EventMatchAdmin from "@/components/events/EventMatchAdmin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ArrowLeft,
-  Users,
-  Calendar,
-  MapPin,
-  Clock,
-  Settings,
-  Heart,
-  Sparkles,
-  Zap,
-  UserRound,
-} from "lucide-react";
+import { Users, Calendar, MapPin, Clock, Heart, Sparkles, Zap, UserRound, Mic2, Pencil } from "lucide-react";
 import { buildApiUrl } from "@/services/api";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -33,7 +21,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
 import type { Event } from "@shared/schema";
-import { DEFAULT_EVENT_QUESTIONS, parseEventQuestions } from "@/lib/eventQuestionnaireDefaults";
+import EventMatchAdmin from "@/components/events/EventMatchAdmin";
+import {
+  DEFAULT_EVENT_QUESTIONS,
+  parseEventQuestions,
+  type EventQuestionItem,
+} from "@/lib/eventQuestionnaireDefaults";
 
 interface Match {
   id: string;
@@ -48,8 +41,6 @@ interface Match {
 export default function EventDetail() {
   const [, setLocation] = useLocation();
   const [searchParams] = useSearchParams();
-  const eventsBackPath =
-    searchParams.get("from") === "explore" ? "/explore?tab=events" : "/events";
   const [, params] = useRoute('/event/:id');
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
@@ -152,6 +143,37 @@ export default function EventDetail() {
 
   const questionnaireCompleted = !!questionnaire?.completed;
 
+  const { data: aiInvite } = useQuery<{ status: string | null }>({
+    queryKey: ["/api/events", eventId, "my-ai-invite", userId],
+    enabled: !!eventId && !!userId,
+    queryFn: async () => {
+      const url = buildApiUrl(
+        `/api/events/${eventId}/my-ai-invite?userId=${encodeURIComponent(userId!)}`,
+      );
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) return { status: null };
+      return res.json();
+    },
+  });
+
+  const declineInviteMutation = useMutation({
+    mutationFn: async () => {
+      if (!userId || !eventId) throw new Error("Missing user or event");
+      const res = await apiRequest("POST", `/api/events/${eventId}/ai-invite/decline`, { userId });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Failed to decline" }));
+        throw new Error(err.message || "Failed to decline");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "my-ai-invite", userId] });
+      toast({ title: "Invitation declined" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not decline", description: error.message, variant: "destructive" });
+    },
+  });
+
   // Fetch event details
   const { data: event, isLoading, refetch: refetchEvent } = useQuery<
     Event & {
@@ -163,6 +185,7 @@ export default function EventDetail() {
       host?: { name?: string };
       userId?: string;
       hostId?: string;
+      aiGenerated?: boolean;
     }
   >({
     queryKey: [`/api/events/${eventId}`],
@@ -184,6 +207,25 @@ export default function EventDetail() {
     return Boolean(hid && hid === userId);
   }, [userId, event]);
 
+  /** User-hosted events (not AI); admins use the admin console for AI-hosted events. */
+  const showHostTab = Boolean(isHost && event && !event.aiGenerated);
+  const fromExplore = searchParams.get("from") === "explore";
+  const editEventHref = `/events/create?edit=${encodeURIComponent(eventId || "")}${fromExplore ? "&from=explore" : ""}`;
+
+  const eventTabsCount = useMemo(() => {
+    let n = 2;
+    if (event?.hasQuestionnaire && !isHost) n += 1;
+    if (showHostTab) n += 1;
+    return n;
+  }, [event?.hasQuestionnaire, isHost, showHostTab]);
+
+  const tabsGridClass =
+    eventTabsCount === 4
+      ? "grid-cols-4"
+      : eventTabsCount === 3
+        ? "grid-cols-3"
+        : "grid-cols-2";
+
   const hostDisplayName = useMemo(() => {
     if (!event) return "";
     const e = event as { hostName?: string; host?: { name?: string } };
@@ -191,9 +233,20 @@ export default function EventDetail() {
     return n || "";
   }, [event]);
 
-  const revealedNow =
-    forceRevealed ||
-    (event?.matchRevealTime ? Date.now() >= new Date(event.matchRevealTime).getTime() : false);
+  const revealAtMs = useMemo(() => {
+    if (!event?.matchRevealTime) return NaN;
+    const t = new Date(event.matchRevealTime).getTime();
+    return Number.isFinite(t) ? t : NaN;
+  }, [event?.matchRevealTime]);
+
+  // New countdown (e.g. admin "Calculate matches") must clear a stale forceRevealed from a prior reveal.
+  useEffect(() => {
+    if (!Number.isFinite(revealAtMs)) return;
+    if (Date.now() < revealAtMs) setForceRevealed(false);
+  }, [revealAtMs, eventId]);
+
+  const revealTimePassed = Number.isFinite(revealAtMs) && Date.now() >= revealAtMs;
+  const revealedNow = forceRevealed || revealTimePassed;
 
   // Fetch matches if revealed (server returns cards for current user when userId is passed)
   const { data: matches = [], refetch: refetchMatches } = useQuery<Match[]>({
@@ -253,27 +306,42 @@ export default function EventDetail() {
   // Check if reveal time has passed
   const revealTime = event?.matchRevealTime ? new Date(event.matchRevealTime) : null;
   const isRevealed = revealedNow;
-  const isCountingDown = revealTime && new Date() < revealTime;
+  const isCountingDown = Boolean(revealTime && new Date() < revealTime);
+
+  // During countdown, stay off Matches so the full-screen overlay is not sitting on top of that tab.
+  useEffect(() => {
+    if (isCountingDown && activeTab === "matches") setActiveTab("details");
+  }, [isCountingDown, activeTab]);
 
   // If the tab bar is hidden, ensure we never land on a tab that has no content yet.
   useEffect(() => {
-    if (activeTab === 'matches' && !isRevealed) setActiveTab('details');
-    if (activeTab === 'questionnaire' && (isHost || !event?.hasQuestionnaire)) setActiveTab('details');
-    if (activeTab === 'admin' && !isHost) setActiveTab('details');
-  }, [activeTab, isRevealed, isHost, event?.hasQuestionnaire]);
+    if (activeTab === "matches" && !isRevealed) setActiveTab("details");
+    if (activeTab === "questionnaire" && (isHost || !event?.hasQuestionnaire)) setActiveTab("details");
+    if (activeTab === "host" && !showHostTab) setActiveTab("details");
+  }, [activeTab, isRevealed, isHost, event?.hasQuestionnaire, showHostTab]);
 
   useEffect(() => {
     if (!isRevealed) return;
-    // TabsList is hidden; auto-navigate once reveal happens.
-    if (!forceRevealed) setForceRevealed(true);
     setActiveTab('matches');
     queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/matches`, userId] });
     refetchMatches();
-  }, [isRevealed, forceRevealed, eventId, userId, queryClient, refetchMatches]);
+  }, [isRevealed, eventId, userId, queryClient, refetchMatches]);
 
-  // Questionnaire: use event's custom questions if set, otherwise defaults
-  const customQuestions = parseEventQuestions((event as any)?.questionnaireQuestions);
-  const questions = customQuestions && customQuestions.length > 0 ? customQuestions : DEFAULT_EVENT_QUESTIONS;
+  const { data: eventQuestionnaireTemplate } = useQuery<{ questions: EventQuestionItem[] }>({
+    queryKey: ["/api/event-questionnaire-template"],
+  });
+
+  const templateQuestions = useMemo(() => {
+    const q = eventQuestionnaireTemplate?.questions;
+    return Array.isArray(q) && q.length > 0 ? q : null;
+  }, [eventQuestionnaireTemplate]);
+
+  const customQuestions = parseEventQuestions((event as { questionnaireQuestions?: string } | undefined)?.questionnaireQuestions);
+  const questions = useMemo(() => {
+    if (customQuestions && customQuestions.length > 0) return customQuestions;
+    if (templateQuestions && templateQuestions.length > 0) return templateQuestions;
+    return DEFAULT_EVENT_QUESTIONS;
+  }, [customQuestions, templateQuestions]);
 
   if (!eventId) {
     return (
@@ -316,6 +384,37 @@ export default function EventDetail() {
         onLogout={logout}
       />
 
+      {event?.aiGenerated && !isHost && aiInvite?.status === "invited" && !isRSVPd ? (
+        <div className="mx-auto max-w-lg px-4 pt-3">
+          <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.08] to-violet-500/[0.06] p-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-900">You&apos;re invited</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              Matchify AI matched you with this meetup by interests and area. Accept to RSVP — then complete the
+              short questionnaire like other events.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="rounded-full"
+                onClick={() => rsvpMutation.mutate()}
+                disabled={rsvpMutation.isPending}
+              >
+                {rsvpMutation.isPending ? "Joining…" : "Accept invite"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full"
+                onClick={() => declineInviteMutation.mutate()}
+                disabled={declineInviteMutation.isPending}
+              >
+                Decline
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Countdown Overlay */}
       {isCountingDown && revealTime && (
         <MatchCountdown
@@ -337,21 +436,6 @@ export default function EventDetail() {
         transition={{ duration: 0.5 }}
         className="mx-auto max-w-lg px-4 pb-6 pt-2"
       >
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Button
-            variant="ghost"
-            onClick={() => setLocation(eventsBackPath)}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {searchParams.get("from") === "explore" ? "Back to Explore" : "Back to Events"}
-          </Button>
-        </motion.div>
-
         <AnimatePresence mode="wait">
           {showQuestionnaire && !isHost ? (
             <motion.div
@@ -384,8 +468,8 @@ export default function EventDetail() {
               transition={{ duration: 0.3 }}
             >
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                {/* Mobile-first: keep tabs visible so users can always find Matches. */}
-                <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-muted p-1">
+                {/* Mobile-first: 2 cols (details + matches) or 3 with questionnaire for attendees */}
+                <TabsList className={`grid w-full rounded-2xl bg-muted p-1 ${tabsGridClass}`}>
                   <TabsTrigger value="details" className="relative">
                     Event Details
                   </TabsTrigger>
@@ -405,6 +489,14 @@ export default function EventDetail() {
                       </span>
                     </TabsTrigger>
                   )}
+                  {showHostTab ? (
+                    <TabsTrigger value="host" className="relative">
+                      <span className="flex items-center justify-center gap-1">
+                        <Mic2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        <span className="truncate">Host</span>
+                      </span>
+                    </TabsTrigger>
+                  ) : null}
                   <TabsTrigger value="matches" className="relative" disabled={!isRevealed}>
                     <span className="flex items-center gap-1">
                       Matches
@@ -420,14 +512,6 @@ export default function EventDetail() {
                       )}
                     </span>
                   </TabsTrigger>
-                  {isHost && (
-                    <TabsTrigger value="admin" className="relative">
-                      <span className="flex items-center gap-1">
-                        Admin
-                        <Settings className="w-4 h-4" />
-                      </span>
-                    </TabsTrigger>
-                  )}
                 </TabsList>
 
                 <AnimatePresence mode="wait">
@@ -585,6 +669,40 @@ export default function EventDetail() {
                       </TabsContent>
                     )}
 
+                    {activeTab === "host" && showHostTab && (
+                      <TabsContent value="host" forceMount>
+                        <Card className="border-2 border-primary/15 shadow-lg">
+                          <CardContent className="space-y-4 p-5 sm:p-6">
+                            <div>
+                              <h2 className="text-lg font-bold text-foreground">Host tools</h2>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                Edit your listing or run SparkBox (questionnaire submissions, match calculation,
+                                reveal timer).
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              className="w-full rounded-full font-semibold sm:w-auto"
+                              onClick={() => setLocation(editEventHref)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" aria-hidden />
+                              Edit event
+                            </Button>
+                            {event.hasQuestionnaire ? (
+                              <EventMatchAdmin eventId={event.id} eventTitle={event.title} />
+                            ) : (
+                              <Card className="border-dashed border-muted-foreground/30 bg-muted/30">
+                                <CardContent className="p-4 text-sm text-muted-foreground">
+                                  This event doesn&apos;t use the match questionnaire yet. Edit the event and keep
+                                  &quot;Match questionnaire&quot; enabled to unlock SparkBox tools here.
+                                </CardContent>
+                              </Card>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    )}
+
                     {activeTab === "questionnaire" && event.hasQuestionnaire && !isHost && (
                       <TabsContent value="questionnaire" forceMount>
                         {questionnaireCompleted && !isEditingAnswers ? (
@@ -656,11 +774,6 @@ export default function EventDetail() {
                       </TabsContent>
                     )}
 
-                    {activeTab === "admin" && isHost && (
-                      <TabsContent value="admin" forceMount>
-                        <EventMatchAdmin eventId={event.id} eventTitle={event.title} />
-                      </TabsContent>
-                    )}
                   </motion.div>
                 </AnimatePresence>
               </Tabs>

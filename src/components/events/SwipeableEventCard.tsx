@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users, Clock, Heart, X } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Heart, X, Sparkles } from "lucide-react";
 import { getEventTheme } from "@/lib/eventCardTheme";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,7 @@ interface SwipeableEventCardProps {
   capacity: number;
   price?: string;
   image?: string;
+  youAreInvited?: boolean;
   onSwipeLeft?: (id: string) => void;
   onSwipeRight?: (id: string) => void;
 }
@@ -34,6 +35,7 @@ export default function SwipeableEventCard({
   capacity,
   price,
   image,
+  youAreInvited = false,
   onSwipeLeft,
   onSwipeRight,
 }: SwipeableEventCardProps) {
@@ -133,6 +135,14 @@ export default function SwipeableEventCard({
           </motion.div>
 
           <div className="absolute bottom-0 left-0 right-0 z-[2] p-4 sm:p-5">
+            {youAreInvited ? (
+              <div className="mb-2 flex justify-center">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200/90 bg-violet-600/95 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg backdrop-blur-sm sm:text-xs">
+                  <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  You&apos;re invited — swipe right to RSVP
+                </span>
+              </div>
+            ) : null}
             <h3 className="font-display text-xl font-bold leading-tight tracking-tight text-white drop-shadow-sm sm:text-2xl">
               {title}
             </h3>

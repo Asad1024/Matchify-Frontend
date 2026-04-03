@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Heart, ArrowLeft, Star, DollarSign, Languages, Calendar, MessageSquare } from "lucide-react";
+import { ArrowLeft, Star, DollarSign, Languages, Calendar, MessageSquare } from "lucide-react";
 import type { User } from "@shared/schema";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -57,6 +57,7 @@ export default function RelationshipCoaching() {
     <div className="min-h-screen bg-background pb-24">
       <Header
         showSearch={false}
+        title="AI Luna Coach"
         unreadNotifications={0}
         onNotifications={() => setLocation('/notifications')}
         onCreate={() => setLocation('/')}
@@ -65,16 +66,14 @@ export default function RelationshipCoaching() {
       />
       
       <div className="mx-auto w-full max-w-lg px-4 pt-2 pb-2">
-        <div className="mb-4">
-          <Button
-            variant="ghost"
-            onClick={() => coachId ? setLocation('/coaches') : setLocation('/profile')}
-            className="mb-2 -ml-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {coachId ? 'Back to Coaches' : 'Back to Profile'}
-          </Button>
-        </div>
+        {coachId ? (
+          <div className="mb-4">
+            <Button variant="ghost" onClick={() => setLocation('/coaches')} className="mb-2 -ml-2">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Coaches
+            </Button>
+          </div>
+        ) : null}
 
         {/* Show coach details if coachId is provided */}
         {coachId && (

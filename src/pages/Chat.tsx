@@ -149,6 +149,10 @@ export default function Chat() {
   const { toast } = useToast();
   const lastToastMsgIdRef = useRef<Record<string, string>>({});
 
+  useEffect(() => {
+    lastToastMsgIdRef.current = {};
+  }, [userId]);
+
   // Inbox with last message preview + unread counts
   const { data: conversationSummaries = [] } = useQuery<ConversationSummary[]>({
     queryKey: [`/api/users/${userId}/conversation-summaries`],
@@ -450,7 +454,15 @@ export default function Chat() {
     for (const conv of safeConversations) {
       if (!conv?.id || !conv.lastMessage) continue;
       const last = conv.lastMessage;
-      if (!last?.id || last.senderId === userId) continue; // only incoming
+      if (!last?.id || last.senderId === userId) {
+        if (last?.id) lastToastMsgIdRef.current[conv.id] = last.id;
+        continue;
+      }
+      const unread = Number(conv.unreadCount ?? 0);
+      if (unread <= 0) {
+        lastToastMsgIdRef.current[conv.id] = last.id;
+        continue;
+      }
       const alreadyToastedId = lastToastMsgIdRef.current[conv.id];
       if (alreadyToastedId === last.id) continue;
 

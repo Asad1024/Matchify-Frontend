@@ -12,14 +12,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
 import {
-  Heart,
   Users,
   Calendar,
   Brain,
   Sparkles,
   ArrowRight,
   AlertCircle,
-  PenSquare,
 } from "lucide-react";
 import type { Group, Story } from "@shared/schema";
 import StoryCircles from "@/components/stories/StoryCircles";
@@ -100,8 +98,6 @@ function sortPosts(posts: Post[], filter: string, followingIds: Set<string>): Po
   );
 }
 
-const ONBOARDING_KEY = 'community_likes_count';
-
 export default function Community() {
   const [feedFilter, setFeedFilter] = useState<string>('for_you');
   const [activePage, setActivePage] = useState('community');
@@ -164,11 +160,6 @@ export default function Community() {
       /* ignore */
     }
   }, []);
-
-  const onboardingLikes = parseInt(localStorage.getItem(ONBOARDING_KEY) || '0', 10);
-  const [likedCount, setLikedCount] = useState(onboardingLikes);
-  const ONBOARDING_GOAL = 5;
-  const showOnboarding = likedCount < ONBOARDING_GOAL;
 
   const { data: posts = [], isLoading: postsLoading } = useQuery<Post[]>({
     queryKey: ["/api/posts", { viewer: currentUserId ?? "" }],
@@ -260,16 +251,8 @@ export default function Community() {
       const pid = encodeURIComponent(postId);
       return apiRequest("DELETE", `/api/likes/${uid}/${pid}`);
     },
-    onSuccess: (_data, { like }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      if (like) {
-        setLikedCount((c) => {
-          if (c >= ONBOARDING_GOAL) return c;
-          const next = c + 1;
-          localStorage.setItem(ONBOARDING_KEY, String(next));
-          return next;
-        });
-      }
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
@@ -381,31 +364,10 @@ export default function Community() {
               actions={[
                 { id: "people", label: "People", icon: Users, onClick: () => setLocation("/directory"), tone: "primary" },
                 { id: "events", label: "Events", icon: Calendar, onClick: () => setLocation("/explore?tab=events"), tone: "amber" },
+                { id: "luna", label: "AI Luna", icon: Sparkles, onClick: () => setLocation("/relationship-coaching"), tone: "violet" },
                 { id: "ai", label: "AI Match", icon: Brain, onClick: () => setLocation("/ai-matchmaker"), tone: "violet" },
               ]}
             />
-
-            {/* Onboarding banner */}
-            {showOnboarding && (
-              <div className="mx-4 mt-3 rounded-2xl overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, #722F37, #8B2942)' }}>
-                <div className="p-4 text-white">
-                  <p className="text-sm font-bold mb-1">Like {ONBOARDING_GOAL} posts to get started</p>
-                  <div className="flex gap-2 mt-2 items-center justify-center">
-                    {Array.from({ length: ONBOARDING_GOAL }).map((_, i) => (
-                      <Heart
-                        key={i}
-                        className={`w-5 h-5 transition-all ${
-                          i < likedCount ? 'text-white fill-white' : 'text-white/35 fill-transparent'
-                        }`}
-                        strokeWidth={i < likedCount ? 0 : 2}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-xs text-white/70 mt-1">{likedCount}/{ONBOARDING_GOAL} liked</p>
-                </div>
-              </div>
-            )}
 
             {/* Posts feed */}
             <div className="px-4 mt-3 space-y-4">
@@ -441,6 +403,7 @@ export default function Community() {
                       comments={post.comments ?? post.commentsCount ?? 0}
                       firstComment={post.firstComment ?? null}
                       likedByMe={!!post.likedByMe}
+                      visibility={((post as Post & { visibility?: "public" | "private" }).visibility ?? "public")}
                       savedByMe={!!post.savedByMe}
                       isFollowingAuthor={followingIds.has(post.userId)}
                       timestamp={new Date(post.createdAt).toLocaleDateString()}

@@ -24,6 +24,13 @@ export default function Landing() {
         setUserId(user.id || user.userId);
         setUserData({ name: user.name, email: user.email });
 
+        if (user.isAdmin === true) {
+          localStorage.setItem("isAdmin", "true");
+          localStorage.setItem("onboardingCompleted", "true");
+          setLocation("/admin");
+          return;
+        }
+
         if (onboardingCompleted === "true") {
           // User is authenticated and onboarded - go to app
           setLocation("/");
@@ -55,6 +62,14 @@ export default function Landing() {
     localStorage.setItem("authToken", user.token || "demo-token");
     localStorage.setItem("currentUser", JSON.stringify({ ...user, id: userIdValue }));
 
+    if (user.isAdmin === true) {
+      localStorage.setItem("isAdmin", "true");
+      localStorage.setItem("onboardingCompleted", "true");
+      setLocation("/admin");
+      return;
+    }
+    localStorage.removeItem("isAdmin");
+
     if (isNewUser) {
       // New user - show onboarding
       localStorage.removeItem("onboardingCompleted");
@@ -83,26 +98,15 @@ export default function Landing() {
     setStep("auth");
   };
 
-  const handleAdminLogin = () => {
-    setLocation("/admin/login");
-  };
-
-  const handleEventAdminLogin = () => {
-    setLocation("/admin/login?redirect=/admin/events");
-  };
-
   if (step === "splash") {
     return <SplashScreen onGetStarted={handleGetStarted} onLogin={handleLogin} />;
   }
 
   if (step === "auth") {
     return (
-      <AuthScreen 
-        onAuth={handleAuth} 
-        defaultMode="signup" 
-        showBackToLanding={true}
-        onAdminLogin={handleAdminLogin}
-        onEventAdminLogin={handleEventAdminLogin}
+      <AuthScreen
+        onAuth={handleAuth}
+        defaultMode="signup"
       />
     );
   }

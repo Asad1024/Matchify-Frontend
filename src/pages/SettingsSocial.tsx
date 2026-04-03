@@ -6,13 +6,20 @@ import BottomNav from "@/components/common/BottomNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, UserMinus, Users, Volume2, Ban } from "lucide-react";
+import { ArrowLeft, UserMinus, Users, Volume2, Ban, Flag } from "lucide-react";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { SETTINGS_SOCIAL_SCROLL_SECTION_KEY } from "@/lib/settingsSocialNav";
 import { apiRequestJson } from "@/services/api";
+import {
+  isGenericReportAuthorLabel,
+  mergeReportedPostsIntoLists,
+  removePostReport,
+  setAuthorMuted,
+  setUserBlocked,
+} from "@/lib/socialPreferencesService";
 
 const CONNECTIONS_PREVIEW = 3;
 
@@ -20,7 +27,17 @@ type SocialLists = {
   following: { userId: string; name: string; avatar?: string | null; createdAt: string }[];
   followers: { userId: string; name: string; avatar?: string | null; createdAt: string }[];
   muted: { authorId: string; name: string; avatar?: string | null; createdAt: string }[];
-  blocked: { userId: string; name: string; avatar?: string | null; createdAt: string }[];
+  blocked: { userId: string; blockedUserId?: string; name: string; avatar?: string | null; createdAt: string }[];
+  reportedPosts?: {
+    postId: string;
+    authorId?: string;
+    reason?: string;
+    details?: string;
+    createdAt: string;
+    authorName?: string;
+    authorAvatar?: string | null;
+    preview?: string | null;
+  }[];
 };
 
 export default function SettingsSocial() {
@@ -31,7 +48,11 @@ export default function SettingsSocial() {
 
   const { data: lists, isLoading: listsLoading } = useQuery({
     queryKey: ["/api/users", userId, "social-feed-lists"],
-    queryFn: () => apiRequestJson<SocialLists>("GET", `/api/users/${userId}/social/lists`),
+    queryFn: async () => {
+      if (!userId) throw new Error("Not signed in");
+      const raw = await apiRequestJson<SocialLists>("GET", `/api/users/${userId}/social/lists`);
+      return mergeReportedPostsIntoLists(userId, raw);
+    },
     enabled: !!userId,
   });
 
@@ -55,8 +76,19 @@ export default function SettingsSocial() {
   });
 
   const unmuteMutation = useMutation({
-    mutationFn: (authorId: string) =>
-      apiRequest("DELETE", `/api/users/${userId}/social/mute/${encodeURIComponent(authorId)}`),
+    mutationFn: async (authorId: string) => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await apiRequest(
+        "DELETE",
+        `/api/users/${userId}/social/mute/${encodeURIComponent(authorId)}`,
+      );
+      if (!res.ok) throw new Error("Unmute failed");
+      try {
+        await setAuthorMuted(userId, authorId, false);
+      } catch {
+        /* ignore */
+      }
+    },
     onSuccess: () => {
       invalidateAll();
       toast({ title: "Unmuted" });
@@ -67,11 +99,39 @@ export default function SettingsSocial() {
   const unblockMutation = useMutation({
     mutationFn: (blockedUserId: string) =>
       apiRequest("DELETE", `/api/users/${userId}/blocks/${encodeURIComponent(blockedUserId)}`),
-    onSuccess: () => {
+    onSuccess: async (_data, blockedUserId) => {
+      if (userId) {
+        try {
+          await setUserBlocked(userId, blockedUserId, false);
+        } catch {
+          /* ignore */
+        }
+      }
       invalidateAll();
       toast({ title: "Unblocked" });
     },
     onError: () => toast({ title: "Couldn’t unblock", variant: "destructive" }),
+  });
+
+  const unreportPostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await apiRequest(
+        "DELETE",
+        `/api/users/${userId}/social/report-post/${encodeURIComponent(postId)}`,
+      );
+      if (!res.ok) throw new Error("Unreport failed");
+      try {
+        await removePostReport(userId, postId);
+      } catch {
+        /* ignore */
+      }
+    },
+    onSuccess: () => {
+      invalidateAll();
+      toast({ title: "Post visible again", description: "This post can show in your feed." });
+    },
+    onError: () => toast({ title: "Couldn’t update report", variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -256,10 +316,12 @@ export default function SettingsSocial() {
                     <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
                       <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                        {u.name?.slice(0, 2).toUpperCase() || "?"}
+                        {(u.name?.trim() || u.authorId).slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="truncate text-sm font-medium">{u.name}</span>
+                    <span className="truncate text-sm font-medium">
+                      {u.name?.trim() || `User ${u.authorId.length > 8 ? `${u.authorId.slice(0, 8)}…` : u.authorId}`}
+                    </span>
                   </div>
                   <Button
                     type="button"
@@ -273,6 +335,82 @@ export default function SettingsSocial() {
                   </Button>
                 </div>
               ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card
+          id="social-section-reported"
+          className="matchify-surface scroll-mt-24 overflow-hidden border-white/0 bg-card/70"
+        >
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Flag className="h-5 w-5 text-amber-600" />
+              <CardTitle>Reported posts</CardTitle>
+            </div>
+            <CardDescription>
+              Posts you reported stay hidden until you remove them from this list (stored in this browser / social
+              layer).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {listsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : !(lists?.reportedPosts && lists.reportedPosts.length > 0) ? (
+              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+                No reported posts.
+              </p>
+            ) : (
+              lists.reportedPosts!.map((row) => {
+                const hasRealName = row.authorName?.trim() && !isGenericReportAuthorLabel(row.authorName);
+                const displayName = hasRealName
+                  ? row.authorName!.trim()
+                  : row.authorId
+                    ? `Member · ${row.authorId.length > 10 ? `${row.authorId.slice(0, 8)}…` : row.authorId}`
+                    : "Unknown author";
+                const fallbackInitials = row.authorId
+                  ? row.authorId.replace(/-/g, "").slice(0, 2).toUpperCase()
+                  : "?";
+                const avatarInitials = hasRealName
+                  ? row.authorName!.trim().slice(0, 2).toUpperCase()
+                  : fallbackInitials;
+                return (
+                <div
+                  key={row.postId}
+                  className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex min-w-0 flex-1 gap-3">
+                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
+                      <AvatarImage src={row.authorAvatar?.trim() || undefined} alt="" className="object-cover" />
+                      <AvatarFallback className="bg-amber-100 text-xs font-bold text-amber-800">
+                        {avatarInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium" title={row.authorId}>
+                        {displayName}
+                      </p>
+                      {row.reason ? (
+                        <p className="text-xs text-muted-foreground">Reason: {row.reason}</p>
+                      ) : null}
+                      {row.preview ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{row.preview}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={unreportPostMutation.isPending}
+                    className="shrink-0 rounded-full border-stone-200"
+                    onClick={() => unreportPostMutation.mutate(row.postId)}
+                  >
+                    Show in feed
+                  </Button>
+                </div>
+              );
+              })
             )}
           </CardContent>
         </Card>

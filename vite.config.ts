@@ -111,6 +111,12 @@ export default defineConfig(async () => {
                 );
               }
             });
+            proxy.on('proxyReq', (proxyReq, req) => {
+              if (req.url?.includes('/notifications/stream')) {
+                proxyReq.setHeader('Accept', 'text/event-stream');
+                proxyReq.setHeader('Cache-Control', 'no-cache');
+              }
+            });
           },
         },
         '/uploads': {

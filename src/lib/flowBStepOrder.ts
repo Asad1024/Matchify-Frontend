@@ -32,10 +32,10 @@ export const SHARED_QUESTION_IDS = [
 export const MALE_ONLY_QUESTION_IDS = [
   "m_her_personality",  // personality he finds attractive in a woman
   "m_her_energy",       // energy he wants her to bring
-  "m_her_physical",     // physical type (female body shapes)
-  "m_her_face",         // female face shapes
-  "m_her_eyes",         // eye shapes in a woman
-  "m_her_lips",         // lip shapes in a woman
+  "m_her_presence",     // presence & vibe (partner)
+  "m_her_daily_rhythm", // day-to-day rhythm together
+  "m_her_presentation", // style / self-presentation
+  "m_her_first_spark",  // what stands out early (non-anatomy)
   "m_her_values",       // values she must have
   "m_her_style",        // her lifestyle vibe
   "m_how_connect",      // couple communication style
@@ -51,10 +51,10 @@ export const MALE_ONLY_QUESTION_IDS = [
 export const FEMALE_ONLY_QUESTION_IDS = [
   "f_his_personality",  // personality she finds attractive in a man
   "f_his_energy",       // energy she wants him to have
-  "f_his_physical",     // physical type (male body shapes)
-  "f_his_face",         // male face shapes
-  "f_his_eyes",         // eye shapes in a man
-  "f_his_lips",         // lip shapes in a man
+  "f_his_presence",     // presence & vibe (partner)
+  "f_his_daily_rhythm", // day-to-day rhythm together
+  "f_his_presentation", // style / self-presentation
+  "f_his_first_spark",  // what stands out early (non-anatomy)
   "f_his_values",       // values he must have
   "f_his_provider",     // his provider / support style
   "f_how_connect",      // couple communication style
@@ -73,10 +73,10 @@ export const FEMALE_ONLY_QUESTION_IDS = [
 export const MALE_FLOW_ORDER: readonly string[] = [
   "m_her_personality",
   "m_her_energy",
-  "m_her_physical",
-  "m_her_face",
-  "m_her_eyes",
-  "m_her_lips",
+  "m_her_presence",
+  "m_her_daily_rhythm",
+  "m_her_presentation",
+  "m_her_first_spark",
   "m_her_values",
   "m_her_style",
   "m_how_connect",
@@ -118,10 +118,10 @@ export const FEMALE_FLOW_ORDER: readonly string[] = [
   "f_hobbies",
   "f_social_life",
   "f_food",
-  "f_his_physical",
-  "f_his_face",
-  "f_his_eyes",
-  "f_his_lips",
+  "f_his_presence",
+  "f_his_daily_rhythm",
+  "f_his_presentation",
+  "f_his_first_spark",
   "f_his_provider",
   "kidsQ",
   "timeline",

@@ -1,19 +1,36 @@
 import { buildApiUrl, getAuthHeaders } from "@/services/api";
 
-const EXACT_KEYS = [
-  "matchify_explore_mode",
-] as const;
+/** Keys stored under `users.profile.clientState.localStorage` (MySQL JSON) — not for auth tokens.
+ * Keep `isClientStateSyncedKey` in matchify-app-style1-backend/src/clientStateSyncedKeys.ts in sync. */
+const EXACT_KEYS = ["matchify_explore_mode", "matchify_notify_ai_pick_ready"] as const;
 
 const PREFIX_KEYS = [
   "matchify_marriage_deck_",
   "matchify_marriage_chat_v1_",
   "matchify_muzz_",
   "matchify_profile_identity_lock_",
+  "matchify_luna_assistant_v1_",
 ] as const;
 
 function shouldSyncKey(key: string): boolean {
   if (EXACT_KEYS.includes(key as (typeof EXACT_KEYS)[number])) return true;
-  return PREFIX_KEYS.some((p) => key.startsWith(p));
+  if (PREFIX_KEYS.some((p) => key.startsWith(p))) return true;
+  if (key.startsWith("matchify.profileIdentityLock.")) return true;
+  // Entitlements, social gallery, identity locks (matchify:name:lockUntil:…)
+  if (key.startsWith("matchify:")) {
+    if (key.startsWith("matchify:plan_override:")) return false;
+    return true;
+  }
+  return false;
+}
+
+/** Call after writes to any synced localStorage key so the server copy updates before the 15s interval. */
+export function markClientStateDirty(): void {
+  try {
+    window.dispatchEvent(new Event("matchify-client-state-dirty"));
+  } catch {
+    /* ignore */
+  }
 }
 
 function readSyncableLocalStorage(): Record<string, string> {

@@ -177,85 +177,18 @@ export default function Header({
 
             {/* Right — same 40×40 hit targets as menu for vertical alignment */}
             <div className="flex shrink-0 items-center gap-1">
-              {showSearch && (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-10 w-10 shrink-0 rounded-full text-foreground/55 hover:bg-foreground/[0.05] hover:text-foreground"
-                  data-testid="button-search"
-                  aria-label="Open search"
-                  onClick={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
-                >
-                  <Search className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                </Button>
-              )}
-
-              {onCreate && (
-                <div className="flex shrink-0 flex-col items-center justify-center gap-1 -mt-0.5 -mr-0.5">
-                  {onCreate ? (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-10 w-10 shrink-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
-                      onClick={() => {
-                        // Robust: keep page-local handlers, but also broadcast a global "open composer"
-                        // signal (used by group/community flows) so the modal can open instantly.
-                        try {
-                          window.dispatchEvent(
-                            new CustomEvent("matchify-open-create-post", {
-                              detail: { from: "header" },
-                            }),
-                          );
-                        } catch {
-                          /* ignore */
-                        }
-                        try {
-                          sessionStorage.setItem(
-                            "matchify_open_create_post",
-                            JSON.stringify({ from: "header" }),
-                          );
-                        } catch {
-                          /* ignore */
-                        }
-                        onCreate();
-                      }}
-                      data-testid="button-create-post"
-                      aria-label="Create post"
-                    >
-                      <Plus className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                    </Button>
-                  ) : null}
-                </div>
-              )}
-
-              {rightAccessory}
-
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-10 w-10 shrink-0 rounded-full text-foreground/55 hover:bg-foreground/[0.05] hover:text-foreground"
+                data-testid="button-search"
+                aria-label="Open search"
+                onClick={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
+              >
+                <Search className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+              </Button>
               <NotificationCenter />
-
-              {showProfileAvatar && (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-full p-0 text-foreground/55 hover:bg-foreground/[0.05] hover:ring-2 hover:ring-primary/25"
-                  onClick={handleProfileAvatar}
-                  data-testid="button-profile-avatar"
-                  aria-label="Open my profile"
-                >
-                  <Avatar className="h-10 w-10 border border-gray-200/80">
-                    <AvatarImage src={headerUser.avatar || undefined} alt="" />
-                    <AvatarFallback className="bg-primary/15 text-[10px] font-bold text-primary">
-                      {headerInitials || (
-                        <Settings className="h-5 w-5 text-gray-500" strokeWidth={1.75} />
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
-                  {showHeaderOnlineDot ? (
-                    <OnlineIndicator className="pointer-events-none absolute bottom-0 right-0 z-10" />
-                  ) : null}
-                </Button>
-              )}
             </div>
           </div>
         </header>

@@ -31,8 +31,9 @@ export default function FeedQuickActions({
   actions: FeedQuickAction[];
   className?: string;
 }) {
+  const cols = actions.length > 3 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3";
   return (
-    <div className={cn("grid grid-cols-3 gap-2 px-4 py-2", className)}>
+    <div className={cn("grid gap-2 px-4 py-2", cols, className)}>
       {actions.map(({ id, label, icon: Icon, onClick, tone = "primary" }) => {
         const t = TONES[tone];
         return (
@@ -52,7 +53,7 @@ export default function FeedQuickActions({
                 "ring-1 ring-black/[0.04] group-hover:ring-black/[0.06] transition",
               )}
             >
-              <Icon className={cn("h-4.5 w-4.5", t.icon, "opacity-90")} strokeWidth={1.75} aria-hidden />
+              <Icon className={cn("h-4 w-4", t.icon, "opacity-90")} strokeWidth={1.75} aria-hidden />
             </div>
             <span className="text-[11px] font-medium text-slate-900/90 tracking-[0.2px]">{label}</span>
           </button>

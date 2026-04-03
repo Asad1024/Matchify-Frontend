@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { LunaChatPanel } from "@/components/assistant/PersonalAssistantOverlay";
 
 interface RelationshipCoachProps {
   userId: string;
@@ -105,6 +106,8 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
   const [question, setQuestion] = useState("");
   const [activeSection, setActiveSection] = useState<"chat" | "journey">("chat");
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>(partnerId || "");
+  /** When a partner space exists, user can switch back to general Luna assistant chat. */
+  const [generalLuna, setGeneralLuna] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [milestoneTitle, setMilestoneTitle] = useState("");
   const [milestoneBody, setMilestoneBody] = useState("");
@@ -156,6 +159,26 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
     // No selection yet — show nothing until user picks a match.
     return null;
   }, [spaces, selectedPartnerId]);
+
+  /** Avoid resetting general Luna when activeSpace briefly goes null during React Query refetches. */
+  const lastStableSpaceIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!selectedPartnerId) {
+      lastStableSpaceIdRef.current = undefined;
+      return;
+    }
+    const sid = activeSpace?.id;
+    if (!sid) return;
+    const prev = lastStableSpaceIdRef.current;
+    lastStableSpaceIdRef.current = sid;
+    if (prev !== undefined && prev !== sid) {
+      setGeneralLuna(false);
+    }
+  }, [activeSpace?.id, selectedPartnerId]);
+
+  const showGeneralAssistant = !activeSpace?.id || generalLuna;
+  const showPartnerCoaching = !!activeSpace?.id && !generalLuna;
+  const lunaAssistantStorageKey = userId ? `matchify_luna_assistant_v1_${userId}` : undefined;
 
   // If a partner is pre-selected via prop, jump to chat when a space exists.
   useEffect(() => {
@@ -257,6 +280,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/luna/spaces`, "auth"] });
       toast({ title: "Added to Luna", description: "Partner space is ready." });
+      setGeneralLuna(false);
       setActiveSection("chat");
     },
     onError: (e) => {
@@ -427,188 +451,107 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
   return (
     <div className="min-h-[100svh] bg-[#F8F9FB]">
       <div className="mx-auto w-full max-w-lg space-y-4 px-3 pb-28 pt-3">
-      {/* Partner selection */}
-      <Card className={cn("rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm", activeSpace ? "border-primary/15" : "")}>
-        <CardContent className="p-4 space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Luna partner space</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose partner from your matches" />
-              </SelectTrigger>
-              <SelectContent>
-                {matches.map((m) => {
-                  const pid = m.partnerUserId;
-                  if (!pid) return null;
-                  return (
-                    <SelectItem key={pid} value={pid}>
-                      {m.name}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            <Button
-              disabled={!selectedPartnerId || createSpace.isPending}
-              onClick={() => {
-                if (!selectedPartnerId) return;
-                // If already added, jump user to the Luna tab.
-                if (activeSpace?.id) {
-                  setActiveSection("chat");
-                  return;
-                }
-                createSpace.mutate(selectedPartnerId);
-              }}
-            >
-              {createSpace.isPending ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Adding…
-                </span>
-              ) : activeSpace?.id ? (
-                "Open Luna"
-              ) : (
-                "Add to Luna"
-              )}
-            </Button>
-          </div>
-          {selectedPartnerId ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {activeSpace?.id ? (
-                <>
-                  <Badge variant="outline">Active</Badge>
-                  <Badge variant="secondary">Private</Badge>
-                </>
-              ) : (
-                <Badge variant="outline">Not added yet</Badge>
-              )}
-            </div>
-          ) : selectedPartnerId ? (
-            <div className="rounded-2xl border border-dashed border-primary/20 bg-primary/[0.03] px-4 py-3">
-              <p className="text-xs font-semibold text-slate-900">Next step</p>
-              <p className="mt-1 text-xs text-slate-600">
-                Tap <span className="font-semibold">Add to Luna</span> to create a private space for this match. Then open the{" "}
-                <span className="font-semibold">Luna</span> tab to start coaching.
-              </p>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {/* Partner status */}
-      {activeSpace?.partner ? (
-        <Card className="rounded-[24px] border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-white to-white shadow-sm">
-          <CardContent
-            className="p-4 flex items-center gap-3 cursor-pointer"
-            onClick={() => setActiveSection("chat")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") setActiveSection("chat");
-            }}
-          >
-            <div className="flex -space-x-2">
-              <Avatar className="w-10 h-10 border-2 border-white">
-                <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">You</AvatarFallback>
-              </Avatar>
-              <Avatar className="w-10 h-10 border-2 border-white">
-                <AvatarImage src={activeSpace.partner.avatar || undefined} alt={activeSpace.partner.name} />
-                <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                  {activeSpace.partner.name.slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-primary">Coaching with {activeSpace.partner.name}</p>
-              <p className="text-xs text-primary/80">Your relationship, together</p>
-            </div>
-            <Heart className="w-5 h-5 text-primary fill-primary/25 ml-auto" />
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-dashed border-primary/25">
-          <CardContent className="p-4 text-center text-sm text-muted-foreground">
-            <Heart className="w-6 h-6 text-primary/40 mx-auto mb-2" />
-            Pick a match to start a partner space.
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Section tabs */}
-      <div
-        className={cn(
-          "rounded-full bg-[#F1F2F4] p-1 shadow-[inset_0_1px_4px_rgba(15,23,42,0.06)]",
-          !selectedPartnerId ? "opacity-60" : "",
-        )}
-      >
+      {/* Section tabs — Chat is always available (assistant until a partner space exists) */}
+      <div className="rounded-full bg-[#F1F2F4] p-1 shadow-[inset_0_1px_4px_rgba(15,23,42,0.06)]">
         <div className="grid grid-cols-2 gap-1">
           {(["chat", "journey"] as const).map((section) => {
-            const disabled = !activeSpace?.id;
+            const disabled = section === "journey" && !activeSpace?.id;
             const active = activeSection === section;
             return (
               <button
                 key={section}
                 type="button"
-                disabled={!selectedPartnerId || disabled}
+                disabled={disabled}
                 onClick={() => setActiveSection(section)}
                 className={cn(
                   "relative h-10 rounded-full text-[12px] font-semibold transition",
                   active ? "text-slate-900" : "text-slate-500 hover:text-slate-700",
-                  (!selectedPartnerId || disabled) && "cursor-not-allowed opacity-50 hover:text-slate-500",
+                  disabled && "cursor-not-allowed opacity-50 hover:text-slate-500",
                 )}
               >
                 {active ? (
                   <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
                 ) : null}
-                <span className="relative">
-                  {section === "chat" ? "Luna" : "Journey"}
-                </span>
+                <span className="relative">{section === "chat" ? "Luna" : "Journey"}</span>
               </button>
             );
           })}
         </div>
       </div>
 
+      {activeSection === "chat" && activeSpace?.id ? (
+        <div className="rounded-2xl border border-primary/15 bg-white p-1 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.18)]">
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              className={cn(
+                "rounded-xl py-2.5 text-[12px] font-semibold transition",
+                generalLuna ? "bg-primary text-primary-foreground shadow-sm" : "text-slate-600 hover:bg-slate-100",
+              )}
+              onClick={() => setGeneralLuna(true)}
+            >
+              Simple Luna
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "rounded-xl py-2.5 text-[12px] font-semibold transition",
+                !generalLuna ? "bg-primary text-primary-foreground shadow-sm" : "text-slate-600 hover:bg-slate-100",
+              )}
+              onClick={() => setGeneralLuna(false)}
+            >
+              Partner coaching
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* Chat with coach */}
       {activeSection === "chat" && (
         <Card className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-22px_rgba(15,23,42,0.14)]">
-          <CardHeader className="pb-2 pt-4 px-4">
+          <CardHeader className="pb-2 pt-4 px-4 space-y-2">
             <div className="flex items-center justify-between gap-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
-                Luna coaching
+                {showPartnerCoaching
+                  ? "Luna · partner coaching"
+                  : activeSpace?.id
+                    ? "Luna · simple"
+                    : "Luna"}
               </CardTitle>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={!activeSpace?.id || resetChat.isPending}
+                disabled={!showPartnerCoaching || resetChat.isPending}
                 className="h-9 rounded-full font-semibold text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900"
                 onClick={() => setResetOpen(true)}
               >
                 Reset chat
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground leading-relaxed pr-2">
+              {showPartnerCoaching
+                ? `Focused coaching with ${activeSpace?.partner?.name ?? "your match"}.`
+                : activeSpace?.id
+                  ? "Same assistant as before — your messages are saved on this device."
+                  : "General assistant — scroll down to add a match for relationship coaching."}
+            </p>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
-            {/* No space yet - prompt to add partner */}
-            {!activeSpace && (
-              <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Heart className="w-7 h-7 text-primary" />
-                </div>
-                <p className="text-sm font-semibold text-foreground">Add a partner to start chatting</p>
-                <p className="text-xs text-muted-foreground max-w-[220px]">
-                  Select a match above and click <strong>Add To Luna</strong> to begin your AI coaching session.
-                </p>
-                <Button size="sm" variant="outline" className="rounded-full text-xs" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                  Go to partner setup ↑
-                </Button>
+            {showGeneralAssistant && (
+              <div className="h-[min(52svh,440px)] min-h-[300px] overflow-hidden rounded-[18px] border border-stone-200 bg-stone-50/40">
+                <LunaChatPanel
+                  key={lunaAssistantStorageKey ?? "luna-assistant"}
+                  assistantPathname="/relationship-coaching"
+                  persistKey={lunaAssistantStorageKey}
+                  className="min-h-0"
+                />
               </div>
             )}
 
             {/* Chat history */}
-            {activeSpace && <div className="min-h-[280px] max-h-[46svh] overflow-y-auto space-y-3 rounded-[18px] border border-stone-200 bg-stone-50/70 p-3">
+            {showPartnerCoaching && <div className="min-h-[280px] max-h-[46svh] overflow-y-auto space-y-3 rounded-[18px] border border-stone-200 bg-stone-50/70 p-3">
               {messages.length === 0 ? (
                 <div className="text-center py-8 text-xs text-muted-foreground">
                   <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -643,7 +586,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
             </div>}
 
             {/* Input */}
-            {activeSpace && <div className="flex gap-2">
+            {showPartnerCoaching && <div className="flex gap-2">
               <Textarea
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
@@ -671,7 +614,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
               </Button>
             </div>}
 
-            {activeSpace && suggestions.length > 0 && (
+            {showPartnerCoaching && suggestions.length > 0 && (
               <div className="pt-1">
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Luna date suggestions</p>
                 <div className="space-y-2">
@@ -723,9 +666,123 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Partner space — optional; switches Luna from assistant to relationship coaching */}
+      <Card className={cn("rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm", activeSpace ? "border-primary/15" : "")}>
+        <CardContent className="p-4 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Partner for coaching (optional)
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose partner from your matches" />
+              </SelectTrigger>
+              <SelectContent>
+                {matches.map((m) => {
+                  const pid = m.partnerUserId;
+                  if (!pid) return null;
+                  return (
+                    <SelectItem key={pid} value={pid}>
+                      {m.name}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            <Button
+              disabled={!selectedPartnerId || createSpace.isPending}
+              onClick={() => {
+                if (!selectedPartnerId) return;
+                if (activeSpace?.id) {
+                  setGeneralLuna(false);
+                  setActiveSection("chat");
+                  return;
+                }
+                createSpace.mutate(selectedPartnerId);
+              }}
+            >
+              {createSpace.isPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Adding…
+                </span>
+              ) : activeSpace?.id ? (
+                "Open coaching chat"
+              ) : (
+                "Add to Luna"
+              )}
+            </Button>
+          </div>
+          {selectedPartnerId ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {activeSpace?.id ? (
+                <>
+                  <Badge variant="outline">Active</Badge>
+                  <Badge variant="secondary">Private</Badge>
+                </>
+              ) : (
+                <Badge variant="outline">Not added yet</Badge>
+              )}
+            </div>
+          ) : null}
+          {selectedPartnerId && !activeSpace?.id ? (
+            <div className="rounded-2xl border border-dashed border-primary/20 bg-primary/[0.03] px-4 py-3">
+              <p className="text-xs font-semibold text-slate-900">Next step</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Tap <span className="font-semibold">Add to Luna</span> to open partner coaching for this match.
+              </p>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {activeSpace?.partner ? (
+        <Card className="rounded-[24px] border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-white to-white shadow-sm">
+          <CardContent
+            className="p-4 flex items-center gap-3 cursor-pointer"
+            onClick={() => {
+              setGeneralLuna(false);
+              setActiveSection("chat");
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                setGeneralLuna(false);
+                setActiveSection("chat");
+              }
+            }}
+          >
+            <div className="flex -space-x-2">
+              <Avatar className="w-10 h-10 border-2 border-white">
+                <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">You</AvatarFallback>
+              </Avatar>
+              <Avatar className="w-10 h-10 border-2 border-white">
+                <AvatarImage src={activeSpace.partner.avatar || undefined} alt={activeSpace.partner.name} />
+                <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                  {activeSpace.partner.name.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-primary">Coaching with {activeSpace.partner.name}</p>
+              <p className="text-xs text-primary/80">Your relationship, together</p>
+            </div>
+            <Heart className="w-5 h-5 text-primary fill-primary/25 ml-auto" />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-dashed border-primary/25">
+          <CardContent className="p-4 text-center text-sm text-muted-foreground">
+            <Heart className="w-6 h-6 text-primary/40 mx-auto mb-2" />
+            Optional: add a match below to unlock partner coaching and Journey.
+          </CardContent>
+        </Card>
+      )}
+
       {activeSection === "journey" && (
         <div className="space-y-3">
-          {!activeSpace ? (
+          {!activeSpace?.id ? (
             <Card>
               <CardContent className="p-4 text-sm text-muted-foreground">
                 Add a partner to Luna first to see your journey timeline.

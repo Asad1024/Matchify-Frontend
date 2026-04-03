@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useCurrentUser } from "@/contexts/UserContext";
+import { setUserBlocked } from "@/lib/socialPreferencesService";
 
 interface BlockReportDialogProps {
   open: boolean;
@@ -60,11 +61,18 @@ export function BlockReportDialog({
     mutationFn: async () => {
       return apiRequest("POST", `/api/users/${currentUserId}/blocks`, { blockedId: userId });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/blocked`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "social-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "social-feed-lists"] });
+    onSuccess: async () => {
+      if (currentUserId) {
+        try {
+          await setUserBlocked(currentUserId, userId, true);
+        } catch {
+          /* server feed still excludes blocked authors; local filter best-effort */
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/blocked`] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "social-summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "social-feed-lists"] });
       toast({
         title: "User blocked",
         description: `${userName} has been blocked`,

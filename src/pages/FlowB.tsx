@@ -24,7 +24,9 @@ import { getFlowBOptionImage } from "@/lib/attractionFlowImages";
 import { getFlowBOptions, getFlowBSectionOptions, isFlowBImageQuestion, isFlowBSectionQuestion } from "@/lib/flowBImages";
 import { getActorImage } from "@/lib/actorImages";
 import { getAiMatchCooldownLabel, MATCHIFY_LOGO_URL } from "@/lib/matchifyBranding";
-import { FEMALE_FLOW_ORDER, FLOW_B_STEP_COUNT, MALE_FLOW_ORDER } from "@/lib/flowBStepOrder";
+import { FLOW_B_STEP_COUNT } from "@/lib/flowBStepOrder";
+import { useUpgrade } from "@/contexts/UpgradeContext";
+import { normalizeTier, tierAtLeast } from "@/lib/entitlements";
 
 /** AI Matchmaker / Flow B screen theme (Matchify red wine, not legacy purple). */
 const FLOW_BG =
@@ -32,71 +34,6 @@ const FLOW_BG =
 
 /** Centered column — a bit wider on sm+ so wide monitors aren’t all empty margin */
 const FLOW_COL = "mx-auto w-full min-w-0 max-w-lg sm:max-w-xl";
-
-// Build option with actor-style image by index
-const actorOpt = (i: number, id: string, label: string, description = "") =>
-  ({ id, image: getActorImage(i), label, description });
-
-// Body type options - gender-specific
-const FEMALE_BODY_TYPES = [
-  { id: "hourglass", image: "/body-types/female/hourglass.png", label: "Hourglass", description: "Balanced bust and hips" },
-  { id: "round_apple", image: "/body-types/female/round-apple.png", label: "Round/Apple", description: "Fuller midsection" },
-  { id: "pear", image: "/body-types/female/pear.png", label: "Pear", description: "Narrower shoulders, wider hips" },
-  { id: "inverted_triangle", image: "/body-types/female/inverted-triangle.png", label: "Inverted Triangle", description: "Broad shoulders, narrow hips" },
-  { id: "lean_column", image: "/body-types/female/lean-column.png", label: "Lean Column", description: "Athletic, straight build" },
-  { id: "rectangle", image: "/body-types/female/rectangle.png", label: "Rectangle", description: "Straight silhouette" },
-  { id: "petite", image: "/body-types/female/petite.png", label: "Petite", description: "Smaller, delicate frame" },
-  { id: "plus_size", image: "/body-types/female/plus-size.png", label: "Plus Size", description: "Fuller figure" },
-];
-
-const MALE_BODY_TYPES = [
-  { id: "rectangle", image: "/body-types/male/rectangle.png", label: "Rectangle", description: "Uniform width" },
-  { id: "inverted_triangle", image: "/body-types/male/inverted-triangle.png", label: "Inverted Triangle", description: "Broad shoulders, narrow waist" },
-  { id: "trapezoid", image: "/body-types/male/trapezoid.png", label: "Trapezoid", description: "Athletic V-shape" },
-  { id: "triangle", image: "/body-types/male/triangle.png", label: "Triangle", description: "Narrower shoulders, wider hips" },
-  { id: "oval", image: "/body-types/male/oval.png", label: "Oval", description: "Rounded midsection" },
-];
-
-// Face shape options - gender-specific
-const MALE_FACE_SHAPES = [
-  { id: "oval", image: "/face-shapes/male/oval.png", label: "Oval", description: "Balanced proportions" },
-  { id: "square", image: "/face-shapes/male/square.png", label: "Square", description: "Strong angular jawline" },
-  { id: "round", image: "/face-shapes/male/round.png", label: "Round", description: "Soft curves" },
-  { id: "oblong", image: "/face-shapes/male/oblong.png", label: "Oblong", description: "Longer face" },
-  { id: "diamond", image: "/face-shapes/male/diamond.png", label: "Diamond", description: "Wider cheekbones" },
-  { id: "heart", image: "/face-shapes/male/heart.png", label: "Heart", description: "Wider forehead, pointed chin" },
-];
-
-const FEMALE_FACE_SHAPES = [
-  { id: "oval", image: "/face-shapes/female/oval.png", label: "Oval", description: "Balanced proportions" },
-  { id: "square", image: "/face-shapes/female/square.png", label: "Square", description: "Strong angular jawline" },
-  { id: "round", image: "/face-shapes/female/round.png", label: "Round", description: "Soft curves" },
-  { id: "oblong", image: "/face-shapes/female/oblong.png", label: "Oblong", description: "Longer face" },
-  { id: "diamond", image: "/face-shapes/female/diamond.png", label: "Diamond", description: "Wider cheekbones" },
-  { id: "heart", image: "/face-shapes/female/heart.png", label: "Heart", description: "Wider forehead, pointed chin" },
-];
-
-// Eye shape options - universal (same for all genders)
-const EYE_SHAPES = [
-  { id: "round", image: "/eye-shapes/round.png", label: "Round", description: "Visible whites above and below" },
-  { id: "almond", image: "/eye-shapes/almond.png", label: "Almond", description: "Classic almond shape" },
-  { id: "monolid", image: "/eye-shapes/monolid.png", label: "Monolid", description: "No visible crease" },
-  { id: "hooded", image: "/eye-shapes/hooded.png", label: "Hooded", description: "Brow bone folds over lid" },
-  { id: "upturned", image: "/eye-shapes/upturned.png", label: "Upturned", description: "Outer corners lift up" },
-  { id: "downturned", image: "/eye-shapes/downturned.png", label: "Downturned", description: "Outer corners droop down" },
-];
-
-// Lip shape options - universal (same for all genders)
-const LIP_SHAPES = [
-  { id: "heart_shaped", image: "/lip-shapes/heart-shaped.png", label: "Heart-Shaped", description: "Distinct cupid's bow" },
-  { id: "full", image: "/lip-shapes/full.png", label: "Full", description: "Equally plump upper and lower" },
-  { id: "thin", image: "/lip-shapes/thin.png", label: "Thin", description: "Slender and less voluminous" },
-  { id: "wide", image: "/lip-shapes/wide.png", label: "Wide", description: "Extends horizontally" },
-  { id: "round", image: "/lip-shapes/round.png", label: "Round", description: "Circular, plump appearance" },
-  { id: "top_heavy", image: "/lip-shapes/top-heavy.png", label: "Top-Heavy", description: "Fuller upper lip" },
-  { id: "bottom_heavy", image: "/lip-shapes/bottom-heavy.png", label: "Bottom-Heavy", description: "Fuller lower lip" },
-  { id: "balanced", image: "/lip-shapes/balanced.png", label: "Balanced", description: "Evenly proportioned" },
-];
 
 // Base questions structure - will be customized by gender (MESHK-style)
 // ── Shared questions — identical for both genders (self-discovery + dealbreakers) ──
@@ -315,40 +252,40 @@ const buildMaleQuestions = (): any[] => [
     options: getFlowBOptions("energy_vibe", "male"),
   },
   {
-    id: "m_her_physical",
-    title: "What physical type attracts you in a woman?",
+    id: "m_her_presence",
+    title: "What kind of presence draws you to a woman?",
     subtitle: "Pick 1-3",
     description: "",
     type: "image",
     max: 3,
-    options: FEMALE_BODY_TYPES,
+    options: getFlowBOptions("attraction_presence", "male"),
   },
   {
-    id: "m_her_face",
-    title: "What facial features do you love in a woman?",
+    id: "m_her_daily_rhythm",
+    title: "What day-to-day rhythm fits you best together?",
     subtitle: "Pick 1-3",
     description: "",
     type: "image",
     max: 3,
-    options: FEMALE_FACE_SHAPES,
+    options: getFlowBOptions("day_to_day_rhythm", "male"),
   },
   {
-    id: "m_her_eyes",
-    title: "What eye shapes do you find beautiful?",
+    id: "m_her_presentation",
+    title: "What style of presentation do you connect with?",
     subtitle: "Pick 1-3",
     description: "",
     type: "image",
     max: 3,
-    options: getFlowBOptions("eye_shape_preference", "male"),
+    options: getFlowBOptions("presentation_style", "male"),
   },
   {
-    id: "m_her_lips",
-    title: "What lip shapes attract you in a woman?",
+    id: "m_her_first_spark",
+    title: "What stands out to you early on?",
     subtitle: "Pick 1-3",
     description: "",
     type: "image",
     max: 3,
-    options: getFlowBOptions("lip_shape_preference", "male"),
+    options: getFlowBOptions("early_connection_focus", "male"),
   },
   {
     id: "m_her_values",
@@ -537,40 +474,40 @@ const buildFemaleQuestions = (): any[] => {
       options: getFlowBSectionOptions("food", "female"),
     },
     {
-      id: "f_his_physical",
-      title: "What physical type draws you to a man?",
+      id: "f_his_presence",
+      title: "What kind of presence draws you to a man?",
       subtitle: "Pick 1-3",
       description: "",
       type: "image",
       max: 3,
-      options: MALE_BODY_TYPES,
+      options: getFlowBOptions("attraction_presence", "female"),
     },
     {
-      id: "f_his_face",
-      title: "What facial features attract you in a man?",
+      id: "f_his_daily_rhythm",
+      title: "What day-to-day rhythm fits you best together?",
       subtitle: "Pick 1-3",
       description: "",
       type: "image",
       max: 3,
-      options: MALE_FACE_SHAPES,
+      options: getFlowBOptions("day_to_day_rhythm", "female"),
     },
     {
-      id: "f_his_eyes",
-      title: "What eye shapes attract you in a man?",
+      id: "f_his_presentation",
+      title: "What style of presentation do you connect with?",
       subtitle: "Pick 1-3",
       description: "",
       type: "image",
       max: 3,
-      options: getFlowBOptions("eye_shape_preference", "female"),
+      options: getFlowBOptions("presentation_style", "female"),
     },
     {
-      id: "f_his_lips",
-      title: "What lip shapes do you prefer in a man?",
+      id: "f_his_first_spark",
+      title: "What stands out to you early on?",
       subtitle: "Pick 1-3",
       description: "",
       type: "image",
       max: 3,
-      options: getFlowBOptions("lip_shape_preference", "female"),
+      options: getFlowBOptions("early_connection_focus", "female"),
     },
     {
       id: "f_his_provider",
@@ -596,14 +533,14 @@ function getAnswerBucket(questionId: string): string {
     f_his_personality: "personality_turn_on",
     m_her_energy: "energy_vibe",
     f_his_energy: "energy_vibe",
-    m_her_physical: "physical_attraction",
-    f_his_physical: "physical_attraction",
-    m_her_face: "face_shape_preference",
-    f_his_face: "face_shape_preference",
-    m_her_eyes: "eye_shape_preference",
-    f_his_eyes: "eye_shape_preference",
-    m_her_lips: "lip_shape_preference",
-    f_his_lips: "lip_shape_preference",
+    m_her_presence: "attraction_presence",
+    f_his_presence: "attraction_presence",
+    m_her_daily_rhythm: "day_to_day_rhythm",
+    f_his_daily_rhythm: "day_to_day_rhythm",
+    m_her_presentation: "presentation_style",
+    f_his_presentation: "presentation_style",
+    m_her_first_spark: "early_connection_focus",
+    f_his_first_spark: "early_connection_focus",
     m_her_values: "core_values",
     f_his_values: "core_values",
     m_her_style: "lifestyle",
@@ -626,435 +563,49 @@ function getAnswerBucket(questionId: string): string {
 }
 
 // ── FlowB component ───────────────────────────────────────────────────────────
-const _LEGACY_UNUSED = [
-  {
-    id: "personality_turn_on",
-    title: "", // Will be set dynamically based on gender
-    subtitle: "Pick 2-4",
-    description: "",
-    type: "image",
-    max: 4,
-    options: [], // Will be set dynamically based on gender
-  },
-  {
-    id: "physical_attraction",
-    title: "", // Will be set dynamically based on gender
-    subtitle: "Pick 1-3",
-    description: "",
-    type: "image",
-    max: 3,
-    options: [], // Will be set dynamically based on gender
-  },
-  {
-    id: "face_shape_preference",
-    title: "", // Will be set dynamically based on gender
-    subtitle: "Pick 1-3",
-    description: "",
-    type: "image",
-    max: 3,
-    options: [], // Will be set dynamically based on gender
-  },
-  {
-    id: "eye_shape_preference",
-    title: "What eye shapes do you find attractive?",
-    subtitle: "Pick 2-4",
-    description: "",
-    type: "image",
-    max: 4,
-    options: EYE_SHAPES,
-  },
-  {
-    id: "lip_shape_preference",
-    title: "What lip shapes attract you?",
-    subtitle: "Pick 1-3",
-    description: "",
-    type: "image",
-    max: 3,
-    options: LIP_SHAPES,
-  },
-  {
-    id: "energy_vibe",
-    title: "", // Will be set dynamically based on gender
-    subtitle: "Pick 2-4",
-    description: "",
-    type: "image",
-    max: 4,
-    options: [
-      actorOpt(0, "calm", "Calm and peaceful"),
-      actorOpt(1, "confident", "Confident and strong"),
-      actorOpt(2, "playful", "Playful and fun"),
-      actorOpt(3, "mysterious", "Mysterious and intriguing"),
-      actorOpt(4, "intellectual", "Intellectual and thoughtful"),
-      actorOpt(5, "adventurous", "Adventurous and bold"),
-    ],
-  },
-  
-  // SECTION 2: VALUES & CHARACTER
-  {
-    id: "core_values",
-    title: "", // Will be set dynamically based on gender
-    subtitle: "Pick 3-5",
-    description: "",
-    type: "image",
-    max: 5,
-    options: [
-      actorOpt(0, "honesty", "Honesty & Transparency", "Truth in all interactions"),
-      actorOpt(1, "family", "Family First", "Family is top priority"),
-      actorOpt(2, "growth", "Personal Growth", "Continuous learning"),
-      actorOpt(3, "adventure", "Adventure & Freedom", "Exploring new experiences"),
-      actorOpt(4, "stability", "Stability & Security", "Consistency and safety"),
-      actorOpt(5, "creativity", "Creativity & Expression", "Artistic expression"),
-      actorOpt(6, "kindness", "Kindness & Empathy", "Compassion for others"),
-      actorOpt(7, "ambition", "Ambition & Success", "Driven to achieve"),
-    ],
-  },
-  {
-    id: "communication",
-    title: "How do you prefer to connect?",
-    subtitle: "Pick 2-3",
-    description: "",
-    type: "image",
-    max: 3,
-    options: [
-      actorOpt(0, "texter", "Constant texting"),
-      actorOpt(1, "caller", "Voice calls"),
-      actorOpt(2, "inperson", "Face-to-face time"),
-      actorOpt(3, "memes", "Memes & humor"),
-      actorOpt(4, "deep", "Deep conversations"),
-      actorOpt(5, "quick", "Quick check-ins"),
-    ],
-  },
-  {
-    id: "conflict_style",
-    title: "How do you handle disagreements?",
-    subtitle: "Pick 1-2",
-    description: "",
-    type: "image",
-    max: 2,
-    options: [
-      actorOpt(0, "discuss", "Talk it through immediately"),
-      actorOpt(1, "space", "Need space to process"),
-      actorOpt(2, "compromise", "Find middle ground"),
-      actorOpt(3, "avoid", "Let small things pass"),
-    ],
-  },
-  
-  // SECTION 3: LIFESTYLE
-  {
-    id: "lifestyle",
-    title: "How do you want to spend time together?",
-    subtitle: "Pick 2-4",
-    description: "",
-    type: "image",
-    max: 4,
-    options: [
-      actorOpt(0, "travel", "Traveling together"),
-      actorOpt(1, "fitness", "Staying active"),
-      actorOpt(2, "cozy", "Cozy nights in"),
-      actorOpt(3, "social", "Social events"),
-      actorOpt(4, "nature", "Outdoor adventures"),
-      actorOpt(5, "luxury", "Luxury experiences"),
-      actorOpt(6, "creative", "Arts & culture"),
-      actorOpt(7, "work", "Career-focused"),
-    ],
-  },
-  {
-    id: "hobbies",
-    title: "What interests excite you?",
-    subtitle: "Pick 3-4",
-    description: "",
-    type: "image",
-    max: 4,
-    options: [
-      actorOpt(0, "reading", "Reading"),
-      actorOpt(1, "gaming", "Gaming"),
-      actorOpt(2, "cooking", "Cooking"),
-      actorOpt(3, "art", "Art"),
-      actorOpt(4, "music", "Music"),
-      actorOpt(5, "sports", "Sports"),
-      actorOpt(6, "movies", "Movies & TV"),
-      actorOpt(7, "outdoors", "Outdoors"),
-    ],
-  },
-  {
-    id: "sociallife",
-    title: "What's your ideal weekend?",
-    subtitle: "Pick 2-3",
-    description: "",
-    type: "image",
-    max: 3,
-    options: [
-      actorOpt(0, "party", "Night out"),
-      actorOpt(1, "dinner", "Dinner dates"),
-      actorOpt(2, "netflix", "Netflix & chill"),
-      actorOpt(3, "adventure", "Day trips"),
-      actorOpt(4, "brunch", "Brunch"),
-      actorOpt(5, "quiet", "Quiet time"),
-    ],
-  },
-  {
-    id: "food",
-    title: "What's your food vibe?",
-    subtitle: "Pick 2-3",
-    description: "",
-    type: "image",
-    max: 3,
-    options: [
-      actorOpt(0, "foodie", "Foodie"),
-      actorOpt(1, "healthy", "Health-focused"),
-      actorOpt(2, "adventurous", "Try anything"),
-      actorOpt(3, "veg", "Veg/Vegan"),
-      actorOpt(4, "home", "Home cooking"),
-      actorOpt(5, "dining", "Fine dining"),
-    ],
-  },
-  
-  // SECTION 4: FUTURE & GOALS
-  {
-    id: "career",
-    title: "What's your career approach?",
-    subtitle: "Pick 2-3",
-    description: "",
-    type: "image",
-    max: 3,
-    options: [
-      actorOpt(0, "ambitious", "Highly ambitious"),
-      actorOpt(1, "stable", "Stable and secure"),
-      actorOpt(2, "creative", "Creative career"),
-      actorOpt(3, "entrepreneur", "Building my own"),
-      actorOpt(4, "flexible", "Work-life balance"),
-      actorOpt(5, "driven", "Driven to succeed"),
-    ],
-  },
-  {
-    id: "future",
-    title: "What matters most for your future?",
-    subtitle: "Pick 2-3",
-    description: "",
-    type: "image",
-    max: 3,
-    options: [
-      actorOpt(0, "marriage", "Marriage"),
-      actorOpt(1, "kids", "Kids"),
-      actorOpt(2, "travel", "Travel the world"),
-      actorOpt(3, "career", "Career growth"),
-      actorOpt(4, "peace", "Simple and content"),
-      actorOpt(5, "wealth", "Financial success"),
-    ],
-  },
-  {
-    id: "timeline",
-    title: "When are you looking for something serious?",
-    subtitle: "Pick 1",
-    description: "",
-    type: "text",
-    max: 1,
-    options: [
-      { id: "soon", label: "1-2 years" },
-      { id: "medium", label: "3-5 years" },
-      { id: "long", label: "5+ years" },
-      { id: "flexible", label: "Flexible" },
-    ],
-  },
-  {
-    id: "kidsQ",
-    title: "What about kids?",
-    subtitle: "Pick 1",
-    description: "",
-    type: "text",
-    max: 1,
-    options: [
-      { id: "want", label: "Want" },
-      { id: "maybe", label: "Open" },
-      { id: "no", label: "No" },
-      { id: "have", label: "Have" },
-    ],
-  },
-  
-  // SECTION 5: DEALBREAKERS & MUST-HAVES
-  {
-    id: "dealbreakers",
-    title: "What are absolute dealbreakers?",
-    subtitle: "Pick up to 3",
-    description: "",
-    type: "dealbreaker",
-    max: 3,
-    options: [
-      { id: "smoking", label: "Smoking" },
-      { id: "drinking", label: "Excessive drinking" },
-      { id: "no-ambition", label: "No ambition" },
-      { id: "dishonesty", label: "Dishonesty" },
-      { id: "jealousy", label: "Jealousy" },
-      { id: "communication", label: "Poor communication" },
-      { id: "disrespect", label: "Disrespect" },
-      { id: "different-values", label: "Different values" },
-    ],
-  },
-  {
-    id: "mustHave",
-    title: "What are your must-haves?",
-    subtitle: "Pick 3",
-    description: "",
-    type: "text",
-    max: 3,
-    options: [
-      { id: "chemistry", label: "Chemistry" },
-      { id: "trust", label: "Trust" },
-      { id: "humor", label: "Humor" },
-      { id: "ambition", label: "Ambition" },
-      { id: "kindness", label: "Kindness" },
-      { id: "attraction", label: "Attraction" },
-      { id: "support", label: "Support" },
-      { id: "goals", label: "Shared goals" },
-    ],
-  },
-  // SECTION 6: Readiness & relationship goals
-  {
-    id: "sd_commitment",
-    title: "What are you looking for right now?",
-    subtitle: "Pick 1",
-    description: "",
-    type: "text",
-    max: 1,
-    options: [
-      { id: "hookup", label: "Casual connections" },
-      { id: "casual", label: "Casual dating" },
-      { id: "serious", label: "Serious relationship" },
-      { id: "marriage", label: "Marriage-minded" },
-    ],
-  },
-  {
-    id: "sd_love_language",
-    title: "How do you most feel loved?",
-    subtitle: "Pick 1",
-    description: "",
-    type: "text",
-    max: 1,
-    options: [
-      { id: "words", label: "Words of Affirmation" },
-      { id: "acts", label: "Acts of Service" },
-      { id: "gifts", label: "Receiving Gifts" },
-      { id: "time", label: "Quality Time" },
-      { id: "touch", label: "Physical Touch" },
-    ],
-  },
-  {
-    id: "sd_priorities",
-    title: "Choose your top relationship priorities",
-    subtitle: "Pick 3",
-    description: "",
-    type: "text",
-    max: 3,
-    options: [
-      { id: "faith", label: "Faith & Spirituality" },
-      { id: "family", label: "Family" },
-      { id: "career", label: "Career & Ambition" },
-      { id: "travel", label: "Travel & Adventure" },
-      { id: "health", label: "Health & Fitness" },
-      { id: "growth", label: "Personal Growth" },
-      { id: "loyalty", label: "Loyalty & Trust" },
-      { id: "humor", label: "Fun & Humour" },
-    ],
-  },
-  {
-    id: "sd_ready_healed",
-    title: "I have healed from past relationship wounds",
-    subtitle: "Pick 1",
-    description: "Rate from 1 (not yet) to 5 (absolutely)",
-    type: "text",
-    max: 1,
-    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
-  },
-  {
-    id: "sd_ready_values",
-    title: "I know my own values and deal-breakers",
-    subtitle: "Pick 1",
-    description: "Rate from 1 (not yet) to 5 (absolutely)",
-    type: "text",
-    max: 1,
-    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
-  },
-  {
-    id: "sd_ready_communication",
-    title: "I communicate openly and honestly",
-    subtitle: "Pick 1",
-    description: "Rate from 1 (not yet) to 5 (absolutely)",
-    type: "text",
-    max: 1,
-    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
-  },
-  {
-    id: "sd_ready_available",
-    title: "I'm emotionally available for a new relationship",
-    subtitle: "Pick 1",
-    description: "Rate from 1 (not yet) to 5 (absolutely)",
-    type: "text",
-    max: 1,
-    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
-  },
-  {
-    id: "sd_ready_respect",
-    title: "I respect different perspectives and boundaries",
-    subtitle: "Pick 1",
-    description: "Rate from 1 (not yet) to 5 (absolutely)",
-    type: "text",
-    max: 1,
-    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
-  },
-  {
-    id: "sd_ready_accountability",
-    title: "I take accountability for my actions",
-    subtitle: "Pick 1",
-    description: "Rate from 1 (not yet) to 5 (absolutely)",
-    type: "text",
-    max: 1,
-    options: [{ id: "1", label: "1" }, { id: "2", label: "2" }, { id: "3", label: "3" }, { id: "4", label: "4" }, { id: "5", label: "5" }],
-  },
-  {
-    id: "sd_relationship_goal",
-    title: "What relationship dynamic feels right for you?",
-    subtitle: "Pick 1",
-    description: "",
-    type: "text",
-    max: 1,
-    options: [
-      { id: "slow", label: "Slow and intentional" },
-      { id: "balanced", label: "Balanced pace" },
-      { id: "fast", label: "Move quickly if it feels right" },
-    ],
-  },
-  {
-    id: "sd_partner_pace",
-    title: "How should your match approach commitment?",
-    subtitle: "Pick 1",
-    description: "",
-    type: "text",
-    max: 1,
-    options: [
-      { id: "careful", label: "Careful and steady" },
-      { id: "confident", label: "Confident and clear" },
-      { id: "flexible", label: "Flexible and adaptive" },
-    ],
-  },
-];
 
 export default function FlowB() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { toast } = useToast();
+  const { tier, openUpgrade } = useUpgrade();
+  const openUpgradeRef = useRef(openUpgrade);
+  openUpgradeRef.current = openUpgrade;
+  /** Reset when starting the questionnaire again from intro */
+  const autoUpgradeOpenedRef = useRef(false);
   const [currentQ, setCurrentQ] = useState(-1);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
-  /** Start AI-match cooldown when user sees their single curated match (once per completion). */
+  /** Start AI-match cooldown when user sees their single AI match (once per completion). */
   const curatedCooldownRecordedRef = useRef(false);
+  /** Only call claim-next once per questionnaire completion; effect deps (gender, tier) can re-fire otherwise. */
+  const flowResultsClaimAttemptedRef = useRef(false);
   /** Latest answers for results effect (avoid effect deps on every tap). */
   const answersRef = useRef(answers);
   answersRef.current = answers;
+
+  /** Auto-advance after single-select (max === 1); cleared on step change / unmount. */
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+  }, [currentQ]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingMatches, setIsLoadingMatches] = useState(false);
   const [matches, setMatches] = useState<AIMatch[]>([]);
   /** Set when /ai-matches returns — openai = LLM-ranked; fallback = placeholder scores. */
-  const [matchRankingSource, setMatchRankingSource] = useState<"openai" | "fallback" | null>(null);
+  const [matchRankingSource, setMatchRankingSource] = useState<"gemini" | "openai" | "fallback" | null>(
+    null,
+  );
   const [selectedMatch, setSelectedMatch] = useState<AIMatch | null>(null);
 
   // Get user gender for gender-specific matching
@@ -1075,9 +626,17 @@ export default function FlowB() {
   const QUESTIONS = sessionQuestions ?? liveQuestions;
 
   useEffect(() => {
-    if (currentQ !== QUESTIONS.length) return;
+    if (currentQ !== QUESTIONS.length) {
+      flowResultsClaimAttemptedRef.current = false;
+      return;
+    }
     if (!userId) {
       setIsSaving(false);
+      setIsLoadingMatches(false);
+      return;
+    }
+    if (userProfileLoading) {
+      setIsSaving(true);
       setIsLoadingMatches(false);
       return;
     }
@@ -1085,16 +644,17 @@ export default function FlowB() {
 
     const saveAndFetch = async () => {
       const a = answersRef.current;
+      const paidTier = tierAtLeast(normalizeTier((currentUser as { membershipTier?: unknown })?.membershipTier), "plus");
       setIsSaving(true);
-      setIsLoadingMatches(true);
+      setIsLoadingMatches(paidTier);
       try {
         const blueprint = {
           flowType: "flow-b" as const,
           stylePreferences: a.personality_turn_on || [],
-          bodyPreferences: a.physical_attraction || [],
-          faceShapePreferences: a.face_shape_preference || [],
-          eyeShapePreferences: a.eye_shape_preference || [],
-          lipShapePreferences: a.lip_shape_preference || [],
+          presencePreferences: a.attraction_presence || [],
+          rhythmPreferences: a.day_to_day_rhythm || [],
+          presentationStylePreferences: a.presentation_style || [],
+          earlyConnectionPreferences: a.early_connection_focus || [],
           energyPreferences: a.energy_vibe || [],
           coreValues: a.core_values || [],
           communicationStyle: a.communication || [],
@@ -1160,20 +720,53 @@ export default function FlowB() {
           }),
         });
 
-        let rankingSource: "openai" | "fallback" = "fallback";
+        await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+
+        if (!paidTier) {
+          if (!cancelled) {
+            setMatchRankingSource(null);
+            setMatches([]);
+            curatedCooldownRecordedRef.current = false;
+            if (!autoUpgradeOpenedRef.current) {
+              autoUpgradeOpenedRef.current = true;
+              openUpgradeRef.current({
+                feature: "AI Matchmaker",
+                minTier: "plus",
+                reason:
+                  "Your answers are saved. Upgrade to Plus to generate your personalized AI match and unlock timed picks.",
+              });
+            }
+          }
+          return;
+        }
+
+        let rankingSource: "gemini" | "openai" | "fallback" = "fallback";
         let top: AIMatch | undefined;
-        try {
-          const claimed = await claimNextCuratedMatch(userId);
-          rankingSource = claimed.rankingSource;
-          top = claimed.match ?? undefined;
-        } catch (claimErr) {
-          const st = (claimErr as { status?: number })?.status;
-          if (st === 409) {
+        if (flowResultsClaimAttemptedRef.current) {
+          try {
             const { matches: aiList, rankingSource: rs } = await getAIMatches(userId, { limit: 1 });
             rankingSource = rs;
             top = aiList[0];
-          } else {
-            throw claimErr;
+          } catch {
+            rankingSource = "fallback";
+            top = undefined;
+          }
+        } else {
+          flowResultsClaimAttemptedRef.current = true;
+          try {
+            const claimed = await claimNextCuratedMatch(userId);
+            rankingSource = claimed.rankingSource;
+            top = claimed.match ?? undefined;
+          } catch (claimErr) {
+            const st = (claimErr as { status?: number })?.status;
+            if (st === 409) {
+              const { matches: aiList, rankingSource: rs } = await getAIMatches(userId, { limit: 1 });
+              rankingSource = rs;
+              top = aiList[0];
+            } else {
+              flowResultsClaimAttemptedRef.current = false;
+              throw claimErr;
+            }
           }
         }
         if (!cancelled) {
@@ -1184,23 +777,35 @@ export default function FlowB() {
       } catch (error) {
         console.error("Error saving blueprint or fetching matches:", error);
         if (!cancelled) {
-          setMatchRankingSource("fallback");
-          toast({
-            title: "Error",
-            description: "Failed to save preferences. Showing sample matches.",
-            variant: "destructive",
-          });
-          const fallback: AIMatch = {
-            id: "1",
-            name: "Emily",
-            age: 28,
-            image: getActorImage(0),
-            compatibility: 85,
-            reasons: ["Shared life goals", "Values match"],
-            emphasis: "Goals, Education & Values",
-          };
-          setMatches([fallback]);
-          curatedCooldownRecordedRef.current = true;
+          if (
+            !tierAtLeast(normalizeTier((currentUser as { membershipTier?: unknown })?.membershipTier), "plus")
+          ) {
+            setMatchRankingSource(null);
+            setMatches([]);
+            toast({
+              title: "Could not save",
+              description: "Something went wrong saving your answers. Please try again.",
+              variant: "destructive",
+            });
+          } else {
+            setMatchRankingSource("fallback");
+            toast({
+              title: "Error",
+              description: "Failed to save preferences. Showing sample matches.",
+              variant: "destructive",
+            });
+            const fallback: AIMatch = {
+              id: "1",
+              name: "Emily",
+              age: 28,
+              image: getActorImage(0),
+              compatibility: 85,
+              reasons: ["Shared life goals", "Values match"],
+              emphasis: "Goals, Education & Values",
+            };
+            setMatches([fallback]);
+            curatedCooldownRecordedRef.current = true;
+          }
         }
       } finally {
         if (!cancelled) {
@@ -1214,19 +819,61 @@ export default function FlowB() {
     return () => {
       cancelled = true;
     };
-  }, [currentQ, QUESTIONS.length, userId, userGender, toast]);
+  }, [
+    currentQ,
+    QUESTIONS.length,
+    userId,
+    userGender,
+    toast,
+    userProfileLoading,
+    currentUser?.membershipTier,
+  ]);
 
-  const toggleAnswer = (qId: string, optionId: string, max: number) => {
-    setAnswers(prev => {
-      const key = getAnswerBucket(qId);
-      const current = prev[key] || [];
-      if (current.includes(optionId)) {
-        return { ...prev, [key]: current.filter(id => id !== optionId) };
-      } else if (current.length < max) {
-        return { ...prev, [key]: [...current, optionId] };
-      }
-      return prev;
-    });
+  /**
+   * Multi-select: toggle on/off until max. Single-select (max === 1): replace choice so another
+   * option can be picked in one tap; optional auto-advance after a short delay.
+   */
+  const handleFlowOptionClick = (q: { id: string; max: number }, optionId: string) => {
+    const key = getAnswerBucket(q.id);
+    const current = answersRef.current[key] || [];
+
+    let next: string[] | null = null;
+    let autoAdvance = false;
+
+    if (current.includes(optionId)) {
+      next = current.filter((id) => id !== optionId);
+    } else if (q.max === 1) {
+      next = [optionId];
+      autoAdvance = true;
+    } else if (current.length < q.max) {
+      next = [...current, optionId];
+    }
+
+    if (next === null) return;
+
+    const merged = { ...answersRef.current, [key]: next };
+    answersRef.current = merged;
+    setAnswers(merged);
+
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+
+    if (autoAdvance) {
+      const stepWhenClicked = currentQ;
+      const total = QUESTIONS.length;
+      advanceTimerRef.current = setTimeout(() => {
+        advanceTimerRef.current = null;
+        setCurrentQ((cq) => {
+          if (cq !== stepWhenClicked) return cq;
+          const lastIdx = total - 1;
+          if (cq < lastIdx) return cq + 1;
+          setIsLoadingMatches(true);
+          return total;
+        });
+      }, 340);
+    }
   };
 
   const progress = currentQ < 0 ? 0 : currentQ >= QUESTIONS.length ? 100 : ((currentQ + 1) / QUESTIONS.length) * 100;
@@ -1345,7 +992,7 @@ export default function FlowB() {
             </p>
             <p className="mx-auto max-w-md text-xs leading-relaxed text-white/60">
               We rank members from a wider pool (richer profiles first). When you finish, your top pick is
-              scored with AI from your answers. Next curated pick every {getAiMatchCooldownLabel()}.
+              scored with AI from your answers. Next AI match every {getAiMatchCooldownLabel()}.
             </p>
           </motion.div>
           
@@ -1393,6 +1040,7 @@ export default function FlowB() {
               disabled={!userId || userProfileLoading}
               onClick={() => {
                 curatedCooldownRecordedRef.current = false;
+                autoUpgradeOpenedRef.current = false;
                 setMatchRankingSource(null);
                 const resolvedGender = userGender === "female" ? "female" : "male";
                 setSessionQuestions(getQuestions(resolvedGender));
@@ -1422,13 +1070,25 @@ export default function FlowB() {
     const coreValues = answers.core_values || [];
     const coreValuesOptions =
       QUESTIONS.find((qq: any) => getAnswerBucket(qq.id) === "core_values")?.options ?? [];
+    const unlockAiMatch = tierAtLeast(
+      normalizeTier(
+        currentUser != null
+          ? (currentUser as { membershipTier?: unknown }).membershipTier
+          : tier,
+      ),
+      "plus",
+    );
 
     if (isSaving || isLoadingMatches) {
       return (
         <div className={`${FLOW_BG} flex items-center justify-center px-4`}>
           <div className={`${FLOW_COL} text-center`}>
             <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-white/80">Finding your curated match…</p>
+            <p className="text-sm text-white/80">
+              {unlockAiMatch
+                ? "Saving your profile and finding your AI match…"
+                : "Saving your answers…"}
+            </p>
           </div>
         </div>
       );
@@ -1439,14 +1099,16 @@ export default function FlowB() {
         <div className={`${FLOW_COL} space-y-3 px-4`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-white drop-shadow-lg sm:text-2xl">Your curated match</h2>
+            <h2 className="text-xl font-bold text-white drop-shadow-lg sm:text-2xl">
+              {unlockAiMatch || matches.length > 0 ? "Your AI match" : "You're almost there"}
+            </h2>
             <p className="mt-0.5 text-[11px] text-white/60 sm:text-xs">
               From {totalAnswers.length} answers across {FLOW_B_STEP_COUNT} steps
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
             <Badge className="border border-white/30 bg-white/20 px-2.5 py-1 text-xs text-white">AI</Badge>
-            {matchRankingSource === "openai" && (
+            {(matchRankingSource === "openai" || matchRankingSource === "gemini") && (
               <span className="text-[10px] font-medium text-emerald-200/90">AI-ranked</span>
             )}
             {matchRankingSource === "fallback" && (
@@ -1457,17 +1119,19 @@ export default function FlowB() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md">
-          <p className="text-xs leading-relaxed text-white/90">
-            <span className="font-semibold text-white">
-              Next pick in {getAiMatchCooldownLabel()}.
-            </span>{" "}
-            {matchRankingSource === "openai"
-              ? "Compatibility scores and reasons below are from AI using your blueprint and member profiles."
-              : "Scores below are approximate until AI ranking succeeds (e.g. network or API issue)."}
-            {" "}Directory boost on the AI Matchmaker home uses the same timer.
-          </p>
-        </div>
+        {unlockAiMatch ? (
+          <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md">
+            <p className="text-xs leading-relaxed text-white/90">
+              <span className="font-semibold text-white">
+                Next AI match in {getAiMatchCooldownLabel()}.
+              </span>{" "}
+              {matchRankingSource === "openai" || matchRankingSource === "gemini"
+                ? "Compatibility scores and reasons below are from AI using your blueprint and member profiles."
+                : "Scores below are approximate until AI ranking succeeds (e.g. network or API issue)."}
+              {" "}Directory boost on the AI Matchmaker home uses the same timer.
+            </p>
+          </div>
+        ) : null}
 
         {coreValues.length > 0 && (
           <div className="rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur-md">
@@ -1576,9 +1240,49 @@ export default function FlowB() {
               </motion.div>
               );
             })()
+          ) : !unlockAiMatch ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/25 via-white/10 to-white/5 p-5 shadow-lg shadow-primary/10 backdrop-blur-md sm:p-6"
+            >
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 ring-1 ring-primary/30">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="text-lg font-bold text-white sm:text-xl">Upgrade to unlock your AI match</h3>
+              </div>
+              <p className="mb-5 text-sm leading-relaxed text-white/80">
+                Your answers are saved to your profile. Plus unlocks your personalized AI pick, timed matches in
+                Discover, and the full AI Matchmaker experience.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <Button
+                  size="lg"
+                  className="rounded-full bg-primary font-bold text-primary-foreground shadow-md shadow-primary/30 hover:bg-primary/90"
+                  onClick={() =>
+                    openUpgrade({
+                      feature: "AI Matchmaker",
+                      minTier: "plus",
+                      reason: "Generate your AI match and unlock timed picks with Plus.",
+                    })
+                  }
+                >
+                  Upgrade to Plus
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="rounded-full border-white/35 bg-white/10 text-white hover:bg-white/15"
+                  onClick={() => setLocation("/subscriptions")}
+                >
+                  View plans
+                </Button>
+              </div>
+            </motion.div>
           ) : (
             <div className="text-center py-12">
-              <p className="text-sm text-white/80 mb-2">No curated pick this cycle.</p>
+              <p className="text-sm text-white/80 mb-2">No AI match this cycle.</p>
               <p className="text-xs text-white/60">
                 Try People to explore more profiles, or check back after the next {getAiMatchCooldownLabel()} cooldown.
               </p>
@@ -1623,6 +1327,7 @@ export default function FlowB() {
             if (currentQ > 0) {
               setCurrentQ(currentQ - 1);
             } else {
+              autoUpgradeOpenedRef.current = false;
               setSessionQuestions(null);
               setCurrentQ(-1);
             }
@@ -1642,11 +1347,12 @@ export default function FlowB() {
         </div>
       </div>
 
-      <div className={`${FLOW_COL} min-h-0 flex-1 overflow-y-auto px-4 pb-24`}>
+      <div className={`${FLOW_COL} min-h-0 flex-1 overflow-y-auto px-4 ${q.max === 1 ? "pb-20" : "pb-28"}`}>
         <motion.div
           key={currentQ}
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 380, damping: 32 }}
           className="mb-5 sm:mb-6"
         >
           <h2 className="mb-2 text-xl font-bold leading-tight text-white drop-shadow-lg sm:text-2xl md:text-3xl">
@@ -1672,7 +1378,7 @@ export default function FlowB() {
               return (
                 <motion.button
                   key={opt.id}
-                  onClick={() => toggleAnswer(q.id, opt.id, q.max)}
+                  onClick={() => handleFlowOptionClick(q, opt.id)}
                   initial={{ opacity: 0, scale: 0.8, y: 20 }}
                   animate={{ 
                     opacity: 1, 
@@ -1680,24 +1386,24 @@ export default function FlowB() {
                     y: 0
                   }}
                   transition={{ 
-                    delay: index * 0.05,
+                    delay: index * 0.04,
                     type: "spring",
-                    stiffness: 300,
-                    damping: 25
+                    stiffness: 400,
+                    damping: 28
                   }}
-                  className={`relative aspect-square overflow-hidden rounded-xl transition-all ${
+                  className={`relative aspect-square overflow-hidden rounded-2xl transition-all duration-300 ${
                     isSelected 
-                      ? 'ring-2 ring-primary shadow-2xs sm:ring-[3px]' 
-                      : 'ring-1 ring-white/20 hover:ring-primary/40 sm:ring-2'
+                      ? 'ring-2 ring-primary shadow-lg shadow-primary/25 sm:ring-[3px]' 
+                      : 'ring-1 ring-white/25 hover:ring-primary/50 sm:ring-2'
                   }`}
                   data-testid={`option-${q.id}-${opt.id}`}
-                  whileHover={!isSelected ? { scale: 1.05, y: -4 } : {}}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={!isSelected ? { scale: 1.03, y: -3 } : { scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
                 >
                   <motion.div
                     className="w-full h-full"
-                    animate={isSelected ? { scale: 1.1, filter: "brightness(1.1)" } : {}}
-                    transition={{ duration: 0.3 }}
+                    animate={isSelected ? { scale: 1.08, filter: "brightness(1.08)" } : { scale: 1 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 22 }}
                   >
                     <ImageWithFallback
                       src={opt.image}
@@ -1838,17 +1544,17 @@ export default function FlowB() {
                     stiffness: 300,
                     damping: 25
                   }}
-                  onClick={() => toggleAnswer(q.id, opt.id, q.max)}
-                  className={`rounded-full px-3 py-2.5 text-left text-xs font-medium backdrop-blur-md transition-all sm:px-4 sm:py-3 sm:text-sm ${
+                  onClick={() => handleFlowOptionClick(q, opt.id)}
+                  className={`rounded-full px-3 py-2.5 text-left text-xs font-medium backdrop-blur-md transition-all duration-300 sm:px-4 sm:py-3 sm:text-sm ${
                     isSelected 
                       ? isDealbreaker 
-                        ? 'bg-red-500/30 text-red-200 ring-2 ring-red-400/50 shadow-2xs sm:ring-[3px]' 
-                        : 'bg-primary/25 text-white ring-2 ring-primary/60 shadow-2xs sm:ring-[3px]'
-                      : 'border border-white/20 bg-white/10 text-white/70 hover:bg-white/15'
+                        ? 'bg-red-500/35 text-red-100 ring-2 ring-red-400/60 shadow-md shadow-red-950/30 sm:ring-[3px]' 
+                        : 'bg-primary/30 text-white ring-2 ring-primary/70 shadow-md shadow-primary/20 sm:ring-[3px]'
+                      : 'border border-white/25 bg-white/10 text-white/75 hover:border-white/35 hover:bg-white/[0.14]'
                   }`}
                   data-testid={`option-${q.id}-${opt.id}`}
-                  whileHover={!isSelected ? { scale: 1.05, y: -2 } : {}}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={!isSelected ? { scale: 1.03, y: -1 } : { scale: 1.01 }}
+                  whileTap={{ scale: 0.97 }}
                 >
                   {isDealbreaker && isSelected && (
                     <motion.span
@@ -1876,17 +1582,38 @@ export default function FlowB() {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t border-primary/20 bg-black/90 backdrop-blur safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 border-t border-white/10 bg-gradient-to-t from-black via-black/92 to-black/80 backdrop-blur-xl safe-bottom">
         <div className={`${FLOW_COL} px-4 py-3`}>
-          <Button 
-            size="lg"
-            className="h-11 w-full rounded-full bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 sm:h-12"
-            onClick={goNext}
-            disabled={!canProceed()}
-          >
-            {currentQ === QUESTIONS.length - 1 ? "See matches" : "Next"}
-            <ChevronRight className="ml-2 h-5 w-5 shrink-0" />
-          </Button>
+          {q.max === 1 ? (
+            <div className="flex flex-col items-center gap-2 py-0.5">
+              <p className="text-center text-[11px] font-medium leading-snug text-white/55 sm:text-xs">
+                Tap your answer — we&apos;ll move on automatically
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 text-xs text-white/70 hover:bg-white/10 hover:text-white"
+                onClick={goNext}
+                disabled={!canProceed()}
+              >
+                Next manually
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="lg"
+              className={`h-11 w-full rounded-full bg-primary font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:bg-primary/90 hover:shadow-primary/35 sm:h-12 ${
+                canProceed() ? "ring-1 ring-primary/40" : ""
+              }`}
+              onClick={goNext}
+              disabled={!canProceed()}
+            >
+              {currentQ === QUESTIONS.length - 1 ? "See matches" : "Next"}
+              <ChevronRight className="ml-2 h-5 w-5 shrink-0" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

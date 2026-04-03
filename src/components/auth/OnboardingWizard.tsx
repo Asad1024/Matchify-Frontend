@@ -150,36 +150,6 @@ type ChapterType =
   | "photos"
   | "blueprint";
 
-const JOURNEY_STYLES = [
-  {
-    id: 'fast' as JourneyStyle,
-    title: "Fast & Fun",
-    subtitle: "Quick game-style setup",
-    icon: Zap,
-    description: "Complete in 5 minutes with interactive games",
-    color: "from-primary/80 to-primary/40",
-    timeEstimate: "~5 min",
-  },
-  {
-    id: 'deep' as JourneyStyle,
-    title: "Deep & Thoughtful",
-    subtitle: "Story-driven exploration",
-    icon: BookOpen,
-    description: "Take your time with narrative chapters",
-    color: "from-primary/80 to-primary/50",
-    timeEstimate: "~10 min",
-  },
-  {
-    id: 'conversational' as JourneyStyle,
-    title: "Conversational",
-    subtitle: "Chat with AI matchmaker",
-    icon: MessageCircle,
-    description: "Natural conversation with real-time insights",
-    color: "from-primary/70 to-primary/40",
-    timeEstimate: "~8 min",
-  },
-];
-
 // AI Insights Generator
 const generateInsight = (chapter: string, answers: any, journeyStyle: JourneyStyle): string => {
   const insights: Record<string, Record<string, string[]>> = {
@@ -279,7 +249,7 @@ interface ChatMessage {
 }
 
 export default function OnboardingWizard({ userId, initialData, onComplete, onClose }: OnboardingWizardProps) {
-  const [journeyStyle, setJourneyStyle] = useState<JourneyStyle>(null);
+  const [journeyStyle] = useState<JourneyStyle>("deep");
   const [currentChapter, setCurrentChapter] = useState<ChapterType>('intro');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -384,7 +354,7 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
     onSuccess: async () => {
       toast({
         title: "Profile completed!",
-        description: "Now let's discover who you are",
+        description: "Welcome — opening your Marriage home.",
       });
       
       // Update user object in localStorage
@@ -399,29 +369,7 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
         }
       }
       localStorage.setItem("onboardingCompleted", "true");
-      
-      try {
-        const user = await apiRequest("GET", `/api/users/${userId}`);
-        const userData = await user.json();
-        if (!userData.selfDiscoveryCompleted) {
-          window.location.href = "/ai-matchmaker/flow-b";
-          return;
-        }
-      } catch (error) {
-        const currentUser = localStorage.getItem("currentUser");
-        if (currentUser) {
-          try {
-            const user = JSON.parse(currentUser);
-            if (!user.selfDiscoveryCompleted) {
-              window.location.href = "/ai-matchmaker/flow-b";
-              return;
-            }
-          } catch (e) {
-            // Fall through
-          }
-        }
-      }
-      
+
       onComplete();
     },
     onError: () => {
@@ -429,14 +377,8 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
       if (currentUserStr) {
         try {
           const user = JSON.parse(currentUserStr);
-        const updatedUser = { ...user, onboardingCompleted: true };
-        localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-        
-        if (!user.selfDiscoveryCompleted) {
-          localStorage.setItem("onboardingCompleted", "true");
-          window.location.href = "/ai-matchmaker/flow-b";
-          return;
-        }
+          const updatedUser = { ...user, onboardingCompleted: true };
+          localStorage.setItem("currentUser", JSON.stringify(updatedUser));
         } catch (e) {
           // Ignore parse errors
         }
@@ -623,105 +565,6 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
       window.location.href = "/login";
     }
   };
-
-  // Render Journey Style Selection
-  if (!journeyStyle) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 flex items-center justify-center p-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.15),rgba(255,255,255,0))]" />
-        
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-5xl relative z-10"
-        >
-          <Card className="shadow-2xl border-primary/20 relative">
-            {/* Back button - top left */}
-            {onClose && (
-              <div className="absolute top-4 left-4 z-20">
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onClose}
-                  className="flex items-center gap-2 rounded-full bg-muted/80 hover:bg-muted border border-border px-4 py-2.5 text-sm font-medium"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back
-                </motion.button>
-              </div>
-            )}
-            <CardContent className="p-8 sm:p-12">
-              <div className="text-center mb-12">
-                <motion.div
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", stiffness: 200 }}
-                  className="mb-6"
-                >
-                  <Sparkles className="w-16 h-16 text-primary mx-auto" />
-                </motion.div>
-                <h1 className="text-4xl sm:text-5xl font-display font-bold mb-4">
-                  Welcome to Your Matchmaking Journey
-                </h1>
-                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                  Choose how you'd like to discover yourself and find your perfect match. 
-                  Every experience is tailored to understand who you are.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {JOURNEY_STYLES.map((style) => {
-                  const StyleIcon = style.icon;
-                  return (
-                    <motion.button
-                      key={style.id}
-                      whileHover={{ scale: 1.05, y: -5 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        setJourneyStyle(style.id);
-                        setCurrentChapter('intro');
-                        if (style.id === 'conversational') {
-                          setChatMessages([]);
-                        }
-                      }}
-                      className={`p-8 rounded-2xl border-2 transition-all text-left bg-gradient-to-br ${style.color} border-primary/30 hover:border-primary/60 shadow-lg hover:shadow-xl relative overflow-hidden group`}
-                    >
-                      <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative z-10">
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ delay: 0.1 }}
-                          className="mb-4"
-                        >
-                          <StyleIcon className="w-12 h-12 text-white mx-auto" />
-                        </motion.div>
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                          <h3 className="text-2xl font-bold text-white">{style.title}</h3>
-                        </div>
-                        <p className="text-white/90 mb-2 font-medium">{style.subtitle}</p>
-                        <p className="text-white/80 text-sm mb-3">{style.description}</p>
-                        <Badge className="bg-white/20 text-white border-white/30">
-                          {style.timeEstimate}
-                        </Badge>
-                      </div>
-                    </motion.button>
-                  );
-                })}
-              </div>
-
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  Don't worry - you can always change your approach later
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    );
-  }
 
   // Render Story Chapters
   const chapterData = getCurrentChapterData();

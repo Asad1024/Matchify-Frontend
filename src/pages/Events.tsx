@@ -86,6 +86,20 @@ export default function Events() {
     refetchOnMount: true, // Always refetch when component mounts
   });
 
+  type EventsNotificationRow = {
+    id: string;
+    type?: string;
+    relatedEntityId?: string | null;
+    read?: boolean | null;
+  };
+
+  const { data: eventNotifications = [] } = useQuery<EventsNotificationRow[]>({
+    queryKey: ["/api/users", currentUserId, "notifications"],
+    enabled: !!currentUserId,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
   const rsvpMutation = useMutation({
     mutationFn: async ({ eventId }: { eventId: string }) => {
       const res = await apiRequest('POST', '/api/events/rsvps', { userId: currentUserId, eventId });
@@ -279,6 +293,20 @@ export default function Events() {
     return safeRsvps.some((r: any) => r && r.eventId === eventId);
   };
 
+  const invitedEventIdsWithoutRsvp = useMemo(() => {
+    const list = Array.isArray(eventNotifications) ? eventNotifications : [];
+    const safeRsvps = Array.isArray(rsvps) ? rsvps : [];
+    const rsvpIds = new Set(safeRsvps.map((r: any) => r?.eventId).filter(Boolean));
+    const ids = new Set<string>();
+    for (const n of list) {
+      if (String(n.type) !== "ai_event_invite" || !n.relatedEntityId) continue;
+      const eid = String(n.relatedEntityId);
+      if (rsvpIds.has(eid)) continue;
+      ids.add(eid);
+    }
+    return ids;
+  }, [eventNotifications, rsvps]);
+
   // Ensure events is always an array
   const safeEvents = Array.isArray(events) ? events : [];
   const onlineEvents = safeEvents.filter(e => e && e.type === 'online');
@@ -296,6 +324,9 @@ export default function Events() {
       list = list.filter((event) => safeRsvps.some((r: any) => r && r.eventId === event.id));
     }
     return [...list].sort((a, b) => {
+      const aInv = invitedEventIdsWithoutRsvp.has(a.id) ? 1 : 0;
+      const bInv = invitedEventIdsWithoutRsvp.has(b.id) ? 1 : 0;
+      if (aInv !== bInv) return bInv - aInv;
       if (sortBy === "popular") {
         return (b.attendeesCount || 0) - (a.attendeesCount || 0);
       }
@@ -303,7 +334,15 @@ export default function Events() {
       const bDate = new Date((b as any).createdAt || b.id).getTime();
       return bDate - aDate;
     });
-  }, [safeEvents, onlineEvents, offlineEvents, filterType, scope, sortBy, rsvps]);
+  }, [safeEvents, onlineEvents, offlineEvents, filterType, scope, sortBy, rsvps, invitedEventIdsWithoutRsvp]);
+
+  const firstPendingInviteEventId = useMemo(() => {
+    for (const e of safeEvents) {
+      if (invitedEventIdsWithoutRsvp.has(e.id)) return e.id;
+    }
+    const it = invitedEventIdsWithoutRsvp.values().next();
+    return it.done ? null : String(it.value);
+  }, [safeEvents, invitedEventIdsWithoutRsvp]);
 
   const initializeSwipeStack = useCallback(() => {
     if (filteredEvents.length > 0) {
@@ -419,6 +458,7 @@ export default function Events() {
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['/api/events'] });
     await queryClient.invalidateQueries({ queryKey: ['/api/users', currentUserId, 'rsvps'] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "notifications"] });
     await refetchRsvps(); // Force refetch RSVPs to clear cache
   };
 
@@ -487,6 +527,53 @@ export default function Events() {
           </div>
         </div>
       )}
+
+      {invitedEventIdsWithoutRsvp.size > 0 ? (
+        <div className="mx-auto max-w-lg px-4 pt-3">
+          <div
+            className="flex flex-col gap-3 rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50 to-fuchsia-50/80 p-4 shadow-sm sm:flex-row sm:items-center"
+            data-testid="banner-ai-event-invites"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-md">
+              <Sparkles className="h-6 w-6" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-foreground">
+                You&apos;re invited to {invitedEventIdsWithoutRsvp.size}{" "}
+                {invitedEventIdsWithoutRsvp.size === 1 ? "meetup" : "meetups"}
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Matchify added you to the guest list. Purple labels on the cards show which ones — RSVP to save your spot.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+              {firstPendingInviteEventId ? (
+                <Button
+                  size="sm"
+                  className="w-full rounded-xl bg-violet-600 font-semibold hover:bg-violet-700 sm:w-auto"
+                  onClick={() =>
+                    setLocation(
+                      fromExplore
+                        ? `/event/${firstPendingInviteEventId}?from=explore`
+                        : `/event/${firstPendingInviteEventId}`,
+                    )
+                  }
+                >
+                  Open an invite
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full rounded-xl border-violet-200 sm:w-auto"
+                onClick={() => setLocation("/notifications")}
+              >
+                Notifications
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <motion.div
           className="mx-auto max-w-lg px-4 pb-6 pt-2"
@@ -615,6 +702,7 @@ export default function Events() {
                       image={event.image || undefined}
                       type={event.type as "online" | "offline"}
                       attendees={event.attendeesCount || 0}
+                      youAreInvited={invitedEventIdsWithoutRsvp.has(event.id)}
                       isRSVPd={isRSVPd(event.id)}
                       isLoading={isRSVPing || isCancelling}
                       onRSVP={(id) => {
@@ -669,6 +757,7 @@ export default function Events() {
                         image={event.image || undefined}
                         type={event.type as "online" | "offline"}
                         attendees={(event as any).attendeesCount || 0}
+                        youAreInvited={invitedEventIdsWithoutRsvp.has(event.id)}
                         onSwipeLeft={(id) => handleSwipeLeft(id)}
                         onSwipeRight={(id) => handleSwipeRight(id)}
                       />
@@ -811,6 +900,7 @@ export default function Events() {
                           image={event.image || undefined}
                           type={event.type as "online" | "offline"}
                           attendees={event.attendeesCount || 0}
+                          youAreInvited={invitedEventIdsWithoutRsvp.has(event.id)}
                           isRSVPd={isRSVPd(event.id)}
                           isLoading={isRSVPing || isCancelling}
                           onRSVP={(id) => {

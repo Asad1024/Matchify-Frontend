@@ -4,10 +4,14 @@ import {
   getDefaultOnboardingQuestionnaireItems,
   type OnboardingQuestionnaireItem,
 } from "./onboardingQuestionnaire";
+import type { EventQuestionItem } from "./eventQuestionnaireDefaults";
 import { createSeedWorld, DEFAULT_SEED_GROUP_IDS } from "./seedWorld";
 
 /** Admin-edited onboarding questionnaire (demo / offline API). */
 let mockOnboardingQuestionnaireOverride: OnboardingQuestionnaireItem[] | null = null;
+
+/** Admin-edited default event RSVP questions (demo / offline API). */
+let mockEventQuestionnaireTemplateOverride: EventQuestionItem[] | null = null;
 
 // Generate UUID-like IDs
 const generateId = () => nanoid();
@@ -38,8 +42,7 @@ if (!currentUserId && mockUsers.length > 0) {
 const mockStories = seedWorld.stories;
 
 /**
- * Fixed IDs — must match `matchify-app-style1-backend/src/seedGroups.ts` (SEED_GROUP_DEFS).
- * Do not use random ids here or posts will not resolve group names.
+ * Fixed group IDs for offline mock data (`seedWorld`). Keep stable so posts resolve group names.
  */
 const _MOCK_GROUP_IDS = DEFAULT_SEED_GROUP_IDS;
 
@@ -97,7 +100,7 @@ export function getMockPostCommentSeeds(postId: string) {
   return mockPostCommentsById[postId] ?? [];
 }
 
-// Mock groups — same ids/names as backend `seedGroups.ts` (no orphan “demo-only” names).
+// Mock groups — aligned with `seedWorld` defaults for offline dev.
 const mockGroups = seedWorld.groups;
 
 /** In-memory group memberships for mock / offline flows (mirrors GroupMembership rows). */
@@ -324,6 +327,9 @@ const mockCoaches = [
   },
 ];
 
+/** In-memory coach bookings when the API is unavailable (dev / no backend). */
+const mockCoachBookings: Record<string, unknown>[] = [];
+
 // Mock Notifications
 const mockNotifications = seedWorld.notifications;
 
@@ -459,6 +465,18 @@ export function tryMockApiWrite(method: string, url: string, body?: unknown): Re
     });
   }
 
+  if (m === "PUT" && /^\/api\/admin\/event-questionnaire-template\/?$/.test(path)) {
+    const questions = b.questions;
+    if (!Array.isArray(questions)) {
+      return jsonResponse({ message: "Expected JSON body { questions: [...] }" }, 400);
+    }
+    mockEventQuestionnaireTemplateOverride = questions as EventQuestionItem[];
+    return jsonResponse({
+      ok: true,
+      questions: mockEventQuestionnaireTemplateOverride,
+    });
+  }
+
   if (m === "POST" && /^\/api\/admin\/events\/?$/.test(path)) {
     const row = createMockEventFromPayload(b, "approved");
     mockEvents.push(row);
@@ -473,6 +491,68 @@ export function tryMockApiWrite(method: string, url: string, body?: unknown): Re
 
   if (m === "POST" && /^\/api\/profile-views\/?$/.test(path)) {
     return jsonResponse({ ok: true });
+  }
+
+  if (m === "POST" && /^\/api\/coaches\/bookings\/?$/.test(path)) {
+    const userId = typeof b.userId === "string" ? b.userId : viewer;
+    const coachId = typeof b.coachId === "string" ? b.coachId : "";
+    if (!userId || !coachId) {
+      return jsonResponse({ message: "Missing fields" }, 400);
+    }
+    const coach = mockCoaches.find((c) => c.id === coachId);
+    const price = coach ? coach.pricePerSession : 0;
+    const id = generateId();
+    const sessionDate =
+      typeof b.sessionDate === "string" || b.sessionDate === null ? b.sessionDate : null;
+    const paid =
+      b.paymentComplete !== false && b.paymentComplete !== "false" && b.paymentComplete !== 0;
+    const row = {
+      id,
+      userId,
+      coachId,
+      sessionDate,
+      status: "pending_admin_confirmation",
+      paymentStatus: paid ? "paid" : "pending",
+      paymentRef: paid ? `sim_${Date.now()}` : null,
+      amountCents: Math.max(0, Number(price)) * 100,
+      currency: "USD",
+      proposedSlots: [],
+      selectedSlot: sessionDate,
+      adminNotes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      coach: coach
+        ? { id: coach.id, name: coach.name, avatar: coach.avatar ?? null }
+        : { id: coachId, name: "Coach" },
+    };
+    mockCoachBookings.push(row);
+    return jsonResponse(row, 201);
+  }
+
+  const adminCoachConfirm = path.match(/^\/api\/admin\/coach-bookings\/([^/]+)\/confirm\/?$/);
+  if (m === "PATCH" && adminCoachConfirm?.[1]) {
+    const bookingId = adminCoachConfirm[1];
+    const row = mockCoachBookings.find((x) => String(x.id) === bookingId);
+    if (!row) return jsonResponse({ message: "Booking not found" }, 404);
+    (row as { status?: string }).status = "confirmed";
+    if (!(row as { sessionDate?: string | null }).sessionDate && (row as { selectedSlot?: string }).selectedSlot) {
+      (row as { sessionDate?: string | null }).sessionDate = (row as { selectedSlot?: string }).selectedSlot ?? null;
+    }
+    return jsonResponse(row, 200);
+  }
+
+  const adminCoachPropose = path.match(/^\/api\/admin\/coach-bookings\/([^/]+)\/propose-slot\/?$/);
+  if (m === "PATCH" && adminCoachPropose?.[1]) {
+    const bookingId = adminCoachPropose[1];
+    const row = mockCoachBookings.find((x) => String(x.id) === bookingId);
+    if (!row) return jsonResponse({ message: "Booking not found" }, 404);
+    const slotsRaw = Array.isArray(b.slots) ? b.slots : [];
+    const slots = slotsRaw.filter((x: unknown) => typeof x === "string" && String(x).trim()).map((x: string) => x.trim());
+    if (!slots.length) return jsonResponse({ message: "Provide at least one slot" }, 400);
+    (row as { proposedSlots?: string[] }).proposedSlots = slots;
+    (row as { selectedSlot?: string }).selectedSlot = slots[0];
+    (row as { status?: string }).status = "awaiting_user_reschedule_response";
+    return jsonResponse(row, 200);
   }
 
   const singleEventPath = path.match(/^\/api\/events\/([^/]+)\/?$/);
@@ -569,6 +649,11 @@ export const getMockData = (endpoint: string): any => {
     return (
       mockOnboardingQuestionnaireOverride ?? getDefaultOnboardingQuestionnaireItems()
     );
+  }
+  if (/^\/api\/event-questionnaire-template\/?$/.test(path)) {
+    return {
+      questions: mockEventQuestionnaireTemplateOverride ?? [],
+    };
   }
   if (/^\/api\/admin\/events\/?$/.test(path)) {
     let page = 1;
@@ -690,6 +775,15 @@ export const getMockData = (endpoint: string): any => {
   if (endpoint.includes('/api/users/') && endpoint.includes('/enrollments')) {
     return [];
   }
+  if (/\/api\/users\/[^/]+\/bookings\/?/.test(path)) {
+    const m = path.match(/^\/api\/users\/([^/]+)\/bookings\/?$/);
+    const userId = m?.[1] || "";
+    if (!userId || userId === "search") return [];
+    return mockCoachBookings
+      .filter((r) => String(r.userId) === userId)
+      .slice()
+      .reverse();
+  }
   if (
     endpoint.includes('/api/users/') &&
     !endpoint.includes('/unrevealed-matches') &&
@@ -724,7 +818,7 @@ export const getMockData = (endpoint: string): any => {
         ...mockGroups[0],
         id: gid,
         name: "Group not in demo list",
-        description: "This id is not one of the seeded Matchify groups. Check mockData / seedGroups.",
+        description: "This id is not in the offline mock group list. Check mockData / seedWorld.",
       };
     }
   }
@@ -744,6 +838,22 @@ export const getMockData = (endpoint: string): any => {
   if (path === "/api/events" || /^\/api\/events\/?$/.test(path)) {
     const viewer = getCurrentUserId();
     return mockEvents.map((ev) => shapeMockEventForClient(ev as Record<string, unknown>, viewer));
+  }
+  if (/^\/api\/admin\/coach-bookings\/?$/.test(path)) {
+    return mockCoachBookings
+      .slice()
+      .reverse()
+      .map((r) => {
+        const coachId = String(r.coachId || "");
+        const userId = String(r.userId || "");
+        const coach = mockCoaches.find((c) => c.id === coachId);
+        const user = mockUsers.find((u) => u.id === userId);
+        return {
+          ...r,
+          coach: r.coach || (coach ? { id: coach.id, name: coach.name } : null),
+          user: user ? { id: user.id, name: user.name } : null,
+        };
+      });
   }
   if (endpoint.includes('/api/courses')) {
     return mockCourses;

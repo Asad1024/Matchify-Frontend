@@ -4,9 +4,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  MoreVertical,
+  MoreHorizontal,
   X,
   Trash2,
+  Pencil,
   Share2,
   Bookmark,
   UserPlus,
@@ -15,6 +16,8 @@ import {
   Volume2,
   Ban,
   Flag,
+  Globe2,
+  Lock,
 } from "lucide-react";
 import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { motion } from "framer-motion";
@@ -34,6 +37,7 @@ import { useCurrentUser } from "@/contexts/UserContext";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { apiRequestJson } from "@/services/api";
 import { BlockReportDialog } from "@/components/common/BlockReportDialog";
+import { addPostReport, setAuthorMuted } from "@/lib/socialPreferencesService";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +49,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -79,6 +84,8 @@ interface PostCardProps {
   category?: string;
   /** Server: whether the current user already liked this post */
   likedByMe?: boolean;
+  /** Post visibility mode. */
+  visibility?: "public" | "private";
   /** Oldest comment from feed for first-line preview */
   firstComment?: PostCommentRow | null;
   onLikeToggle?: (postId: string, nowLiked: boolean) => void;
@@ -99,7 +106,7 @@ const POST_REPORT_REASONS = [
   "Spam or misleading",
   "Harassment or hate",
   "Violence or safety risk",
-  "Nudity or sexual content",
+  "Sexual content",
   "Other",
 ];
 
@@ -125,6 +132,7 @@ export default function PostCard({
   postedAt,
   category,
   likedByMe = false,
+  visibility = "public",
   firstComment = null,
   onLikeToggle,
   onShare,
@@ -144,13 +152,20 @@ export default function PostCard({
   const [shareOpen, setShareOpen] = useState(false);
   const [commentCount, setCommentCount] = useState(comments);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [hiddenByReport, setHiddenByReport] = useState(false);
+  const [hiddenByMute, setHiddenByMute] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [reportPostOpen, setReportPostOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [saved, setSaved] = useState(!!savedByMeProp);
   const [following, setFollowing] = useState(!!isFollowingAuthor);
+  const [renderedContent, setRenderedContent] = useState(content);
+  const [renderedImage, setRenderedImage] = useState(image || "");
+  const [editContent, setEditContent] = useState(content);
+  const [editImageUrl, setEditImageUrl] = useState(image || "");
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [viewCount, setViewCount] = useState(0);
   const viewKey = `post_views_${id}`;
@@ -219,31 +234,71 @@ export default function PostCard({
         `/api/users/${currentUserId}/social/mute/${encodeURIComponent(authorId)}`,
       );
     },
-    onSuccess: (_d, mute) => {
+    onSuccess: async (_d, mute) => {
+      if (currentUserId && authorId) {
+        try {
+          await setAuthorMuted(currentUserId, authorId, mute);
+        } catch {
+          /* feed may still update after refetch */
+        }
+      }
+      setHiddenByMute(!!mute);
       invalidateSocial();
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       toast({
         title: mute ? "Posts from this person are hidden" : "Unmuted",
         description: mute ? "Change this anytime in Settings → Feed & social." : undefined,
       });
     },
-    onError: () => toast({ title: "Couldn’t update mute", variant: "destructive" }),
+    onError: (_err, mute) => {
+      if (mute) setHiddenByMute(false);
+      toast({ title: "Couldn’t update mute", variant: "destructive" });
+    },
   });
 
+  /** Radix menu items should use `onSelect` (not `onClick`) so mute reliably runs; hide immediately like the X control. */
+  function startMuteAuthorPosts() {
+    if (!currentUserId || !authorId || muteMutation.isPending) return;
+    setHiddenByMute(true);
+    muteMutation.mutate(true);
+  }
+
   const reportPostMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payload: { reason: string; details: string }) => {
       if (!currentUserId) throw new Error("Sign in required");
       return apiRequestJson("POST", `/api/users/${currentUserId}/social/report-post`, {
         postId: id,
         authorId: authorId || undefined,
-        reason: reportReason,
-        details: reportDetails.trim() || undefined,
+        reason: payload.reason,
+        details: payload.details || undefined,
       });
     },
-    onSuccess: () => {
+    onSuccess: async (_data, payload) => {
+      if (currentUserId) {
+        try {
+          await addPostReport({
+            userId: currentUserId,
+            postId: id,
+            authorId: authorId || undefined,
+            authorName: author.name?.trim() || undefined,
+            authorAvatar: (author.avatar ?? author.image)?.trim() || null,
+            postPreview: content.trim().slice(0, 200) || null,
+            reason: payload.reason,
+            details: payload.details || undefined,
+          });
+        } catch {
+          /* feed may still filter from server lists on refresh */
+        }
+      }
       setReportPostOpen(false);
       setReportReason("");
       setReportDetails("");
-      toast({ title: "Report submitted", description: "Thanks — we’ll review this post." });
+      setHiddenByReport(true);
+      invalidateSocial();
+      toast({
+        title: "Report submitted",
+        description: "This post is hidden for you. You can undo it in Settings → Feed preferences.",
+      });
     },
     onError: () => toast({ title: "Report failed", variant: "destructive" }),
   });
@@ -260,6 +315,25 @@ export default function PostCard({
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to delete post", variant: "destructive" });
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PATCH", `/api/posts/${id}`, {
+        content: editContent.trim(),
+        image: editImageUrl.trim(),
+      });
+    },
+    onSuccess: () => {
+      setRenderedContent(editContent.trim());
+      setRenderedImage(editImageUrl.trim());
+      setEditOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      toast({ title: "Post updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update post", variant: "destructive" });
     },
   });
 
@@ -280,8 +354,20 @@ export default function PostCard({
   }, [id, savedByMeProp]);
 
   useEffect(() => {
+    if (followMutation.isPending) return;
     setFollowing(!!isFollowingAuthor);
-  }, [id, isFollowingAuthor, authorId]);
+  }, [id, isFollowingAuthor, authorId, followMutation.isPending]);
+
+  useEffect(() => {
+    setRenderedContent(content);
+    setEditContent(content);
+  }, [id, content]);
+
+  useEffect(() => {
+    const next = image || "";
+    setRenderedImage(next);
+    setEditImageUrl(next);
+  }, [id, image]);
 
   const handleLike = () => {
     if (!currentUserId) {
@@ -327,7 +413,7 @@ export default function PostCard({
     postedAt != null && String(postedAt).trim()
       ? formatPostRelativeTime(postedAt)
       : timestamp;
-  if (deleted) return null;
+  if (deleted || hiddenByReport || hiddenByMute) return null;
 
   return (
     <motion.div
@@ -402,6 +488,14 @@ export default function PostCard({
             </div>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
               <span className="text-gray-500">{timeLabel}</span>
+              <span className="text-gray-400 font-black" aria-hidden>
+                ·
+              </span>
+              {visibility === "private" ? (
+                <Lock className="h-3.5 w-3.5 text-gray-500" aria-label="Private post" />
+              ) : (
+                <Globe2 className="h-3.5 w-3.5 text-gray-500" aria-label="Public post" />
+              )}
               {category && categoryColor && (
                 <Badge className={`text-[10px] px-1.5 py-0 h-4 ${categoryColor} border-0`}>
                   {category}
@@ -410,7 +504,7 @@ export default function PostCard({
             </div>
           </div>
         </div>
-        <div className="flex shrink-0 items-start gap-0.5 -mt-1.5 -mr-1">
+        <div className="flex shrink-0 items-start gap-0 -mt-1.5 -mr-0.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -419,12 +513,18 @@ export default function PostCard({
                 className="h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                 aria-label="Post options"
               >
-                <MoreVertical className="h-5 w-5" strokeWidth={2} aria-hidden />
+                <MoreHorizontal className="h-5 w-5" strokeWidth={2} aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[13rem]">
             {isOwner ? (
               <>
+                <DropdownMenuItem
+                  onClick={() => setEditOpen(true)}
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit post
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => setConfirmDelete(true)}
@@ -477,7 +577,9 @@ export default function PostCard({
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={muteMutation.isPending}
-                      onClick={() => muteMutation.mutate(true)}
+                      onSelect={() => {
+                        startMuteAuthorPosts();
+                      }}
                     >
                       <VolumeX className="mr-2 h-4 w-4" />
                       Mute posts from user
@@ -509,10 +611,10 @@ export default function PostCard({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100 -ml-1"
+              className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100 -ml-2"
               aria-label="Mute posts from user"
               disabled={muteMutation.isPending}
-              onClick={() => muteMutation.mutate(true)}
+              onClick={() => startMuteAuthorPosts()}
             >
               <X className="h-5 w-5" strokeWidth={2} aria-hidden />
             </Button>
@@ -527,12 +629,12 @@ export default function PostCard({
           className="block cursor-pointer transition-[opacity,filter] hover:opacity-[0.98] active:brightness-[0.99]"
         >
           <div className="px-4 pt-2 pb-3">
-            <p className="text-[16px] text-slate-900 leading-[1.6] whitespace-pre-wrap">{content}</p>
+            <p className="text-[16px] text-slate-900 leading-[1.6] whitespace-pre-wrap">{renderedContent}</p>
           </div>
-          {image ? (
+          {renderedImage ? (
             <div className="mx-4 mb-3 rounded-xl border border-border overflow-hidden bg-muted/30">
               <img
-                src={image}
+                src={renderedImage}
                 alt="Post"
                 className="w-full max-h-72 object-contain bg-black/5"
                 loading="lazy"
@@ -544,12 +646,12 @@ export default function PostCard({
       ) : (
         <>
           <div className="px-4 pt-2 pb-3">
-            <p className="text-[16px] text-slate-900 leading-[1.6] whitespace-pre-wrap">{content}</p>
+            <p className="text-[16px] text-slate-900 leading-[1.6] whitespace-pre-wrap">{renderedContent}</p>
           </div>
-          {image ? (
+          {renderedImage ? (
             <div className="mx-4 mb-3 rounded-xl border border-border overflow-hidden bg-muted/30">
               <img
-                src={image}
+                src={renderedImage}
                 alt="Post"
                 className="w-full max-h-72 object-contain bg-black/5"
                 loading="lazy"
@@ -594,6 +696,40 @@ export default function PostCard({
         authorName={author.name}
         contentPreview={content}
       />
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit post</DialogTitle>
+            <DialogDescription>Update your post content or image URL.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="min-h-[120px] rounded-xl"
+              placeholder="Update your post..."
+            />
+            <Input
+              value={editImageUrl}
+              onChange={(e) => setEditImageUrl(e.target.value)}
+              className="rounded-xl"
+              placeholder="https://… (optional image URL)"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => editMutation.mutate()}
+              disabled={!editContent.trim() || editMutation.isPending}
+            >
+              {editMutation.isPending ? "Saving…" : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
@@ -671,7 +807,12 @@ export default function PostCard({
             <Button
               type="button"
               disabled={!reportReason || reportPostMutation.isPending}
-              onClick={() => reportPostMutation.mutate()}
+              onClick={() =>
+                reportPostMutation.mutate({
+                  reason: reportReason,
+                  details: reportDetails.trim(),
+                })
+              }
             >
               Submit report
             </Button>

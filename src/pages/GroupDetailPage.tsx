@@ -572,6 +572,7 @@ export default function GroupDetailPage() {
                     comments={post.comments ?? post.commentsCount ?? 0}
                     firstComment={post.firstComment ?? null}
                     likedByMe={!!post.likedByMe}
+                    visibility={(post as FeedPost & { visibility?: "public" | "private" }).visibility ?? "public"}
                     savedByMe={!!post.savedByMe}
                     isFollowingAuthor={followingIds.has(post.userId || post.authorId || "")}
                     groupId={groupId}

@@ -230,7 +230,8 @@ export default function SocialUserProfile() {
   }
 
   const followerCount = viewedSummary?.followerCount ?? 0;
-  const followingCount = viewedSummary?.followingIds?.length ?? 0;
+  const followingCount =
+    viewedSummary?.followingCount ?? viewedSummary?.followingIds?.length ?? 0;
   const { country } = splitLocation(user.location ?? null);
   const joinedLabel = (() => {
     if (!user.createdAt) return "Member";
@@ -392,6 +393,7 @@ export default function SocialUserProfile() {
                         likes={Number(p.likes ?? p.likesCount) || 0}
                         comments={Number(p.comments ?? p.commentsCount) || 0}
                         likedByMe={!!p.likedByMe}
+                        visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                         savedByMe={!!p.savedByMe}
                         isFollowingAuthor={followingIds.has(p.userId || "")}
                         firstComment={p.firstComment ?? null}
@@ -461,6 +463,7 @@ export default function SocialUserProfile() {
                         likes={Number(p.likes ?? p.likesCount) || 0}
                         comments={Number(p.comments ?? p.commentsCount) || 0}
                         likedByMe={!!p.likedByMe}
+                        visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                         savedByMe={!!p.savedByMe}
                         isFollowingAuthor={followingIds.has(p.userId || "")}
                         firstComment={p.firstComment ?? null}

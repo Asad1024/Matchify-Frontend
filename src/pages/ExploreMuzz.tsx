@@ -98,32 +98,31 @@ function formatDayPill(d: Date): { dow: string; md: string } {
 function ExploreEventSwipeStack({
   events,
   onOpenEvent,
-  onNeedMore,
+  hasNextPage,
+  onNextPage,
 }: {
   events: ApiEvent[];
   onOpenEvent: (id: string) => void;
-  onNeedMore?: () => void;
+  /** When the user finishes this page, offer going to the next page. */
+  hasNextPage?: boolean;
+  onNextPage?: () => void;
 }) {
   const [i, setI] = useState(0);
   useEffect(() => {
-    // Keep position when list grows (e.g. "Load more").
-    setI((cur) => {
-      const max = Math.max(0, events.length - 1);
-      return Math.min(cur, max);
-    });
-  }, [events.length]);
+    setI(0);
+  }, [events]);
 
   const current = events[i];
   if (!current) {
     return (
       <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/90 px-4 py-10 text-center text-sm text-gray-600">
         {events.length === 0
-          ? "No events match your filters."
-          : "You’ve seen all loaded events. Tap Load more to continue."}
-        {events.length > 0 && onNeedMore ? (
+          ? "No events on this page."
+          : "You’ve seen every event on this page."}
+        {hasNextPage && onNextPage ? (
           <div className="mt-3 flex justify-center">
-            <Button type="button" variant="outline" className="rounded-full" onClick={onNeedMore}>
-              Load more
+            <Button type="button" variant="outline" className="rounded-full" onClick={onNextPage}>
+              Next page
             </Button>
           </div>
         ) : null}
@@ -379,8 +378,9 @@ export default function ExploreMuzz() {
   const [eventsAllSub, setEventsAllSub] = useState<"all" | "upcoming" | "mine" | "past">("all");
   const [eventTypeFilter, setEventTypeFilter] = useState<"all" | "online" | "offline">("all");
   const [calendarDay, setCalendarDay] = useState<Date | undefined>(undefined);
-  const [eventsShownAll, setEventsShownAll] = useState(4);
-  const [eventsShownSwipe, setEventsShownSwipe] = useState(2);
+  const EVENTS_PAGE_SIZE = 6;
+  const [eventsPageAll, setEventsPageAll] = useState(1);
+  const [eventsPageSwipe, setEventsPageSwipe] = useState(1);
 
   const bumpDeckEpoch = useCallback(() => setDeckEpoch((e) => e + 1), []);
 
@@ -517,9 +517,8 @@ export default function ExploreMuzz() {
   }, [safeEvents, eventTypeFilter]);
 
   useEffect(() => {
-    // Reset paging when filters/view changes.
-    setEventsShownAll(4);
-    setEventsShownSwipe(2);
+    setEventsPageAll(1);
+    setEventsPageSwipe(1);
     setEventsAllSub("all");
   }, [eventTypeFilter, eventsView]);
 
@@ -553,6 +552,27 @@ export default function ExploreMuzz() {
     if (!calendarDay) return [];
     return scopedEvents.filter((e) => sameCalendarDay(calendarDay, e.date));
   }, [scopedEvents, calendarDay]);
+
+  const totalPagesAll = Math.max(1, Math.ceil(scopedEvents.length / EVENTS_PAGE_SIZE));
+  const totalPagesSwipe = Math.max(1, Math.ceil(scopedEvents.length / EVENTS_PAGE_SIZE));
+
+  const pagedEventsAll = useMemo(() => {
+    const start = (eventsPageAll - 1) * EVENTS_PAGE_SIZE;
+    return scopedEvents.slice(start, start + EVENTS_PAGE_SIZE);
+  }, [scopedEvents, eventsPageAll]);
+
+  const pagedEventsSwipe = useMemo(() => {
+    const start = (eventsPageSwipe - 1) * EVENTS_PAGE_SIZE;
+    return scopedEvents.slice(start, start + EVENTS_PAGE_SIZE);
+  }, [scopedEvents, eventsPageSwipe]);
+
+  useEffect(() => {
+    if (eventsPageAll > totalPagesAll) setEventsPageAll(totalPagesAll);
+  }, [eventsPageAll, totalPagesAll]);
+
+  useEffect(() => {
+    if (eventsPageSwipe > totalPagesSwipe) setEventsPageSwipe(totalPagesSwipe);
+  }, [eventsPageSwipe, totalPagesSwipe]);
 
   const eventDaysSet = useMemo(() => {
     const set = new Set<string>();
@@ -855,7 +875,7 @@ export default function ExploreMuzz() {
                   ) : (
                     <>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        {scopedEvents.slice(0, eventsShownAll).map((e) => (
+                        {pagedEventsAll.map((e) => (
                           <ExploreEventCard
                             key={e.id}
                             event={{
@@ -873,15 +893,34 @@ export default function ExploreMuzz() {
                           />
                         ))}
                       </div>
-                      {eventsShownAll < scopedEvents.length ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-10 w-full rounded-full border-[#F0F0F0] bg-white/60 font-semibold text-slate-800 shadow-sm backdrop-blur-md hover:bg-white"
-                          onClick={() => setEventsShownAll((n) => n + 4)}
-                        >
-                          Load more
-                        </Button>
+                      {totalPagesAll > 1 ? (
+                        <div className="flex flex-col items-center gap-2 pt-2">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Page {eventsPageAll} of {totalPagesAll} · {scopedEvents.length} events
+                          </p>
+                          <div className="flex flex-wrap items-center justify-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="rounded-full"
+                              disabled={eventsPageAll <= 1}
+                              onClick={() => setEventsPageAll((p) => Math.max(1, p - 1))}
+                            >
+                              Previous
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="rounded-full"
+                              disabled={eventsPageAll >= totalPagesAll}
+                              onClick={() => setEventsPageAll((p) => Math.min(totalPagesAll, p + 1))}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
                       ) : null}
                     </>
                   )}
@@ -891,18 +930,39 @@ export default function ExploreMuzz() {
               ) : eventsView === "swipe" ? (
                 <>
                   <ExploreEventSwipeStack
-                    events={scopedEvents.slice(0, eventsShownSwipe)}
+                    events={pagedEventsSwipe}
                     onOpenEvent={(id) => setLocation(`/event/${id}?from=explore`)}
+                    hasNextPage={eventsPageSwipe < totalPagesSwipe}
+                    onNextPage={() => setEventsPageSwipe((p) => Math.min(totalPagesSwipe, p + 1))}
                   />
-                  {eventsShownSwipe < scopedEvents.length ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-10 w-full rounded-full border-[#F0F0F0] bg-white/60 font-semibold text-slate-800 shadow-sm backdrop-blur-md hover:bg-white"
-                      onClick={() => setEventsShownSwipe((n) => n + 2)}
-                    >
-                      Load more
-                    </Button>
+                  {totalPagesSwipe > 1 ? (
+                    <div className="flex flex-col items-center gap-2 pt-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Page {eventsPageSwipe} of {totalPagesSwipe} · {EVENTS_PAGE_SIZE} per page
+                      </p>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full"
+                          disabled={eventsPageSwipe <= 1}
+                          onClick={() => setEventsPageSwipe((p) => Math.max(1, p - 1))}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full"
+                          disabled={eventsPageSwipe >= totalPagesSwipe}
+                          onClick={() => setEventsPageSwipe((p) => Math.min(totalPagesSwipe, p + 1))}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
                   ) : null}
                 </>
               ) : (

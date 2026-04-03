@@ -9,13 +9,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/services/api";
+import { queryClient } from "@/lib/queryClient";
 
 type User = {
   id: string;
   membershipTier?: string | null;
   membershipExpiresAt?: string | null;
 };
-
 export default function Subscriptions() {
   const [activePage, setActivePage] = useState('menu');
   const [, setLocation] = useLocation();
@@ -124,23 +125,55 @@ export default function Subscriptions() {
               popular={tier.popular}
               current={tier.current}
               data-testid={`tier-${tier.id}`}
-              onSubscribe={() =>
-                fetch(`/api/users/${userId}/subscription`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify({ tier: tier.id, days: 30 }),
-                })
-                  .then(async (r) => {
-                    if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.message || "Failed");
-                    toast({ title: "Activated (demo)", description: `${tier.name} is now active.` });
-                    const { queryClient } = await import("@/lib/queryClient");
-                    await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
-                  })
-                  .catch((e) =>
-                    toast({ title: "Could not activate", description: e?.message || "Try again", variant: "destructive" }),
-                  )
-              }
+              onSubscribe={async () => {
+                if (!userId) {
+                  toast({ title: "Please log in", description: "Sign in to subscribe to a plan.", variant: "destructive" });
+                  return;
+                }
+
+                try {
+                  const res = await apiRequest("PATCH", `/api/users/${userId}/subscription`, {
+                    tier: tier.id,
+                    days: 30,
+                  });
+                  const body = (await res.json()) as {
+                    membershipTier?: string;
+                    membershipExpiresAt?: string | null;
+                  };
+                  const nextTier = (body.membershipTier || tier.id).toLowerCase();
+                  const nextExp = body.membershipExpiresAt ?? null;
+
+                  queryClient.setQueryData<User>([`/api/users/${userId}`], (prev) => ({
+                    ...(prev || { id: userId }),
+                    membershipTier: nextTier,
+                    membershipExpiresAt: nextExp,
+                  }));
+
+                  try {
+                    localStorage.removeItem(`matchify:plan_override:${userId}`);
+                    const raw = localStorage.getItem("currentUser");
+                    const cur = raw ? JSON.parse(raw) : {};
+                    localStorage.setItem(
+                      "currentUser",
+                      JSON.stringify({
+                        ...cur,
+                        membershipTier: nextTier,
+                        membershipExpiresAt: nextExp,
+                      }),
+                    );
+                  } catch {
+                    /* ignore */
+                  }
+
+                  window.dispatchEvent(new Event("matchify-membership-updated"));
+                  toast({ title: "Plan activated", description: `${tier.name} is now active.` });
+                  await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+                } catch (e: unknown) {
+                  await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+                  const msg = e instanceof Error ? e.message : "Could not update subscription.";
+                  toast({ title: "Subscription failed", description: msg, variant: "destructive" });
+                }
+              }}
             />
           ))}
         </div>

@@ -71,24 +71,41 @@ export function CommentSection({
   const [comment, setComment] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [replyToId, setReplyToId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const mockMode = isFeedMockMode();
 
   const { data: comments = [], isLoading } = useQuery<PostCommentRow[]>({
-    queryKey: postCommentsQueryKey(postId),
-    queryFn: () => fetchPostComments(postId),
+    queryKey: [...postCommentsQueryKey(postId), currentUserId || "anon"],
+    queryFn: () => fetchPostComments(postId, currentUserId),
   });
 
+  const rootComments = useMemo(() => {
+    return comments.filter((c) => !c.replyToCommentId);
+  }, [comments]);
+
+  const repliesByParent = useMemo(() => {
+    const m = new Map<string, PostCommentRow[]>();
+    for (const c of comments) {
+      const parent = c.replyToCommentId?.trim();
+      if (!parent) continue;
+      const arr = m.get(parent) || [];
+      arr.push(c);
+      m.set(parent, arr);
+    }
+    return m;
+  }, [comments]);
+
   const visibleComments = useMemo(() => {
-    if (expandList) return comments;
-    if (comments.length > 0) return [comments[0]];
+    if (expandList) return rootComments;
+    if (rootComments.length > 0) return [rootComments[0]];
     if (isLoading && previewComment) return [normalizePreview(previewComment)];
     return [];
-  }, [expandList, comments, isLoading, previewComment]);
+  }, [expandList, rootComments, isLoading, previewComment]);
 
   const sendMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, replyToCommentId }: { content: string; replyToCommentId?: string | null }) => {
       if (!currentUserId) throw new Error("Not signed in");
       if (isFeedMockMode()) {
         const rows = readMockComments(postId);
@@ -96,8 +113,11 @@ export function CommentSection({
           id: crypto.randomUUID(),
           userId: currentUserId,
           content,
+          replyToCommentId: replyToCommentId || null,
           createdAt: new Date().toISOString(),
           user: { name: storedUserDisplayName(), avatar: null },
+          likes: 0,
+          likedByMe: false,
         };
         rows.push(row);
         writeMockComments(postId, rows);
@@ -107,6 +127,7 @@ export function CommentSection({
         userId: currentUserId,
         postId,
         content,
+        ...(replyToCommentId ? { replyToCommentId } : {}),
       });
       return res.json();
     },
@@ -114,6 +135,7 @@ export function CommentSection({
       queryClient.invalidateQueries({ queryKey: ["post-comments", postId] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       setComment("");
+      setReplyToId(null);
       if (isFeedMockMode()) onCommentCountDelta?.(1);
       else toast({ title: "Comment posted" });
     },
@@ -149,9 +171,43 @@ export function CommentSection({
       toast({ title: "Error", description: "Failed to delete comment", variant: "destructive" }),
   });
 
+  const likeCommentMutation = useMutation({
+    mutationFn: async ({ commentId, like }: { commentId: string; like: boolean }) => {
+      if (!currentUserId) throw new Error("Not signed in");
+      if (isFeedMockMode()) {
+        const rows = readMockComments(postId).map((r) => {
+          if (r.id !== commentId) return r;
+          const cur = Number(r.likes || 0);
+          return {
+            ...r,
+            likedByMe: like,
+            likes: like ? cur + (r.likedByMe ? 0 : 1) : Math.max(0, cur - (r.likedByMe ? 1 : 0)),
+          };
+        });
+        writeMockComments(postId, rows);
+        return;
+      }
+      if (like) {
+        await apiRequest("POST", `/api/comments/${commentId}/like`, { userId: currentUserId });
+      } else {
+        await apiRequest(
+          "DELETE",
+          `/api/comments/${commentId}/like/${encodeURIComponent(currentUserId)}`,
+        );
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...postCommentsQueryKey(postId)] });
+    },
+    onError: () =>
+      toast({ title: "Could not update comment like", variant: "destructive" }),
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (comment.trim() && currentUserId) sendMutation.mutate(comment.trim());
+    if (comment.trim() && currentUserId) {
+      sendMutation.mutate({ content: comment.trim(), replyToCommentId: replyToId });
+    }
   };
 
   const showListLoading = expandList && isLoading && comments.length === 0;
@@ -207,14 +263,25 @@ export function CommentSection({
                   <div className="flex items-center gap-2 mt-1">
                     <button
                       type="button"
-                      className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary"
+                      className={`flex items-center gap-1 text-[10px] ${
+                        c.likedByMe
+                          ? "text-[#722F37] hover:text-[#652a31]"
+                          : "text-muted-foreground hover:text-primary"
+                      }`}
+                      onClick={() =>
+                        likeCommentMutation.mutate({
+                          commentId: c.id,
+                          like: !Boolean(c.likedByMe),
+                        })
+                      }
                     >
-                      <Heart className="w-3 h-3" />
+                      <Heart className={c.likedByMe ? "w-3 h-3 fill-current" : "w-3 h-3"} />
                       {c.likes || 0}
                     </button>
                     <button
                       type="button"
                       className="text-[10px] text-muted-foreground hover:text-foreground"
+                      onClick={() => setReplyToId(c.id)}
                     >
                       Reply
                     </button>
@@ -228,6 +295,45 @@ export function CommentSection({
                       </button>
                     )}
                   </div>
+                  {expandList && (repliesByParent.get(c.id) || []).length > 0 ? (
+                    <div className="mt-2 space-y-2 border-l border-border/70 pl-3">
+                      {(repliesByParent.get(c.id) || []).map((r) => (
+                        <div key={r.id} className="rounded-xl bg-background/70 px-2 py-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold text-foreground">
+                              {r.user?.name?.trim() || "Member"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(r.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-foreground">{r.content}</p>
+                          <div className="mt-1 flex items-center gap-2">
+                            <button
+                              type="button"
+                              className={`flex items-center gap-1 text-[10px] ${
+                                r.likedByMe
+                                  ? "text-[#722F37] hover:text-[#652a31]"
+                                  : "text-muted-foreground hover:text-primary"
+                              }`}
+                              onClick={() =>
+                                likeCommentMutation.mutate({
+                                  commentId: r.id,
+                                  like: !Boolean(r.likedByMe),
+                                })
+                              }
+                            >
+                              <Heart className={r.likedByMe ? "w-3 h-3 fill-current" : "w-3 h-3"} />
+                              {r.likes || 0}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </motion.div>
             );
@@ -286,6 +392,18 @@ export function CommentSection({
           </Button>
         </form>
       )}
+      {replyToId ? (
+        <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 px-2.5 py-1.5 text-[11px]">
+          <span className="text-muted-foreground">Replying to comment</span>
+          <button
+            type="button"
+            className="text-primary hover:underline"
+            onClick={() => setReplyToId(null)}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>

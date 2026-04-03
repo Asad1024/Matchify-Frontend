@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
@@ -197,12 +197,11 @@ export default function Directory() {
   const [currentMatch, setCurrentMatch] = useState<UnrevealedMatch | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [discoverTab, setDiscoverTab] = useState<"browse" | "curated">("browse");
-  const lastPeopleCardLikeAtMs = useRef<number>(0);
   const [likedProfileIds, setLikedProfileIds] = useState<string[]>([]);
 
   const applyDiscoverTab = useCallback((t: "browse" | "curated") => {
     if (t === "curated" && tier === "free") {
-      requireTier({ feature: "Curated picks", minTier: "plus", reason: "Free plan doesn’t include AI picks." });
+      requireTier({ feature: "AI Matching", minTier: "plus", reason: "Free plan doesn’t include AI picks." });
       return;
     }
     setDiscoverTab(t);
@@ -230,15 +229,12 @@ export default function Directory() {
     enabled: !!userId,
   });
 
-  useEffect(() => {
-    if (unrevealedMatches.length > 0 && !showMatchReveal) {
-      // If the user tapped Like on a People card, we still create the same "profile like",
-      // but we intentionally avoid interrupting them with the Match Reveal modal.
-      if (Date.now() - lastPeopleCardLikeAtMs.current < 2500) return;
-      setCurrentMatch(unrevealedMatches[0]);
-      setShowMatchReveal(true);
-    }
-  }, [unrevealedMatches, showMatchReveal]);
+  const openMatchRevealFromBanner = () => {
+    const next = unrevealedMatches[0];
+    if (!next) return;
+    setCurrentMatch(next);
+    setShowMatchReveal(true);
+  };
 
   const markRevealedMutation = useMutation({
     mutationFn: async (matchId: string) => {
@@ -338,7 +334,7 @@ export default function Directory() {
   const curatedIdsRaw = Array.isArray(currentUser?.curatedMatchShownUserIds)
     ? currentUser.curatedMatchShownUserIds.map(String)
     : [];
-  // Fallback: if profile field is stale, reconstruct curated picks from notifications.
+  // Fallback: if profile field is stale, reconstruct AI match ids from notifications.
   const notifCuratedIds =
     (Array.isArray(notifications) ? notifications : [])
       .filter((n) => n?.type === "curated_match" && n.relatedUserId)
@@ -365,7 +361,6 @@ export default function Directory() {
   const latestAiOnly = latestCuratedId ? aiMatchMap.get(latestCuratedId) : undefined;
 
   const handleLikeProfile = (targetId: string) => {
-    lastPeopleCardLikeAtMs.current = Date.now();
     setLikedProfileIds((prev) => (prev.includes(targetId) ? prev : [...prev, targetId]));
     const compatibility = aiMatchMap.get(targetId)?.compatibility ?? 70;
     likeProfileMutation.mutate({ targetId, compatibility });
@@ -474,10 +469,43 @@ export default function Directory() {
         showSearch={true}
         onLogout={logout}
         title="People"
-        subtitle="Browse members and curated picks"
+        subtitle="Browse members and AI matches"
       />
 
       <div className="max-w-lg mx-auto">
+        {unrevealedMatches.length > 0 && !showMatchReveal ? (
+          <div
+            className="mx-4 mt-4 rounded-2xl border border-primary/25 bg-primary/[0.07] p-4 shadow-2xs"
+            role="status"
+            data-testid="banner-unrevealed-match"
+          >
+            <div className="flex gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+                <Heart className="h-5 w-5 text-primary" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="mb-1 text-sm font-bold text-foreground">
+                  {unrevealedMatches.length === 1
+                    ? "You have a new match"
+                    : `You have ${unrevealedMatches.length} new matches`}
+                </p>
+                <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+                  Open it when you&apos;re ready — nothing will pop up on its own.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 rounded-xl bg-primary text-primary-foreground text-xs font-semibold shadow-2xs hover:bg-primary/90"
+                  onClick={openMatchRevealFromBanner}
+                >
+                  View match
+                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {/* AI Matchmaker required — no AI matches / full list until 30 questions are finished */}
         {!aiMatchmakerComplete && (
           <div
@@ -520,7 +548,7 @@ export default function Directory() {
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-800">AI Matchmaker active</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
-                  Your <span className="font-semibold text-slate-800">timed pick</span> is one person per cycle on the AI
+                  Your <span className="font-semibold text-slate-800">timed AI match</span> is one person per cycle on the AI
                   Matchmaker home. Here you can browse everyone; compatibility sort still uses AI scores where available.
                 </p>
               </div>
@@ -534,7 +562,7 @@ export default function Directory() {
               {(
                 [
                   ["browse", "Browse", Compass],
-                  ["curated", "Curated picks", Users],
+                  ["curated", "AI Matching", Users],
                 ] as const
               ).map(([id, label, Icon]) => (
                 <button
@@ -570,7 +598,7 @@ export default function Directory() {
               <EmptyState
                 useMascot={true}
                 mascotType="no-matches"
-                title="No curated picks yet"
+                title="No AI matches yet"
                 description="When your countdown finishes, your next match will appear here and in notifications."
                 actionLabel="AI Matchmaker"
                 onAction={() => setLocation("/ai-matchmaker")}
@@ -597,7 +625,7 @@ export default function Directory() {
           </div>
         ) : null}
 
-        {/* Filter chips + browse lists (hidden on Curated picks tab) */}
+        {/* Filter chips + browse lists (hidden on AI Matching tab) */}
         {!(discoverTab === "curated" && aiMatchmakerComplete) && (
         <>
         <div className="px-4 mt-4">
@@ -739,7 +767,7 @@ export default function Directory() {
                   className="font-semibold text-primary hover:underline"
                   onClick={() => applyDiscoverTab("curated")}
                 >
-                  Curated picks
+                  AI Matching
                 </button>
                 .
               </p>

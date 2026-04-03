@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Send, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { apiRequestJson, isClientOnlyApi } from "@/services/api";
 import { useUpgrade } from "@/contexts/UpgradeContext";
 import { dailyKey, dailyCount, incrementDailyCount, lunaDailyLimitForTier } from "@/lib/entitlements";
+import { markClientStateDirty } from "@/lib/clientStateSync";
 
 type AssistantMessage = {
   id: string;
@@ -29,6 +30,19 @@ function randomIdPart(bytes = 8) {
 
 function makeId() {
   return `${Date.now().toString(36)}_${randomIdPart(10)}_${Math.random().toString(36).slice(2)}`;
+}
+
+/** Persisted thread from a previous free-tier session — must not block Luna after upgrade. */
+const FREE_TIER_LUNA_OPENER =
+  "Luna is available on Plus. Upgrade to unlock AI chat.";
+
+function isPersistedFreeTierPlaceholder(msgs: AssistantMessage[]): boolean {
+  if (!msgs.length) return false;
+  return msgs.every(
+    (m) =>
+      m.role === "assistant" &&
+      (m.text === FREE_TIER_LUNA_OPENER || m.text.includes("Upgrade to unlock AI chat")),
+  );
 }
 
 function formatTime(ms: number) {
@@ -81,7 +95,38 @@ async function getAssistantOpener(params: { pathname: string }) {
   return await apiRequestJson<{ reply: string }>("POST", "/api/assistant/open", params);
 }
 
-export function LunaChatPanel() {
+function loadPersistedAssistantMessages(key: string): AssistantMessage[] | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as unknown;
+    if (!Array.isArray(data)) return null;
+    const out: AssistantMessage[] = [];
+    for (const row of data) {
+      if (!row || typeof row !== "object") continue;
+      const r = row as Record<string, unknown>;
+      if (r.role !== "user" && r.role !== "assistant") continue;
+      if (typeof r.text !== "string" || typeof r.createdAt !== "number") continue;
+      const id = typeof r.id === "string" ? r.id : makeId();
+      out.push({ id, role: r.role, text: r.text, createdAt: r.createdAt });
+    }
+    return out.length > 0 ? out : null;
+  } catch {
+    return null;
+  }
+}
+
+export function LunaChatPanel({
+  assistantPathname,
+  className,
+  persistKey,
+}: {
+  /** Sent to `/api/assistant/*` so Luna opens with the right context (e.g. embedded on coaching page). */
+  assistantPathname?: string;
+  className?: string;
+  /** When set, messages are restored from and saved to `localStorage` under this key (e.g. per user). */
+  persistKey?: string;
+} = {}) {
   const { tier, requireTier } = useUpgrade();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -94,38 +139,75 @@ export function LunaChatPanel() {
   const lastAssistantMessageAtRef = useRef<number>(0);
 
   const context = useMemo(() => {
-    // Minimal context for now; expand later (route, current chat/match, last actions, etc.).
-    return {
-      pathname: window.location.pathname,
-    };
-  }, []);
+    const pathname =
+      (assistantPathname && assistantPathname.trim()) ||
+      (typeof window !== "undefined" ? window.location.pathname : "/");
+    return { pathname };
+  }, [assistantPathname]);
 
   useEffect(() => {
     const t = window.setTimeout(() => inputRef.current?.focus(), 50);
     return () => window.clearTimeout(t);
   }, []);
 
+  const applyFreeTierOpener = useCallback(() => {
+    setMessages([
+      {
+        id: makeId(),
+        role: "assistant",
+        text: FREE_TIER_LUNA_OPENER,
+        createdAt: Date.now(),
+      },
+    ]);
+  }, []);
+
+  const fetchAssistantOpener = useCallback(async () => {
+    if (tier === "free") {
+      applyFreeTierOpener();
+      return;
+    }
+    const res = await getAssistantOpener({ pathname: String(context.pathname || "") });
+    const replyText = String(res?.reply || "").trim();
+    if (replyText) {
+      setMessages([{ id: makeId(), role: "assistant", text: replyText, createdAt: Date.now() }]);
+    }
+  }, [tier, context.pathname, applyFreeTierOpener]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         if (tier === "free") {
-          setOpenerLoading(false);
-          setMessages([
-            {
-              id: makeId(),
-              role: "assistant",
-              text: "Luna is available on Plus. Upgrade to unlock AI chat.",
-              createdAt: Date.now(),
-            },
-          ]);
+          if (!cancelled) {
+            applyFreeTierOpener();
+            setOpenerLoading(false);
+          }
           return;
         }
-        const res = await getAssistantOpener({ pathname: String(context.pathname || "") });
-        const replyText = String(res?.reply || "").trim();
-        if (!replyText) return;
-        if (cancelled) return;
-        setMessages([{ id: makeId(), role: "assistant", text: replyText, createdAt: Date.now() }]);
+        if (persistKey) {
+          const restored = loadPersistedAssistantMessages(persistKey);
+          if (restored && restored.length > 0) {
+            if (isPersistedFreeTierPlaceholder(restored)) {
+              try {
+                localStorage.removeItem(persistKey);
+                markClientStateDirty();
+              } catch {
+                /* ignore */
+              }
+              if (!cancelled) {
+                await fetchAssistantOpener();
+                setOpenerLoading(false);
+              }
+              return;
+            }
+            if (!cancelled) {
+              setMessages(restored);
+              setOpenerLoading(false);
+            }
+            return;
+          }
+        }
+        await fetchAssistantOpener();
       } catch {
         /* ignore */
       } finally {
@@ -135,7 +217,47 @@ export function LunaChatPanel() {
     return () => {
       cancelled = true;
     };
-  }, [context.pathname, tier]);
+  }, [tier, persistKey, applyFreeTierOpener, fetchAssistantOpener]);
+
+  const clearPersistedThread = useCallback(() => {
+    if (!persistKey) return;
+    try {
+      localStorage.removeItem(persistKey);
+      markClientStateDirty();
+    } catch {
+      /* ignore */
+    }
+    setMessages([]);
+    setOpenerLoading(true);
+    void (async () => {
+      try {
+        if (tier === "free") {
+          applyFreeTierOpener();
+        } else {
+          await fetchAssistantOpener();
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        setOpenerLoading(false);
+      }
+    })();
+  }, [persistKey, tier, applyFreeTierOpener, fetchAssistantOpener]);
+
+  useEffect(() => {
+    if (!persistKey || openerLoading) return;
+    // Never persist the free-tier paywall placeholder — after upgrade it would reload and block Luna.
+    if (tier === "free") return;
+    const t = window.setTimeout(() => {
+      try {
+        localStorage.setItem(persistKey, JSON.stringify(messages));
+        markClientStateDirty();
+      } catch {
+        /* quota or private mode */
+      }
+    }, 200);
+    return () => window.clearTimeout(t);
+  }, [messages, persistKey, openerLoading, tier]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -221,7 +343,7 @@ export function LunaChatPanel() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
-      className="h-full w-full bg-transparent flex flex-col"
+      className={cn("h-full w-full bg-transparent flex flex-col", className)}
     >
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <AnimatePresence initial={false}>
@@ -371,9 +493,20 @@ export function LunaChatPanel() {
             </div>
           </div>
 
-          <div className="mt-2 flex items-center justify-between px-1 text-[11px] text-slate-500/90">
-            <span className="truncate">Tip: tell me who you’re talking to and the vibe you want.</span>
-            <span className="shrink-0">{busy ? "Thinking…" : "Ready"}</span>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1 text-[11px] text-slate-500/90">
+            <span className="min-w-0 truncate">Tip: tell me who you’re talking to and the vibe you want.</span>
+            <div className="flex shrink-0 items-center gap-2">
+              {persistKey && tier !== "free" ? (
+                <button
+                  type="button"
+                  className="font-semibold text-primary hover:underline"
+                  onClick={clearPersistedThread}
+                >
+                  Clear saved chat
+                </button>
+              ) : null}
+              <span>{busy ? "Thinking…" : "Ready"}</span>
+            </div>
           </div>
         </div>
       </div>

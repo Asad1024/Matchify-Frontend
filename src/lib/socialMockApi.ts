@@ -1,6 +1,5 @@
 import { getCurrentUserId, getMockData, lookupMockUser } from "@/lib/mockData";
 import {
-  addPostReport,
   addUserReport,
   annotatePostsSaved,
   filterPostsForViewer,
@@ -9,7 +8,9 @@ import {
   listFollowers,
   listFollowing,
   listMutedAuthors,
+  listPostReportsMeta,
   listSavedPostMeta,
+  removePostReport,
   setAuthorMuted,
   setFollowing,
   setPostSaved,
@@ -143,18 +144,17 @@ export async function handleSocialApiAsync(
     return jsonResponse(users);
   }
 
+  const reportPostWithIdMatch = path.match(/^\/api\/users\/([^/]+)\/social\/report-post\/([^/]+)\/?$/);
+  if (m === "DELETE" && reportPostWithIdMatch?.[1] && reportPostWithIdMatch[2]) {
+    await removePostReport(reportPostWithIdMatch[1], decodeURIComponent(reportPostWithIdMatch[2]));
+    return jsonResponse({ ok: true });
+  }
+
   const reportPostMatch = path.match(/^\/api\/users\/([^/]+)\/social\/report-post\/?$/);
   if (m === "POST" && reportPostMatch?.[1]) {
-    const uid = reportPostMatch[1];
     const postId = typeof b.postId === "string" ? b.postId : "";
     if (!postId) return jsonResponse({ message: "postId required" }, 400);
-    await addPostReport({
-      userId: uid,
-      postId,
-      authorId: typeof b.authorId === "string" ? b.authorId : undefined,
-      reason: typeof b.reason === "string" ? b.reason : undefined,
-      details: typeof b.details === "string" ? b.details : undefined,
-    });
+    // IndexedDB write happens in PostCard onSuccess so server + client-only paths stay consistent.
     return jsonResponse({ ok: true }, 201);
   }
 
@@ -186,11 +186,12 @@ export async function handleSocialApiAsync(
   const socialListsMatch = path.match(/^\/api\/users\/([^/]+)\/social\/lists\/?$/);
   if (m === "GET" && socialListsMatch?.[1]) {
     const uid = socialListsMatch[1];
-    const [following, followers, muted, blocked] = await Promise.all([
+    const [following, followers, muted, blocked, reportedRows] = await Promise.all([
       listFollowing(uid),
       listFollowers(uid),
       listMutedAuthors(uid),
       listBlocked(uid),
+      listPostReportsMeta(uid),
     ]);
     const nameOf = (id: string) => lookupMockUser(id)?.name ?? "User";
     const avatarOf = (id: string) => lookupMockUser(id)?.avatar ?? null;
@@ -200,6 +201,13 @@ export async function handleSocialApiAsync(
       avatar: avatarOf(id),
       createdAt,
     });
+    const allPosts = (getMockData("/api/posts") as unknown[]) || [];
+    const postById = new Map(
+      (Array.isArray(allPosts) ? allPosts : []).map((p: unknown) => {
+        const po = p as { id?: string };
+        return [String(po?.id || ""), p as Record<string, unknown>];
+      }),
+    );
     return jsonResponse({
       following: following.map((r) => userRow(r.targetUserId, r.createdAt)),
       followers: followers.map((r) => userRow(r.followerUserId, r.createdAt)),
@@ -215,6 +223,23 @@ export async function handleSocialApiAsync(
         avatar: avatarOf(r.blockedUserId),
         createdAt: r.createdAt,
       })),
+      reportedPosts: reportedRows.map((r) => {
+        const p = postById.get(r.postId);
+        const authorId = r.authorId || String(p?.userId || p?.authorId || "");
+        const snapName = r.authorName?.trim();
+        const snapAvatar = r.authorAvatar;
+        const snapPreview = r.postPreview?.trim();
+        return {
+          postId: r.postId,
+          authorId: authorId || undefined,
+          reason: r.reason,
+          details: r.details,
+          createdAt: r.createdAt,
+          authorName: snapName || (authorId ? nameOf(authorId) : "Unknown"),
+          authorAvatar: snapAvatar ?? (authorId ? avatarOf(authorId) : null),
+          preview: snapPreview || (p ? String(p.content || "").slice(0, 120) : null) || null,
+        };
+      }),
     });
   }
 
