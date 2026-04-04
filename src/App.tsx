@@ -319,7 +319,8 @@ function readAuthState() {
   let userId: string | null = jwtSub;
   const inferOnboardedFromUser = (u: any): boolean => {
     if (!u || typeof u !== "object") return false;
-    // Do NOT trust stale onboardingCompleted=true if core fields are missing.
+    // Same source as GET /api/users/:id (serialize userToPublic): server sets onboardingCompleted from profile core fields (not necessarily display name column).
+    if (u.onboardingCompleted === true) return true;
     const hasCoreProfile =
       Boolean(String(u.name || "").trim()) &&
       Boolean(String(u.location || "").trim()) &&
@@ -360,9 +361,8 @@ function AppContent() {
 
   const isLikelyOnboarded = (u: any): boolean => {
     if (!u || typeof u !== "object") return false;
-    // Onboarding is only complete when core profile is present.
-    // Safety net for stale flag scenarios: if core profile exists,
-    // consider onboarding complete and sync it back to backend.
+    // Prefer API flag (matches backend serialize.ts inferOnboarded) so a new browser/session does not redo onboarding when Chrome already saved profile to the server.
+    if (u.onboardingCompleted === true) return true;
     const hasCoreProfile =
       Boolean(String(u.name || "").trim()) &&
       Boolean(String(u.location || "").trim()) &&
@@ -434,7 +434,7 @@ function AppContent() {
             /* ignore parse failures */
           }
           setShowOnboarding(false);
-          // Sync backend if it still says false.
+          // Persist DB column when API inferred onboarded from profile but onboarding_completed is still false.
           if (user.onboardingCompleted !== true) {
             void fetch(buildApiUrl(`/api/users/${userId}`), {
               method: "PATCH",
