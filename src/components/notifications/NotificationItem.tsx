@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Bell, Check, Heart, MessageCircle, Calendar, Sparkles } from "lucide-react";
+import { Bell, Check, Heart, MessageCircle, Calendar, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -13,7 +13,9 @@ type NotificationType =
   | "marriage_chat_request"
   | "marriage_chat_accepted"
   | "chat_request"
-  | "chat_request_accepted";
+  | "chat_request_accepted"
+  | "chat_request_declined"
+  | "chat_request_you_accepted";
 
 interface NotificationItemProps {
   id: string;
@@ -33,6 +35,8 @@ interface NotificationItemProps {
   onDecline?: (id: string) => void;
   actionsDisabled?: boolean;
   markReadDisabled?: boolean;
+  onDelete?: (id: string) => void;
+  deleteDisabled?: boolean;
 }
 
 const ICON_MAP: Record<NotificationType, React.ElementType> = {
@@ -46,6 +50,8 @@ const ICON_MAP: Record<NotificationType, React.ElementType> = {
   marriage_chat_accepted: MessageCircle,
   chat_request: MessageCircle,
   chat_request_accepted: MessageCircle,
+  chat_request_declined: MessageCircle,
+  chat_request_you_accepted: MessageCircle,
 };
 
 const COLOR_MAP: Record<NotificationType, string> = {
@@ -59,6 +65,8 @@ const COLOR_MAP: Record<NotificationType, string> = {
   marriage_chat_accepted: "bg-primary/10 text-primary",
   chat_request: "bg-primary/10 text-primary",
   chat_request_accepted: "bg-primary/10 text-primary",
+  chat_request_declined: "bg-primary/10 text-primary",
+  chat_request_you_accepted: "bg-primary/10 text-primary",
 };
 
 export default function NotificationItem({
@@ -74,6 +82,8 @@ export default function NotificationItem({
   onDecline,
   actionsDisabled = false,
   markReadDisabled = false,
+  onDelete,
+  deleteDisabled = false,
 }: NotificationItemProps) {
   const Icon = ICON_MAP[type] || Bell;
   const iconColor = COLOR_MAP[type] || COLOR_MAP.system;
@@ -158,22 +168,43 @@ export default function NotificationItem({
       </div>
       </motion.div>
 
-      {!read && onMarkRead ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="mt-0.5 h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-primary"
-          disabled={markReadDisabled}
-          aria-label="Mark as read"
-          data-testid={`notification-mark-read-${id}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onMarkRead(id);
-          }}
-        >
-          <Check className="h-5 w-5" strokeWidth={2} aria-hidden />
-        </Button>
+      {(!read && onMarkRead) || onDelete ? (
+        <div className="mt-0.5 flex shrink-0 flex-col items-end gap-0.5">
+          {!read && onMarkRead ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full text-muted-foreground hover:text-primary"
+              disabled={markReadDisabled}
+              aria-label="Mark as read"
+              data-testid={`notification-mark-read-${id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMarkRead(id);
+              }}
+            >
+              <Check className="h-5 w-5" strokeWidth={2} aria-hidden />
+            </Button>
+          ) : null}
+          {onDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full text-muted-foreground hover:text-destructive"
+              disabled={deleteDisabled}
+              aria-label="Delete notification"
+              data-testid={`notification-delete-${id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(id);
+              }}
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={2} aria-hidden />
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

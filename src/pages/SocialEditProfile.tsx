@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { X, Settings, Trash2, Lock, Eye, Pencil, Sparkles, GripVertical, Plus, Link as LinkIcon } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { X, Settings, Lock, Sparkles, Link as LinkIcon, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import PhotoUpload from "@/components/profile/PhotoUpload";
+import { ProfilePreviewCard } from "@/components/profile/ProfilePreviewCard";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,7 @@ import { markClientStateDirty } from "@/lib/clientStateSync";
 import { usersService } from "@/services/users.service";
 import { notifyHeaderUserUpdated } from "@/components/common/Header";
 import { cn } from "@/lib/utils";
+import { sanitizeProfileGalleryUrls } from "@/lib/profileLabels";
 
 type MeUser = {
   id: string;
@@ -30,7 +31,14 @@ type MeUser = {
   username: string;
   bio?: string | null;
   avatar?: string | null;
+  photos?: string[] | null;
 };
+
+function normalizeExtraPhotos(photos: string[] | null | undefined, avatar: string | null | undefined) {
+  const av = avatar?.trim() || "";
+  const raw = sanitizeProfileGalleryUrls(photos);
+  return raw.filter((p) => !av || p !== av);
+}
 
 const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
 
@@ -48,7 +56,6 @@ export default function SocialEditProfile() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { toast } = useToast();
-  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [addGalleryOpen, setAddGalleryOpen] = useState(false);
   const [newGalleryUrl, setNewGalleryUrl] = useState("");
   const [nameLockUntil, setNameLockUntil] = useState(0);
@@ -77,47 +84,49 @@ export default function SocialEditProfile() {
   }, [user]);
 
   useEffect(() => {
-    if (!userId) return;
-    try {
-      const raw = localStorage.getItem(`matchify:social:gallery:${userId}`);
-      const arr = raw ? (JSON.parse(raw) as unknown) : [];
-      if (Array.isArray(arr)) {
-        setGallery(arr.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 18));
+    if (!user) return;
+    setGallery(normalizeExtraPhotos(user.photos ?? null, user.avatar ?? null));
+  }, [user]);
+
+  const photosMutation = useMutation({
+    mutationFn: async (nextPhotos: string[] | null) => {
+      if (!userId) throw new Error("Not signed in");
+      return usersService.patch(userId, { photos: nextPhotos });
+    },
+    onSuccess: (updated) => {
+      if (!userId) return;
+      queryClient.setQueryData([`/api/users/${userId}`], (prev: unknown) => {
+        const base = prev && typeof prev === "object" ? (prev as Record<string, unknown>) : {};
+        return { ...base, ...(updated as Record<string, unknown>) };
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+      try {
+        const raw = localStorage.getItem("currentUser");
+        if (raw) {
+          const cur = JSON.parse(raw) as Record<string, unknown>;
+          localStorage.setItem("currentUser", JSON.stringify({ ...cur, ...(updated as Record<string, unknown>) }));
+          notifyHeaderUserUpdated();
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
-    }
-  }, [userId]);
+    },
+    onError: () => {
+      toast({ title: "Could not save photos", variant: "destructive" });
+    },
+  });
 
-  useEffect(() => {
-    if (!userId) return;
-    try {
-      localStorage.setItem(`matchify:social:gallery:${userId}`, JSON.stringify(gallery));
-      markClientStateDirty();
-    } catch {
-      /* ignore */
-    }
-  }, [gallery, userId]);
-
-  const moveGallery = (from: number, to: number) => {
-    setGallery((prev) => {
-      if (from === to) return prev;
-      if (from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
-      const next = [...prev];
-      const [item] = next.splice(from, 1);
-      next.splice(to, 0, item);
-      return next;
-    });
-  };
-
-  const addGalleryUrl = () => {
-    setAddGalleryOpen(true);
+  const persistGallery = (next: string[]) => {
+    const cleaned = sanitizeProfileGalleryUrls(next);
+    setGallery(cleaned);
+    photosMutation.mutate(cleaned.length ? cleaned : null);
   };
 
   const commitNewGalleryUrl = () => {
     const u = String(newGalleryUrl || "").trim();
     if (!u) return;
-    setGallery((prev) => Array.from(new Set([u, ...prev])).slice(0, 18));
+    const merged = sanitizeProfileGalleryUrls(Array.from(new Set([u, ...gallery])));
+    persistGallery(merged);
     setNewGalleryUrl("");
     setAddGalleryOpen(false);
   };
@@ -193,7 +202,9 @@ export default function SocialEditProfile() {
   const avatarMutation = useMutation({
     mutationFn: async (nextAvatar: string | null) => {
       if (!userId) throw new Error("Not signed in");
-      return usersService.patch(userId, { avatar: nextAvatar });
+      const v =
+        nextAvatar && typeof nextAvatar === "string" && nextAvatar.trim() ? nextAvatar.trim() : null;
+      return usersService.patch(userId, { avatar: v });
     },
     onSuccess: (updated) => {
       if (!userId) return;
@@ -213,7 +224,6 @@ export default function SocialEditProfile() {
         // ignore local storage parse issues
       }
       toast({ title: "Photo updated" });
-      setAvatarModalOpen(false);
     },
     onError: () => {
       toast({ title: "Could not update photo", variant: "destructive" });
@@ -286,95 +296,71 @@ export default function SocialEditProfile() {
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <h1 className="flex-1 text-center font-display text-[15px] font-bold text-stone-900">Social profile</h1>
-          <div className="w-10 shrink-0" />
+          <h1 className="flex-1 text-center font-display text-[15px] font-bold text-stone-900">Edit Profile</h1>
+          <div className="w-10 shrink-0" aria-hidden />
         </div>
       </div>
 
       <div className="mx-auto w-full max-w-lg space-y-4 px-4 pb-8 pt-4">
-        {/* Segmented pill: Edit vs Preview */}
-        <div className="rounded-full bg-card/60 p-1 shadow-2xs ring-1 ring-border/70 backdrop-blur-md">
-          <div className="grid grid-cols-2 gap-1">
-            <div className="relative h-10 rounded-full text-[12px] font-medium uppercase tracking-[0.14em] text-primary-foreground">
-              <span className="absolute inset-0 rounded-full bg-primary shadow-2xs" />
-              <span className="relative inline-flex h-full w-full items-center justify-center gap-2">
-                <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                Edit
-              </span>
-            </div>
+        <div
+          className="matchify-surface rounded-2xl border border-border/70 bg-card px-4 py-3.5 shadow-2xs"
+          role="status"
+        >
+          <p className="text-center text-[13px] font-medium leading-snug text-foreground">
+            Onboarding is locked here — open{" "}
             <button
               type="button"
-              onClick={() => setLocation("/profile/social")}
-              className="relative h-10 rounded-full text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 hover:text-slate-800"
+              className="font-semibold text-[#722F37] underline decoration-[#722F37] decoration-2 underline-offset-[3px] hover:opacity-90"
+              onClick={() => setLocation("/support")}
             >
-              <span className="relative inline-flex items-center gap-2">
-                <Eye className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                Preview
-              </span>
+              Help &amp; support
             </button>
-          </div>
+            {" "}
+            to request changes.
+          </p>
         </div>
 
-        {/* Media */}
-        <div className="matchify-surface border-white/0 bg-card/70 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Media gallery</p>
-              <p className="mt-1 font-display text-[16px] font-bold text-slate-900">Your social photos</p>
+        <ProfilePreviewCard
+          icon={Camera}
+          title="Photos"
+          description="Main photo plus up to four gallery shots — same layout as your marriage profile preview. Photos save as soon as you add or change them."
+        >
+          <div className="flex justify-center rounded-2xl bg-stone-50/80 py-4">
+            <PhotoUpload
+              suppressSuccessToast
+              currentPhoto={user.avatar || null}
+              userId={user.id}
+              onPhotoChange={(url) => {
+                const v = url?.trim() ? url.trim() : null;
+                avatarMutation.mutate(v);
+              }}
+              size="lg"
+              label="Change main photo"
+            />
+          </div>
+          <div className="mt-4 rounded-2xl border border-stone-100 bg-stone-50/50 p-3">
+            <PhotoUpload
+              photos={gallery}
+              onPhotosChange={(next) => persistGallery(next)}
+              maxPhotos={4}
+              userId={user.id}
+              suppressSuccessToast
+              multiAddLabel="Upload"
+            />
+            <div className="mt-3 flex justify-center border-t border-stone-200/80 pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 rounded-full text-xs font-semibold text-muted-foreground hover:text-foreground"
+                onClick={() => setAddGalleryOpen(true)}
+              >
+                <LinkIcon className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                Add from image URL
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 rounded-full border-border/70 bg-card/60 font-semibold text-slate-800 shadow-2xs hover:bg-card"
-              onClick={addGalleryUrl}
-            >
-              <Plus className="mr-2 h-4 w-4" strokeWidth={1.75} />
-              Add
-            </Button>
           </div>
-
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {gallery.length === 0 ? (
-              <div className="col-span-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600">
-                Add a few photos. Drag to reorder (saved on this device).
-              </div>
-            ) : (
-              gallery.map((url, idx) => (
-                <div
-                  key={`${url}-${idx}`}
-                  className="group relative aspect-square overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-black/[0.04]"
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("text/plain", String(idx));
-                  }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const from = Number(e.dataTransfer.getData("text/plain"));
-                    if (Number.isFinite(from)) moveGallery(from, idx);
-                  }}
-                  aria-label="Gallery image"
-                >
-                  <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-transparent opacity-0 transition group-hover:opacity-100" />
-                  <div className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-700 shadow-sm backdrop-blur-md opacity-0 transition group-hover:opacity-100">
-                    <GripVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    Drag
-                  </div>
-                  <button
-                    type="button"
-                    className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/85 text-slate-700 shadow-sm backdrop-blur-md opacity-0 transition group-hover:opacity-100"
-                    onClick={() => setGallery((prev) => prev.filter((_, i) => i !== idx))}
-                    aria-label="Remove image"
-                    title="Remove"
-                  >
-                    <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        </ProfilePreviewCard>
 
         {/* Public info */}
         <div className="matchify-surface border-white/0 bg-card/70 p-4">
@@ -389,7 +375,7 @@ export default function SocialEditProfile() {
                 value={form.name}
                 disabled={nameLocked}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="h-11 rounded-2xl border-0 bg-transparent p-0 text-[15px] font-medium text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-80"
+                className="h-11 rounded-2xl border-0 bg-transparent px-3 py-2 text-[15px] font-medium text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-80"
               />
             </FloatingField>
 
@@ -402,7 +388,7 @@ export default function SocialEditProfile() {
                 value={form.username}
                 disabled={usernameLocked}
                 onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                className="h-11 rounded-2xl border-0 bg-transparent p-0 text-[15px] font-medium text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-80"
+                className="h-11 rounded-2xl border-0 bg-transparent px-3 py-2 text-[15px] font-medium text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-80"
               />
             </FloatingField>
 
@@ -411,19 +397,11 @@ export default function SocialEditProfile() {
                 value={form.bio}
                 onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
                 rows={4}
-                className="min-h-[120px] resize-y rounded-2xl border-0 bg-transparent p-0 text-[15px] leading-relaxed text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="min-h-[120px] resize-y rounded-2xl border-0 bg-transparent px-3.5 py-2.5 text-[15px] leading-relaxed text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 maxLength={500}
               />
             </FloatingField>
           </div>
-        </div>
-
-        {/* Contact details (placeholder, dynamic if available later) */}
-        <div className="matchify-surface border-white/0 bg-card/70 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Contact details</p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            Contact fields will appear here when enabled for Social profiles.
-          </p>
         </div>
 
         <button
@@ -446,40 +424,18 @@ export default function SocialEditProfile() {
             "h-12 w-full rounded-full font-semibold text-white shadow-xl hover:brightness-[0.98]",
             "bg-primary",
           )}
-          disabled={!canSave || saveMutation.isPending}
+          disabled={
+            !canSave ||
+            saveMutation.isPending ||
+            photosMutation.isPending ||
+            avatarMutation.isPending
+          }
           onClick={() => saveMutation.mutate()}
         >
           <Sparkles className="mr-2 h-5 w-5" strokeWidth={1.75} />
           {saveMutation.isPending ? "Saving..." : "Save changes"}
         </Button>
       </div>
-
-      <Dialog open={avatarModalOpen} onOpenChange={setAvatarModalOpen}>
-        <DialogContent className="max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit photo</DialogTitle>
-            <DialogDescription>Replace your profile photo or remove it.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <PhotoUpload
-              currentPhoto={user.avatar || null}
-              userId={user.id}
-              suppressSuccessToast
-              onPhotoChange={(url) => avatarMutation.mutate(url?.trim() ? url.trim() : null)}
-              label="Replace photo"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full rounded-full border-red-200 text-red-600 hover:bg-red-50"
-              onClick={() => avatarMutation.mutate(null)}
-              disabled={avatarMutation.isPending}
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete photo
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={addGalleryOpen}
@@ -491,7 +447,9 @@ export default function SocialEditProfile() {
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Add a gallery photo</DialogTitle>
-            <DialogDescription>Paste an image URL. Photos are saved on this device.</DialogDescription>
+            <DialogDescription>
+              Paste a direct image URL. It is added to your gallery and saved right away (same as an upload).
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <div className="rounded-2xl border border-border/70 bg-card/60 px-3 py-2.5 shadow-2xs focus-within:bg-primary/[0.04]">

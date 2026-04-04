@@ -25,7 +25,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { buildApiUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { uploadPostPhoto } from "@/services/upload.service";
 import { DEFAULT_EVENT_QUESTIONS, type EventQuestionItem } from "@/lib/eventQuestionnaireDefaults";
 import { Plus, Trash2 } from "lucide-react";
@@ -117,6 +117,7 @@ export default function CreateEvent() {
     queryFn: async () => {
       const res = await fetch(buildApiUrl(`/api/events/${editEventId}`), {
         credentials: "include",
+        headers: getAuthHeaders(false),
       });
       if (!res.ok) throw new Error("Failed to load event");
       return (await res.json()) as Record<string, unknown>;

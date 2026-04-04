@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import {
   CommandDialog,
@@ -11,8 +11,11 @@ import {
 import { Home, Users, Calendar, MessageCircle, User as UserIcon, Compass, Bell, GraduationCap, Sparkles, Search, Globe } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getMockData } from "@/lib/mockData";
+import { fetchPostsFeedPage } from "@/lib/fetchPostsFeed";
 import type { User, Event, Group, Post } from "@shared/schema";
 import { VerifiedTick } from "@/components/common/VerifiedTick";
+import { useCurrentUser } from "@/contexts/UserContext";
+import { filterEventsVisibleToViewer } from "@/lib/eventVisibility";
 
 /** Dispatched by Header search button so the palette opens from the icon tap. */
 export const OPEN_GLOBAL_SEARCH_EVENT = "matchify-open-global-search";
@@ -21,6 +24,12 @@ export function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [, setLocation] = useLocation();
+  const { userId } = useCurrentUser();
+
+  const { data: me } = useQuery<User & { isAdmin?: boolean }>({
+    queryKey: [`/api/users/${userId}`],
+    enabled: !!userId,
+  });
 
   // Fetch data for search
   const { data: users = [] } = useQuery<User[]>({
@@ -33,7 +42,8 @@ export function GlobalSearch() {
     queryKey: ['/api/groups'],
   });
   const { data: posts = [] } = useQuery<Post[]>({
-    queryKey: ['/api/posts'],
+    queryKey: ["/api/posts", "global-search"],
+    queryFn: () => fetchPostsFeedPage({ limit: 120, offset: 0 }) as Promise<Post[]>,
   });
 
   useEffect(() => {
@@ -48,7 +58,12 @@ export function GlobalSearch() {
     user.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredEvents = events.filter((event: any) =>
+  const eventsForSearch = useMemo(
+    () => filterEventsVisibleToViewer(events, userId, !!(me as { isAdmin?: boolean })?.isAdmin),
+    [events, userId, me],
+  );
+
+  const filteredEvents = eventsForSearch.filter((event: any) =>
     event.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     event.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );

@@ -63,6 +63,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import { formatPostRelativeTime } from "@/lib/formatPostTime";
 import { cn } from "@/lib/utils";
+import type { SocialSummary } from "@/lib/socialPreferencesService";
+
+function patchViewerFollowingInCache(viewerId: string, targetAuthorId: string, following: boolean) {
+  queryClient.setQueryData<SocialSummary>(["/api/users", viewerId, "social-summary"], (old) => {
+    if (!old) return old;
+    const set = new Set(old.followingIds ?? []);
+    if (following) set.add(targetAuthorId);
+    else set.delete(targetAuthorId);
+    return {
+      ...old,
+      followingIds: Array.from(set),
+      followingCount: set.size,
+    };
+  });
+}
 
 interface PostCardProps {
   id: string;
@@ -161,7 +176,6 @@ export default function PostCard({
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [saved, setSaved] = useState(!!savedByMeProp);
-  const [following, setFollowing] = useState(!!isFollowingAuthor);
   const [renderedContent, setRenderedContent] = useState(content);
   const [renderedImage, setRenderedImage] = useState(image || "");
   const [editContent, setEditContent] = useState(content);
@@ -216,12 +230,20 @@ export default function PostCard({
       );
     },
     onSuccess: (_d, next) => {
-      setFollowing(next);
+      if (currentUserId && authorId) {
+        patchViewerFollowingInCache(currentUserId, authorId, next);
+      }
       invalidateSocial();
       toast({ title: next ? "Following" : "Unfollowed" });
     },
     onError: () => toast({ title: "Couldn’t update follow", variant: "destructive" }),
   });
+
+  /** During mutation, show target state; otherwise rely on feed prop (kept in sync via cache patch). */
+  const followDisplay =
+    followMutation.isPending && typeof followMutation.variables === "boolean"
+      ? followMutation.variables
+      : isFollowingAuthor;
 
   const muteMutation = useMutation({
     mutationFn: async (mute: boolean) => {
@@ -352,11 +374,6 @@ export default function PostCard({
   useEffect(() => {
     setSaved(!!savedByMeProp);
   }, [id, savedByMeProp]);
-
-  useEffect(() => {
-    if (followMutation.isPending) return;
-    setFollowing(!!isFollowingAuthor);
-  }, [id, isFollowingAuthor, authorId, followMutation.isPending]);
 
   useEffect(() => {
     setRenderedContent(content);
@@ -566,14 +583,14 @@ export default function PostCard({
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={followMutation.isPending}
-                      onClick={() => followMutation.mutate(!following)}
+                      onClick={() => followMutation.mutate(!followDisplay)}
                     >
-                      {following ? (
+                      {followDisplay ? (
                         <UserMinus className="mr-2 h-4 w-4" />
                       ) : (
                         <UserPlus className="mr-2 h-4 w-4" />
                       )}
-                      {following ? "Unfollow" : "Follow"}
+                      {followDisplay ? "Unfollow" : "Follow"}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={muteMutation.isPending}

@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useCurrentUser } from "@/contexts/UserContext";
-import { buildApiUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import { filterEventsVisibleToViewer } from "@/lib/eventVisibility";
 
 type RsvpRow = { eventId: string };
-type EventRow = { id: string; matchRevealTime?: string | null };
+type EventRow = { id: string; matchRevealTime?: string | null; status?: string | null; hostId?: string | null };
 
 const CHECK_EVERY_MS = 2000;
 const REDIRECT_WINDOW_MS = 18_000; // keep in sync with match reveal countdown (~15s + buffer)
@@ -39,18 +40,31 @@ export default function EventRevealWatcher() {
     return ids;
   }, [rsvps]);
 
-  const { data: events = [] } = useQuery<EventRow[]>({
+  const { data: me } = useQuery<{ isAdmin?: boolean }>({
+    queryKey: [`/api/users/${userId}`],
+    enabled: !!userId,
+  });
+
+  const { data: eventsRaw = [] } = useQuery<EventRow[]>({
     queryKey: ["/api/events"],
     enabled: !!userId,
     refetchInterval: CHECK_EVERY_MS,
     queryFn: async () => {
       const url = buildApiUrl("/api/events");
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: getAuthHeaders(false),
+      });
       if (!res.ok) return [];
       const j = await res.json();
       return Array.isArray(j) ? (j as EventRow[]) : [];
     },
   });
+
+  const events = useMemo(
+    () => filterEventsVisibleToViewer(eventsRaw, userId, !!(me as { isAdmin?: boolean })?.isAdmin),
+    [eventsRaw, userId, me],
+  );
 
   useEffect(() => {
     if (!userId) return;

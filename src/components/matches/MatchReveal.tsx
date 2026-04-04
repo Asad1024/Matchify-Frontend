@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Heart, X, MessageCircle, User } from "lucide-react";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { useCurrentUser } from "@/contexts/UserContext";
+import { useUpgrade } from "@/contexts/UpgradeContext";
+import { requestChatWithUser } from "@/lib/requestChatWithUser";
 
 interface UnrevealedMatch {
   id: string;
@@ -29,6 +33,9 @@ interface MatchRevealProps {
 export default function MatchReveal({ match, onClose, onMessage }: MatchRevealProps) {
   const [revealed, setRevealed] = useState(false);
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const { userId } = useCurrentUser();
+  const { openUpgrade } = useUpgrade();
 
   const handleReveal = () => setRevealed(true);
 
@@ -36,7 +43,13 @@ export default function MatchReveal({ match, onClose, onMessage }: MatchRevealPr
     if (onMessage) {
       onMessage(match.user.id);
     } else {
-      setLocation(`/chat?user=${encodeURIComponent(match.user.id)}`);
+      void requestChatWithUser({
+        fromUserId: userId,
+        toUserId: match.user.id,
+        setLocation,
+        toast,
+        openUpgrade,
+      });
     }
   };
 

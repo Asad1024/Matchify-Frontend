@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
+import { readJwtSub } from "@/lib/authUserIdReconcile";
 import AuthScreen from "@/components/auth/AuthScreen";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { closeOAuthPopupAndNavigate } from "@/lib/googleOAuthPopup";
@@ -24,7 +25,9 @@ export default function Login() {
   }, [setLocation]);
 
   const handleAuth = (user: any, isNewUser: boolean) => {
-    const userIdValue = user.id || user.userId || `user-${Date.now()}`;
+    const tok = typeof user.token === "string" ? user.token : "";
+    const userIdValue =
+      (tok ? readJwtSub(tok) : null) || user.id || user.userId || `user-${Date.now()}`;
 
     const go = (path: string) => {
       if (closeOAuthPopupAndNavigate(path)) return;

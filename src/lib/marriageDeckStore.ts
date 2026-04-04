@@ -1,4 +1,4 @@
-/** Local persistence for Marriage tab: pass / like / favorite / compliment lists. */
+/** Local persistence for Marriage tab: pass / like / favorite lists. */
 
 import { markClientStateDirty } from "@/lib/clientStateSync";
 
@@ -17,7 +17,7 @@ function currentUserScope(): string {
   }
 }
 
-function scopedKey(suffix: "passed" | "liked" | "favorites" | "complimented"): string {
+function scopedKey(suffix: "passed" | "liked" | "favorites"): string {
   return `${P}${currentUserScope()}_${suffix}`;
 }
 
@@ -56,7 +56,6 @@ function pushEntry(list: DeckEntry[], id: string): DeckEntry[] {
 export const getMarriagePassed = (): DeckEntry[] => readList(scopedKey("passed"));
 export const getMarriageLiked = (): DeckEntry[] => readList(scopedKey("liked"));
 export const getMarriageFavorites = (): DeckEntry[] => readList(scopedKey("favorites"));
-export const getMarriageComplimented = (): DeckEntry[] => readList(scopedKey("complimented"));
 
 export function getMarriagePassedIds(): Set<string> {
   return new Set(getMarriagePassed().map((e) => e.id));
@@ -72,10 +71,6 @@ export function addMarriagePassed(id: string): void {
 
 export function addMarriageLiked(id: string): void {
   writeList(scopedKey("liked"), pushEntry(getMarriageLiked(), id));
-}
-
-export function addMarriageComplimented(id: string): void {
-  writeList(scopedKey("complimented"), pushEntry(getMarriageComplimented(), id));
 }
 
 export function isMarriageFavorite(id: string): boolean {
@@ -96,13 +91,13 @@ export function toggleMarriageFavorite(id: string): boolean {
   return true;
 }
 
-/** Dev/testing: clear pass / like / favorite / compliment lists (Explore → My history + Marriage deck). */
+/** Dev/testing: clear pass / like / favorite lists (Explore → My history + Marriage deck). */
 export function clearMarriageDeckListsForTesting(): void {
   try {
     localStorage.removeItem(scopedKey("passed"));
     localStorage.removeItem(scopedKey("liked"));
     localStorage.removeItem(scopedKey("favorites"));
-    localStorage.removeItem(scopedKey("complimented"));
+    localStorage.removeItem(`${P}${currentUserScope()}_complimented`);
     // Backward compat: clear legacy global keys if present.
     localStorage.removeItem(`${P}passed`);
     localStorage.removeItem(`${P}liked`);

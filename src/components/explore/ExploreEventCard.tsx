@@ -44,7 +44,15 @@ export function ExploreEventCard({ event, onClick, className }: Props) {
     >
       <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-primary/10 via-slate-100 to-primary/10">
         {event.image ? (
-          <img src={event.image} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+          <img
+            src={event.image}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+            sizes="(max-width: 32rem) 100vw, 28rem"
+          />
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
         <span

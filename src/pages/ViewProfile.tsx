@@ -29,6 +29,7 @@ import {
 import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
+import { useUpgrade } from "@/contexts/UpgradeContext";
 import { BlockReportDialog } from "@/components/common/BlockReportDialog";
 import { MatchInsights } from "@/components/matches/MatchInsights";
 import { ProfileMarriageIntentBar } from "@/components/profile/ProfileMarriageIntentBar";
@@ -44,6 +45,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { buildApiUrl } from "@/services/api";
+import { requestChatWithUser } from "@/lib/requestChatWithUser";
+import { chatRequestPairQueryKey, fetchChatRequestPair } from "@/lib/chatRequestsApi";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ShareProfileDialog } from "@/components/profile/ShareProfileDialog";
 import { labelLoveLanguage, membershipBadgeLabel, splitLocation } from "@/lib/profileLabels";
@@ -144,6 +147,7 @@ export default function ViewProfile() {
   const [, params] = useRoute('/profile/:id');
   const [, setLocation] = useLocation();
   const { userId: currentUserId } = useCurrentUser();
+  const { openUpgrade } = useUpgrade();
   const { toast } = useToast();
   const [blockReportOpen, setBlockReportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -188,6 +192,12 @@ export default function ViewProfile() {
 
   const { data: likeState } = useQuery<{ liked: boolean }>({
     queryKey: [`/api/users/${currentUserId}/profile-like/${user?.id || ""}`],
+    enabled: !!currentUserId && !!user?.id && user.id !== currentUserId,
+  });
+
+  const { data: chatPair } = useQuery({
+    queryKey: chatRequestPairQueryKey(currentUserId ?? "", user?.id ?? ""),
+    queryFn: () => fetchChatRequestPair(currentUserId!, user!.id),
     enabled: !!currentUserId && !!user?.id && user.id !== currentUserId,
   });
 
@@ -292,6 +302,7 @@ export default function ViewProfile() {
   const { city, country } = splitLocation(user.location);
   const profileAvatarUrl = user.avatar?.trim() || "";
   const isOwnProfile = user.id === currentUserId;
+  const outgoingChat = chatPair?.outgoingStatus ?? "none";
 
   return (
     <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
@@ -428,13 +439,36 @@ export default function ViewProfile() {
 
         <div className="flex gap-2 sm:gap-3">
           <Button
-            className="h-10 flex-1 gap-2 bg-primary text-sm hover:bg-primary/90 sm:h-11 sm:text-base"
+            className={cn(
+              "h-10 flex-1 gap-2 text-sm sm:h-11 sm:text-base",
+              outgoingChat === "pending"
+                ? "border-primary/35 bg-primary/5 text-primary hover:bg-primary/10"
+                : "bg-primary text-primary-foreground hover:bg-primary/90",
+            )}
+            variant={outgoingChat === "pending" ? "outline" : "default"}
             data-testid="button-message"
-            disabled={isOwnProfile}
-            onClick={() => setLocation(`/chat?user=${encodeURIComponent(user.id)}`)}
+            disabled={isOwnProfile || outgoingChat === "pending"}
+            onClick={() => {
+              if (outgoingChat === "accepted") {
+                setLocation(`/chat?user=${encodeURIComponent(user.id)}`);
+                return;
+              }
+              if (outgoingChat === "pending") return;
+              void requestChatWithUser({
+                fromUserId: currentUserId,
+                toUserId: user.id,
+                setLocation,
+                toast,
+                openUpgrade,
+              });
+            }}
           >
             <MessageCircle className="h-4 w-4" />
-            Message
+            {outgoingChat === "pending"
+              ? "Request sent"
+              : outgoingChat === "accepted"
+                ? "Chat"
+                : "Message"}
           </Button>
           <Button
             variant="outline"

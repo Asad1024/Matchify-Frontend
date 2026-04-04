@@ -11,7 +11,18 @@ interface SubscriptionTierProps {
   features: string[];
   popular?: boolean;
   current?: boolean;
-  onSubscribe?: (id: string) => void;
+  onSubscribe?: (id: string) => void | Promise<void>;
+  /** Landing / marketing: always-enabled CTA, no “current plan” state */
+  variant?: "default" | "marketing";
+  onMarketingAction?: () => void;
+  marketingButtonLabel?: string;
+  /** This tier’s subscribe/upgrade request is in flight */
+  subscribePending?: boolean;
+  /** While true, non-current plan buttons are disabled (e.g. another tier is loading) */
+  subscribeDisabled?: boolean;
+  /** Shown on the button while subscribePending (e.g. “Subscribing…”, “Upgrading…”) */
+  pendingLabel?: string;
+  "data-testid"?: string;
 }
 
 export default function SubscriptionTier({
@@ -23,12 +34,30 @@ export default function SubscriptionTier({
   features,
   popular = false,
   current = false,
-  onSubscribe
+  onSubscribe,
+  variant = "default",
+  onMarketingAction,
+  marketingButtonLabel = "Get started",
+  subscribePending = false,
+  subscribeDisabled = false,
+  pendingLabel,
+  "data-testid": dataTestId,
 }: SubscriptionTierProps) {
+  const marketing = variant === "marketing";
+  const ctaDisabled =
+    marketing ? false : current ? true : subscribePending || subscribeDisabled;
+
+  const ctaLabel = (() => {
+    if (marketing) return marketingButtonLabel;
+    if (subscribePending && pendingLabel) return pendingLabel;
+    if (current) return "Current Plan";
+    return "Upgrade Now";
+  })();
+
   return (
     <Card 
       className={`relative ${popular ? 'border-primary shadow-lg shadow-primary/10' : ''}`}
-      data-testid={`card-tier-${id}`}
+      data-testid={dataTestId ?? `card-tier-${id}`}
     >
       {popular && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -57,13 +86,19 @@ export default function SubscriptionTier({
           ))}
         </ul>
         <Button
-          className={`w-full rounded-full ${popular && !current ? 'glow-primary transition-all duration-300' : ''}`}
-          variant={current ? "outline" : popular ? "default" : "outline"}
-          onClick={() => onSubscribe?.(id)}
-          disabled={current}
+          className={`w-full rounded-full ${popular && (!current || marketing) ? 'glow-primary transition-all duration-300' : ''}`}
+          variant={marketing ? (popular ? "default" : "outline") : current ? "outline" : popular ? "default" : "outline"}
+          onClick={() => {
+            if (marketing) {
+              onMarketingAction?.();
+              return;
+            }
+            void onSubscribe?.(id);
+          }}
+          disabled={ctaDisabled}
           data-testid={`button-subscribe-${id}`}
         >
-          {current ? 'Current Plan' : 'Upgrade Now'}
+          {ctaLabel}
         </Button>
       </CardContent>
     </Card>

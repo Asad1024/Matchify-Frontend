@@ -692,6 +692,13 @@ export default function Chat() {
             <div className="px-4 pt-3 pb-1">
               <h1 className="text-lg font-semibold text-gray-900 tracking-tight">Messages</h1>
               <p className="text-xs text-gray-500 mt-0.5">Your conversations</p>
+              <button
+                type="button"
+                onClick={() => setLocation("/chat-requests")}
+                className="mt-2 text-left text-xs font-semibold text-primary hover:underline"
+              >
+                Message requests
+              </button>
             </div>
             {/* Search */}
             <div className="px-4 py-3 border-b border-border/70">

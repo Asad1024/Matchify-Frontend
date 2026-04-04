@@ -140,7 +140,9 @@ export default function SocialConnectionsPage() {
                         size="sm"
                         variant="ghost"
                         className="rounded-full text-muted-foreground hover:bg-slate-900/[0.03]"
-                        onClick={() => setLocation(`/profile/${encodeURIComponent(u.userId)}`)}
+                        onClick={() =>
+                          setLocation(`/profile/social/user/${encodeURIComponent(u.userId)}`)
+                        }
                       >
                         Profile
                       </Button>
@@ -194,7 +196,9 @@ export default function SocialConnectionsPage() {
                       size="sm"
                       variant="outline"
                       className="rounded-full border-border/70 bg-card/60 shadow-2xs hover:bg-card"
-                      onClick={() => setLocation(`/profile/${encodeURIComponent(u.userId)}`)}
+                      onClick={() =>
+                        setLocation(`/profile/social/user/${encodeURIComponent(u.userId)}`)
+                      }
                     >
                       View profile
                     </Button>

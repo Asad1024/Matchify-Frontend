@@ -22,6 +22,8 @@ import type { Event, User } from "@shared/schema";
 import { formatCountdown } from "@/hooks/useAiMatchCooldown";
 import { parseEventDateKey, toDateKeyLocal, dateKeyFromParts } from "@/lib/eventDateUtils";
 import { cn } from "@/lib/utils";
+import { eventAttendingDenominator } from "@/lib/eventGuestListDisplay";
+import { filterEventsVisibleToViewer } from "@/lib/eventVisibility";
 
 export default function Events() {
   const [activePage, setActivePage] = useState('explore');
@@ -307,8 +309,13 @@ export default function Events() {
     return ids;
   }, [eventNotifications, rsvps]);
 
-  // Ensure events is always an array
-  const safeEvents = Array.isArray(events) ? events : [];
+  // Ensure events is always an array; hide other users' pending/rejected (defense in depth vs API/mock).
+  const safeEventsRaw = Array.isArray(events) ? events : [];
+  const viewerIsAdmin = !!(currentUserProfile as { isAdmin?: boolean } | undefined)?.isAdmin;
+  const safeEvents = useMemo(
+    () => filterEventsVisibleToViewer(safeEventsRaw, currentUserId, viewerIsAdmin),
+    [safeEventsRaw, currentUserId, viewerIsAdmin],
+  );
   const onlineEvents = safeEvents.filter(e => e && e.type === 'online');
   const offlineEvents = safeEvents.filter(e => e && e.type === 'offline');
 
@@ -701,6 +708,7 @@ export default function Events() {
                       {...event}
                       image={event.image || undefined}
                       type={event.type as "online" | "offline"}
+                      capacity={eventAttendingDenominator(event)}
                       attendees={event.attendeesCount || 0}
                       youAreInvited={invitedEventIdsWithoutRsvp.has(event.id)}
                       isRSVPd={isRSVPd(event.id)}
@@ -756,6 +764,7 @@ export default function Events() {
                         {...event}
                         image={event.image || undefined}
                         type={event.type as "online" | "offline"}
+                        capacity={eventAttendingDenominator(event)}
                         attendees={(event as any).attendeesCount || 0}
                         youAreInvited={invitedEventIdsWithoutRsvp.has(event.id)}
                         onSwipeLeft={(id) => handleSwipeLeft(id)}
@@ -899,6 +908,7 @@ export default function Events() {
                           {...event}
                           image={event.image || undefined}
                           type={event.type as "online" | "offline"}
+                          capacity={eventAttendingDenominator(event)}
                           attendees={event.attendeesCount || 0}
                           youAreInvited={invitedEventIdsWithoutRsvp.has(event.id)}
                           isRSVPd={isRSVPd(event.id)}

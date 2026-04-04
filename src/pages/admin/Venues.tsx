@@ -37,12 +37,20 @@ type VenueRow = {
   address: string;
   city: string;
   region?: string | null;
-  tags: string[];
+  /** API / DB may send JSON array, string, or legacy object — always normalize before .map */
+  tags?: unknown;
   capacityHint?: number | null;
   imageUrl?: string | null;
   notes?: string | null;
   active: boolean;
 };
+
+function venueTagsAsStrings(tags: unknown): string[] {
+  if (tags == null) return [];
+  if (Array.isArray(tags)) return tags.map((t) => String(t)).filter(Boolean);
+  if (typeof tags === "string") return tags.split(",").map((s) => s.trim()).filter(Boolean);
+  return [];
+}
 
 const emptyForm = {
   name: "",
@@ -90,7 +98,7 @@ export default function AdminVenues() {
       address: v.address,
       city: v.city,
       region: v.region || "",
-      tags: Array.isArray(v.tags) ? v.tags.join(", ") : "",
+      tags: venueTagsAsStrings(v.tags).join(", "),
       capacityHint: v.capacityHint != null ? String(v.capacityHint) : "",
       imageUrl: v.imageUrl || "",
       notes: v.notes || "",
@@ -199,11 +207,13 @@ export default function AdminVenues() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {(v.tags || []).slice(0, 4).map((t) => (
-                          <Badge key={t} variant="secondary" className="text-[10px]">
-                            {t}
-                          </Badge>
-                        ))}
+                        {venueTagsAsStrings(v.tags)
+                          .slice(0, 4)
+                          .map((t) => (
+                            <Badge key={t} variant="secondary" className="text-[10px]">
+                              {t}
+                            </Badge>
+                          ))}
                       </div>
                     </TableCell>
                     <TableCell>{v.active ? "Yes" : "No"}</TableCell>

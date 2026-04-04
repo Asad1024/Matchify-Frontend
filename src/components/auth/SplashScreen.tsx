@@ -19,6 +19,8 @@ import {
   Check,
 } from "lucide-react";
 import { BrandLogo } from "@/components/common/BrandLogo";
+import SubscriptionTier from "@/components/common/SubscriptionTier";
+import { SUBSCRIPTION_TIER_DEFINITIONS } from "@/lib/subscriptionPlans";
 import {
   Accordion,
   AccordionContent,
@@ -119,6 +121,7 @@ const WINE_FEATURES_BG = "linear-gradient(160deg, hsl(349 50% 38%) 0%, hsl(350 4
 const HERO_NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#how-it-works", label: "How it works" },
+  { href: "#pricing", label: "Pricing" },
   { href: "#about", label: "About" },
 ] as const;
 
@@ -179,7 +182,7 @@ function PhoneMockup() {
                     <img
                       src={PHONE_PROFILE_SRC}
                       alt=""
-                      className="h-full w-full object-cover"
+                      className="absolute inset-0 h-full w-full object-cover scale-110 blur-xl motion-safe:will-change-[filter] lg:scale-100 lg:blur-none"
                       loading="lazy"
                       decoding="async"
                     />
@@ -229,9 +232,11 @@ function PhoneMockup() {
 interface SplashScreenProps {
   onGetStarted?: () => void;
   onLogin?: () => void;
+  /** Opens in-app subscriptions (e.g. logged-in users on marketing URL). */
+  onViewPlans?: () => void;
 }
 
-export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProps) {
+export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: SplashScreenProps) {
   return (
     <div className="min-h-screen bg-white flex flex-col overflow-x-hidden">
       {/* ═══ HERO — premium split + glass nav ═══ */}
@@ -317,7 +322,11 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
                 meet.
               </h1>
               <p className="mx-auto mt-6 max-w-md text-base font-light leading-snug text-primary/80 sm:text-lg lg:mx-0">
-                One app for matches, chat, events, and coaching — built for relationships that last.
+                <span className="block">
+                  One app for matches, chat, events, and coaching — with{" "}
+                  <span className="font-semibold text-primary">AI</span> matchmaking and smart support —
+                </span>
+                <span className="mt-1 block">built for relationships that last.</span>
               </p>
 
               <div className="mt-9 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center lg:justify-start">
@@ -383,7 +392,7 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
       </section>
 
       {/* ═══ STATS STRIP — full-width bar like Muzz trust row ═══ */}
-      <section id="pricing" className="scroll-mt-28 border-y border-zinc-100 bg-zinc-50/80">
+      <section id="stats" className="scroll-mt-28 border-y border-zinc-100 bg-zinc-50/80">
         <div className="max-w-6xl mx-auto px-5 py-8 sm:py-10">
           <div className="grid grid-cols-3 gap-4 sm:gap-8 divide-x divide-zinc-200/80">
             {STATS.map(({ value, label, star }) => (
@@ -398,6 +407,55 @@ export default function SplashScreen({ onGetStarted, onLogin }: SplashScreenProp
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ═══ PRICING — same tier cards as in-app subscriptions ═══ */}
+      <section id="pricing" className="scroll-mt-28 border-y border-zinc-100 bg-white py-14 sm:py-20">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mx-auto mb-10 max-w-2xl text-center sm:mb-12"
+          >
+            <h2 className="font-display text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+              Simple pricing
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-600 sm:text-base">
+              Honest limits for Luna and AI Matchmaker — upgrade when you are ready. Full checkout after you create an
+              account.
+            </p>
+          </motion.div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {SUBSCRIPTION_TIER_DEFINITIONS.map((tier) => (
+              <SubscriptionTier
+                key={tier.id}
+                id={tier.id}
+                name={tier.name}
+                description={tier.description}
+                price={tier.price}
+                period={tier.period}
+                features={tier.features}
+                popular={tier.popular}
+                variant="marketing"
+                marketingButtonLabel="Get started"
+                onMarketingAction={() => onGetStarted?.()}
+                data-testid={`landing-tier-${tier.id}`}
+              />
+            ))}
+          </div>
+          {onViewPlans ? (
+            <p className="mt-8 text-center text-sm text-zinc-600">
+              <button
+                type="button"
+                onClick={onViewPlans}
+                className="font-semibold text-primary underline-offset-4 hover:underline"
+              >
+                Already have an account? View plans in the app
+              </button>
+            </p>
+          ) : null}
         </div>
       </section>
 

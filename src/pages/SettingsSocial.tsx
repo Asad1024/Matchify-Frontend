@@ -6,7 +6,7 @@ import BottomNav from "@/components/common/BottomNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, UserMinus, Users, Volume2, Ban, Flag } from "lucide-react";
+import { ArrowLeft, UserMinus, Users, Volume2, Ban, Flag, Pencil } from "lucide-react";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -161,6 +161,28 @@ export default function SettingsSocial() {
     <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
       <Header showSearch={false} onLogout={logout} title="Feed preferences" />
       <div className="mx-auto mt-2 max-w-lg space-y-3 px-3">
+        <Card className="matchify-surface scroll-mt-24 overflow-hidden border-white/0 bg-card/70">
+          <CardHeader className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" />
+              <CardTitle>Profile &amp; photos</CardTitle>
+            </div>
+            <CardDescription>
+              Edit your display name, username, short bio, main photo, and gallery — the same fields used on your social
+              profile.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              type="button"
+              className="h-11 w-full rounded-2xl font-semibold"
+              onClick={() => setLocation("/profile/social/edit")}
+            >
+              Open profile editor
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card
           id="social-section-followers"
           className="matchify-surface scroll-mt-24 overflow-hidden border-white/0 bg-card/70"

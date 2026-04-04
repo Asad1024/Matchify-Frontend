@@ -32,6 +32,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { setUserBlocked } from "@/lib/socialPreferencesService";
 import { apiRequestJson, buildApiUrl, getAuthHeaders } from "@/services/api";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
+import { VerificationRequestBanner } from "@/components/profile/VerificationRequestBanner";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -50,6 +51,12 @@ type User = {
   name: string;
   email: string;
   phone?: string | null;
+  verified?: boolean | null;
+  verificationRequest?: {
+    status?: string;
+    message?: string;
+    submittedAt?: string;
+  } | null;
   privacy?: {
     profileVisible?: boolean;
     showOnlineStatus?: boolean;
@@ -380,6 +387,15 @@ export default function Settings() {
       />
 
       <div className="mx-auto mt-2 max-w-lg space-y-3 px-3">
+        {userId && me && !me.verified ? (
+          <VerificationRequestBanner
+            userId={userId}
+            verified={me.verified}
+            verificationRequest={me.verificationRequest}
+            compact
+          />
+        ) : null}
+
         <SettingsSectionTitle>Account settings</SettingsSectionTitle>
         <SettingsCard>
           <div className="pt-2">

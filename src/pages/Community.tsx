@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import Header from "@/components/common/Header";
@@ -26,7 +26,9 @@ import CreateStoryDialog from "@/components/stories/CreateStoryDialog";
 import CreatePostDialog from "@/components/posts/CreatePostDialog";
 import { groupStoriesIntoRings, type StoryRing } from "@/lib/storyRings";
 import { StorySkeleton } from "@/components/ui/skeleton-enhanced";
-import { fetchPostsFeed } from "@/lib/fetchPostsFeed";
+import { fetchPostsFeedPage, POSTS_FEED_PAGE_SIZE } from "@/lib/fetchPostsFeed";
+import { postsFeedQueryOptions } from "@/lib/queryPersist";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { isFeedMockMode } from "@/lib/feedMockMode";
 import { setMockPostLiked } from "@/lib/mockLikesStore";
 import { postDisplayImageUrl } from "@/lib/postImage";
@@ -90,7 +92,7 @@ const FEED_FILTERS = [
 function sortPosts(posts: Post[], filter: string, followingIds: Set<string>): Post[] {
   let list = [...posts];
   if (filter === "following") {
-    list = list.filter((p) => followingIds.has(p.userId));
+    list = list.filter((p) => followingIds.has(String(p.userId || "").trim()));
   }
   if (filter === "random") return list.sort(() => Math.random() - 0.5);
   return list.sort(
@@ -161,12 +163,6 @@ export default function Community() {
     }
   }, []);
 
-  const { data: posts = [], isLoading: postsLoading } = useQuery<Post[]>({
-    queryKey: ["/api/posts", { viewer: currentUserId ?? "" }],
-    queryFn: async () => (await fetchPostsFeed()) as Post[],
-    enabled: !!currentUserId,
-  });
-
   const { data: socialSummary } = useSocialSummaryQuery();
   const followingIds = useMemo(
     () => new Set(socialSummary?.followingIds ?? []),
@@ -213,6 +209,43 @@ export default function Community() {
       .filter((gid): gid is string => typeof gid === "string" && gid.length > 0);
     return new Set(ids);
   }, [memberships]);
+
+  const groupsKey = useMemo(
+    () => Array.from(membershipIds).sort((a, b) => a.localeCompare(b)).join(","),
+    [membershipIds],
+  );
+
+  const postsInfinite = useInfiniteQuery({
+    ...postsFeedQueryOptions,
+    queryKey: ["/api/posts", { viewer: currentUserId ?? "", scope: "joined", g: groupsKey }],
+    queryFn: async ({ pageParam }) => {
+      const offset = typeof pageParam === "number" ? pageParam : 0;
+      return fetchPostsFeedPage({
+        limit: POSTS_FEED_PAGE_SIZE,
+        offset,
+        inGroups: Array.from(membershipIds),
+      }) as Promise<Post[]>;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _pages, lastOffset) => {
+      if (!Array.isArray(lastPage) || lastPage.length < POSTS_FEED_PAGE_SIZE) return undefined;
+      return lastOffset + POSTS_FEED_PAGE_SIZE;
+    },
+    enabled: !!currentUserId && membershipIds.size > 0,
+  });
+
+  const posts = useMemo(
+    () => postsInfinite.data?.pages.flat() ?? [],
+    [postsInfinite.data],
+  );
+
+  const postsLoading = postsInfinite.isPending;
+
+  const { loadMoreRef } = useInfiniteScroll({
+    hasNextPage: !!postsInfinite.hasNextPage,
+    fetchNextPage: postsInfinite.fetchNextPage,
+    isFetchingNextPage: postsInfinite.isFetchingNextPage,
+  });
 
   const sortedPosts = useMemo(
     () => sortPosts(Array.isArray(posts) ? posts : [], feedFilter, followingIds),
@@ -384,7 +417,7 @@ export default function Community() {
                   useMascot={true}
                 />
               ) : (
-                joinedGroupsFeedPosts.map((post, idx) => {
+                joinedGroupsFeedPosts.map((post) => {
                   const gid = (post as Post & { groupId?: string }).groupId;
                   return (
                     <PostCard
@@ -405,7 +438,7 @@ export default function Community() {
                       likedByMe={!!post.likedByMe}
                       visibility={((post as Post & { visibility?: "public" | "private" }).visibility ?? "public")}
                       savedByMe={!!post.savedByMe}
-                      isFollowingAuthor={followingIds.has(post.userId)}
+                      isFollowingAuthor={followingIds.has(String(post.userId || "").trim())}
                       timestamp={new Date(post.createdAt).toLocaleDateString()}
                       postedAt={post.createdAt}
                       category={post.category}
@@ -418,6 +451,12 @@ export default function Community() {
                   );
                 })
               )}
+              {(postsInfinite.hasNextPage || postsInfinite.isFetchingNextPage) && membershipIds.size > 0 ? (
+                <div ref={loadMoreRef} className="h-10 shrink-0" aria-hidden />
+              ) : null}
+              {postsInfinite.isFetchingNextPage ? (
+                <p className="text-center text-sm text-muted-foreground py-2">Loading more…</p>
+              ) : null}
             </div>
       </div>
 

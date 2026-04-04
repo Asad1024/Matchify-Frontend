@@ -363,6 +363,8 @@ export type Event = InsertEvent & {
   venueId?: string | null;
   aiGenerated?: boolean;
   aiTheme?: string | null;
+  /** AI-curated guest list size (AiEventInvite rows); UI uses + host for "x/y attending". */
+  aiGuestListCount?: number | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 };

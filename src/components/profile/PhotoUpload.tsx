@@ -22,6 +22,8 @@ interface PhotoUploadProps {
   suppressSuccessToast?: boolean;
   /** Tap the image (not remove / add controls) to open full-screen preview. */
   onOpenPreview?: (url: string) => void;
+  /** Multi mode: label on the dashed add tile (default "Add"). */
+  multiAddLabel?: string;
 }
 
 export default function PhotoUpload({
@@ -36,6 +38,7 @@ export default function PhotoUpload({
   label = "Upload Photo",
   suppressSuccessToast = false,
   onOpenPreview,
+  multiAddLabel = "Add",
 }: PhotoUploadProps) {
   const isMulti = onPhotosChange !== undefined;
   const [uploading, setUploading] = useState(false);
@@ -224,7 +227,7 @@ export default function PhotoUpload({
               ) : (
                 <>
                   <Camera className="w-5 h-5" />
-                  <span className="text-[10px] font-semibold">Add</span>
+                  <span className="text-[10px] font-semibold">{multiAddLabel}</span>
                 </>
               )}
             </button>

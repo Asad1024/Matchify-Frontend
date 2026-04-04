@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useRoute, useLocation, useSearchParams } from "wouter";
 import { motion } from "framer-motion";
 import {
@@ -26,7 +26,9 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { fetchPostsFeed } from "@/lib/fetchPostsFeed";
+import { fetchPostsFeedPage, POSTS_FEED_PAGE_SIZE } from "@/lib/fetchPostsFeed";
+import { postsFeedQueryOptions } from "@/lib/queryPersist";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { postDisplayImageUrl, postIsGroupScoped } from "@/lib/postImage";
 import { isFeedMockMode } from "@/lib/feedMockMode";
 import { setMockPostLiked } from "@/lib/mockLikesStore";
@@ -140,12 +142,6 @@ export default function GroupDetailPage() {
     enabled: !!groupId,
   });
 
-  const { data: posts = [] } = useQuery<FeedPost[]>({
-    queryKey: ["/api/posts", { viewer: userId ?? "" }],
-    queryFn: async () => (await fetchPostsFeed()) as FeedPost[],
-    enabled: !!userId,
-  });
-
   const { data: socialSummary } = useSocialSummaryQuery();
   const followingIds = useMemo(
     () => new Set(socialSummary?.followingIds ?? []),
@@ -161,6 +157,36 @@ export default function GroupDetailPage() {
     if (!groupId || !Array.isArray(memberships)) return false;
     return memberships.some((m: { groupId?: string }) => m.groupId === groupId);
   }, [memberships, groupId]);
+
+  const postsInfinite = useInfiniteQuery({
+    ...postsFeedQueryOptions,
+    queryKey: ["/api/posts", { viewer: userId ?? "", scope: "group", groupId }],
+    queryFn: async ({ pageParam }) => {
+      const offset = typeof pageParam === "number" ? pageParam : 0;
+      return fetchPostsFeedPage({
+        limit: POSTS_FEED_PAGE_SIZE,
+        offset,
+        groupId,
+      }) as Promise<FeedPost[]>;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _pages, lastOffset) => {
+      if (!Array.isArray(lastPage) || lastPage.length < POSTS_FEED_PAGE_SIZE) return undefined;
+      return lastOffset + POSTS_FEED_PAGE_SIZE;
+    },
+    enabled: !!userId && !!groupId && isMember,
+  });
+
+  const posts = useMemo(
+    () => postsInfinite.data?.pages.flat() ?? [],
+    [postsInfinite.data],
+  );
+
+  const { loadMoreRef } = useInfiniteScroll({
+    hasNextPage: !!postsInfinite.hasNextPage,
+    fetchNextPage: postsInfinite.fetchNextPage,
+    isFetchingNextPage: postsInfinite.isFetchingNextPage,
+  });
 
   const { data: users = [] } = useQuery<DirectoryUser[]>({
     queryKey: ["/api/users"],
@@ -574,7 +600,9 @@ export default function GroupDetailPage() {
                     likedByMe={!!post.likedByMe}
                     visibility={(post as FeedPost & { visibility?: "public" | "private" }).visibility ?? "public"}
                     savedByMe={!!post.savedByMe}
-                    isFollowingAuthor={followingIds.has(post.userId || post.authorId || "")}
+                    isFollowingAuthor={followingIds.has(
+                      String(post.userId || post.authorId || "").trim(),
+                    )}
                     groupId={groupId}
                     groupName={group.name}
                     timestamp={new Date(post.createdAt as string).toLocaleDateString()}
@@ -585,6 +613,12 @@ export default function GroupDetailPage() {
                   />
                 );
               })}
+              {(postsInfinite.hasNextPage || postsInfinite.isFetchingNextPage) ? (
+                <div ref={loadMoreRef} className="h-10 shrink-0" aria-hidden />
+              ) : null}
+              {postsInfinite.isFetchingNextPage ? (
+                <p className="text-center text-sm text-muted-foreground py-2">Loading more…</p>
+              ) : null}
             </div>
           )}
         </div>

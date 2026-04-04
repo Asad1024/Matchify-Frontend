@@ -27,11 +27,9 @@ import {
   isMarriageFavorite,
   toggleMarriageFavorite,
 } from "@/lib/marriageDeckStore";
-import {
-  getOutgoingChatRequest,
-  getOutgoingChatRequestRemote,
-} from "@/lib/marriageChatRequests";
+import { chatRequestPairQueryKey, fetchChatRequestPair } from "@/lib/chatRequestsApi";
 import { resetMarriageTestingState } from "@/lib/marriageTestingReset";
+import { filterToOppositeGender } from "@/lib/oppositeGenderPreference";
 
 function hashPairScore(a: string, b: string): number {
   const s = `${a}:${b}`;
@@ -89,21 +87,16 @@ export default function Home() {
     if (!currentUserId) return [];
     const passed = getMarriagePassedIds();
     const liked = getMarriageLikedIds();
-    const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
-    const myGender = norm((me as any)?.gender);
-    const desired =
-      myGender === "male" || myGender === "man" || myGender === "m"
-        ? "female"
-        : myGender === "female" || myGender === "woman" || myGender === "f"
-          ? "male"
-          : null;
-
-    const list = (Array.isArray(users) ? users : []).filter((u) => {
+    const base = (Array.isArray(users) ? users : []).filter((u) => {
       if (!u || u.id === currentUserId) return false;
       if (passed.has(u.id) || liked.has(u.id)) return false;
-      if (!desired) return true;
-      return norm((u as any)?.gender) === desired;
+      return true;
     });
+
+    const viewerGender = me?.gender ?? (me as { profile?: { gender?: string } } | null)?.profile?.gender;
+    // Strict: male → female profiles only, female → male only (no fallback to mixed deck).
+    const list = filterToOppositeGender(base, viewerGender, false);
+
     const scored = list.map((u) => ({ u, score: deckScore(me ?? null, u) }));
     scored.sort((a, b) => b.score - a.score);
     return scored.map((x) => x.u);
@@ -113,16 +106,13 @@ export default function Home() {
   void marriageChatEpoch;
   const compatibilityScore =
     current && currentUserId ? hashPairScore(currentUserId, current.id) : 82;
-  const { data: outgoingRemote = null } = useQuery({
-    queryKey: ["/api/users", currentUserId, "marriage-outgoing", current?.id || ""],
+  const { data: chatPair } = useQuery({
+    queryKey: currentUserId && current?.id ? chatRequestPairQueryKey(currentUserId, current.id) : ["chat-pair", "disabled"],
     enabled: !!currentUserId && !!current?.id,
-    queryFn: async () =>
-      currentUserId && current?.id ? getOutgoingChatRequestRemote(currentUserId, current.id) : null,
+    queryFn: () => fetchChatRequestPair(currentUserId!, current!.id),
     refetchInterval: 8000,
   });
-  const outgoing =
-    outgoingRemote ||
-    (current && currentUserId ? getOutgoingChatRequest(currentUserId, current.id) : null);
+  const messageRequestStatus = chatPair?.outgoingStatus ?? "none";
 
   // Note: do not auto-redirect into Chat on approval.
   // The user should explicitly choose when to open chat from the profile UI.
@@ -193,12 +183,6 @@ export default function Home() {
     const q = new URLSearchParams({ user: current.id });
     if (initialMessage) q.set("draft", initialMessage);
     setLocation(`/chat?${q.toString()}`);
-  };
-
-  const handleExploreNextAfterCompliment = () => {
-    if (!current) return;
-    addMarriagePassed(current.id);
-    bumpDeck();
   };
 
   if (!currentUserId) {
@@ -301,8 +285,8 @@ export default function Home() {
                   <div className="mx-auto mt-4 max-w-lg rounded-[24px] border border-amber-200/60 bg-amber-50/70 px-4 py-4 text-left shadow-2xs">
                     <p className="text-xs font-bold uppercase tracking-wide text-amber-900/80">Testing only</p>
                     <p className="mt-1 text-xs leading-relaxed text-amber-950/80">
-                      Clears pass/like/favorite/compliment lists (Marriage deck + Explore → My history) and marriage
-                      chat-request demo data.
+                      Clears pass/like/favorite lists (Marriage deck + Explore → My history) and local marriage chat demo
+                      keys.
                     </p>
                     <Button
                       type="button"
@@ -330,8 +314,7 @@ export default function Home() {
                 user={current}
                 me={me ?? null}
                 viewerId={currentUserId}
-                viewerName={me?.name?.trim() || "You"}
-                outgoing={outgoing}
+                messageRequestStatus={messageRequestStatus}
                 compatibilityScore={compatibilityScore}
                 isFavorite={!!favActive}
                 onToggleFavorite={handleToggleFavorite}
@@ -347,7 +330,13 @@ export default function Home() {
                   setBlockOpen(true);
                 }}
                 onOpenChat={handleOpenChat}
-                onExploreNext={handleExploreNextAfterCompliment}
+                onMessageRequestSent={() => {
+                  if (currentUserId && current?.id) {
+                    void queryClient.invalidateQueries({
+                      queryKey: chatRequestPairQueryKey(currentUserId, current.id),
+                    });
+                  }
+                }}
               />
             )}
           </div>

@@ -78,6 +78,8 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
+      /** Long enough for localStorage rehydrate; TanStack recommends gcTime ≥ persist maxAge. */
+      gcTime: 1000 * 60 * 60 * 24,
       retry: false,
     },
     mutations: {

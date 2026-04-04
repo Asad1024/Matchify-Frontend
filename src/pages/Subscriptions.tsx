@@ -1,4 +1,19 @@
 import { useState } from "react";
+
+const TIER_ORDER = ["free", "plus", "premium", "elite"] as const;
+
+function tierRank(id: string): number {
+  const i = TIER_ORDER.indexOf(id as (typeof TIER_ORDER)[number]);
+  return i >= 0 ? i : 0;
+}
+
+function subscriptionPendingLabel(currentTierId: string, targetTierId: string): string {
+  const cr = tierRank(currentTierId);
+  const tr = tierRank(targetTierId);
+  if (cr === 0 && tr > 0) return "Subscribing...";
+  if (tr > cr) return "Upgrading...";
+  return "Updating...";
+}
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
@@ -11,6 +26,7 @@ import { Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/services/api";
 import { queryClient } from "@/lib/queryClient";
+import { SUBSCRIPTION_TIER_DEFINITIONS } from "@/lib/subscriptionPlans";
 
 type User = {
   id: string;
@@ -19,6 +35,7 @@ type User = {
 };
 export default function Subscriptions() {
   const [activePage, setActivePage] = useState('menu');
+  const [pendingTierId, setPendingTierId] = useState<string | null>(null);
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
@@ -32,64 +49,10 @@ export default function Subscriptions() {
 
   const currentTier = (user?.membershipTier || "free").toLowerCase();
 
-  const tiers = [
-    {
-      id: 'free',
-      name: 'Free',
-      description: 'Basics to get started',
-      price: '$0',
-      period: 'forever',
-      features: [
-        'Discovery + view profiles',
-        '3 compliments/week',
-        'No AI features',
-        '2 message requests/day',
-      ],
-      current: currentTier === 'free'
-    },
-    {
-      id: 'plus',
-      name: 'Plus',
-      description: 'More reach + limited AI',
-      price: '$19',
-      period: 'month',
-      features: [
-        '20 compliments/week',
-        'AI Matchmaker: 15 matches every 48h',
-        'Luna (global): 30 msgs/day',
-        'Luna Partner Space: 1 partner + 20 msgs/day',
-      ],
-      popular: true,
-      current: currentTier === 'plus'
-    },
-    {
-      id: 'elite',
-      name: 'Elite',
-      description: 'Maximum visibility and features',
-      price: '$49',
-      period: 'month',
-      features: [
-        'Everything in Premium',
-        'Highest priority/boosts',
-        'Exclusive perks (later)',
-      ],
-      current: currentTier === 'elite'
-    },
-    {
-      id: 'premium',
-      name: 'Premium',
-      description: 'Unlimited AI + unlimited limits',
-      price: '$29',
-      period: 'month',
-      features: [
-        'Unlimited compliments',
-        'AI Matchmaker: unlimited',
-        'Luna (global): unlimited',
-        'Luna Partner Space: unlimited partners + higher limits',
-      ],
-      current: currentTier === 'premium'
-    },
-  ];
+  const tiers = SUBSCRIPTION_TIER_DEFINITIONS.map((def) => ({
+    ...def,
+    current: currentTier === def.id,
+  }));
 
   return (
     <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
@@ -125,12 +88,18 @@ export default function Subscriptions() {
               popular={tier.popular}
               current={tier.current}
               data-testid={`tier-${tier.id}`}
+              subscribePending={pendingTierId === tier.id}
+              subscribeDisabled={pendingTierId !== null && pendingTierId !== tier.id}
+              pendingLabel={
+                pendingTierId === tier.id ? subscriptionPendingLabel(currentTier, tier.id) : undefined
+              }
               onSubscribe={async () => {
                 if (!userId) {
                   toast({ title: "Please log in", description: "Sign in to subscribe to a plan.", variant: "destructive" });
                   return;
                 }
 
+                setPendingTierId(tier.id);
                 try {
                   const res = await apiRequest("PATCH", `/api/users/${userId}/subscription`, {
                     tier: tier.id,
@@ -172,6 +141,8 @@ export default function Subscriptions() {
                   await queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
                   const msg = e instanceof Error ? e.message : "Could not update subscription.";
                   toast({ title: "Subscription failed", description: msg, variant: "destructive" });
+                } finally {
+                  setPendingTierId(null);
                 }
               }}
             />

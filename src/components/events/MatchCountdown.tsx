@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import type { LucideIcon } from "lucide-react";
-import { Flower2, Gift, Heart, HeartHandshake, HeartPulse, Wine } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface MatchCountdownProps {
   targetTime: Date;
@@ -26,18 +24,6 @@ const WINE = {
   pillInset: "rgba(168, 72, 96, 0.12)",
 };
 
-/** Left-rail decorative icons — romantic only (hearts, couple, gift, flower, wine). */
-const COUNTDOWN_SIDE_ICONS: LucideIcon[] = [
-  Heart,
-  HeartHandshake,
-  HeartPulse,
-  Gift,
-  Flower2,
-  Wine,
-];
-const SIDE_ICON_INTERVAL_MS = 2700;
-const GLITTER_DOT_COUNT = 12;
-
 /** Arc radius — circle center at origin; right tip (R,0) is the active digit. */
 const ARC_RADIUS = 152;
 /**
@@ -51,31 +37,41 @@ const ARC_SATELLITES: { delta: number; theta: number }[] = [
   { delta: -2, theta: 1.22 },
 ];
 
-const EXCITEMENT_TEXTS: Record<number, string> = {
-  15: "Get ready!",
-  14: "Here we go!",
-  13: "The moment is near!",
-  12: "Almost there!",
-  11: "Stay tuned!",
-  10: "Ten!",
-  9: "Here we go!",
-  8: "The moment is near!",
-  7: "Almost there!",
-  6: "Stay tuned!",
-  5: "Five!",
-  4: "Four!",
-  3: "Three!",
-  2: "Two!",
-  1: "One!",
-  0: "Revealing…",
-};
+/** Headline next to the arc: spelled-out seconds (one…fifteen…sixty), plain digits if > 60, “Now” at 0. */
+const WORD_1_19 = [
+  "",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+  "Eleven",
+  "Twelve",
+  "Thirteen",
+  "Fourteen",
+  "Fifteen",
+  "Sixteen",
+  "Seventeen",
+  "Eighteen",
+  "Nineteen",
+] as const;
+const TENS_20_60 = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty"] as const;
 
 function getExcitementText(seconds: number): string {
-  if (seconds > 15) return "Matches revealing soon";
-  if (seconds > 10 && seconds <= 15) return EXCITEMENT_TEXTS[seconds] ?? "Hang tight — almost time!";
-  if (seconds > 5 && seconds <= 10) return "Hang tight — almost time!";
-  if (seconds <= 10 && seconds >= 0) return EXCITEMENT_TEXTS[seconds] ?? "Get ready!";
-  return "Matches revealing soon";
+  if (seconds <= 0) return "Now";
+  if (seconds > 60) return String(seconds);
+  if (seconds < 20) return WORD_1_19[seconds] ?? String(seconds);
+  if (seconds === 20) return "Twenty";
+  const ten = Math.floor(seconds / 10);
+  const one = seconds % 10;
+  const tensWord = TENS_20_60[ten];
+  if (!tensWord) return String(seconds);
+  return one ? `${tensWord}-${WORD_1_19[one]}` : tensWord;
 }
 
 function bubbleProps(i: number) {
@@ -92,7 +88,6 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
   const [timeLeft, setTimeLeft] = useState<number>(15);
   const [showConfetti, setShowConfetti] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [sideIconIndex, setSideIconIndex] = useState(0);
   const onCompleteCalled = useRef(false);
 
   useEffect(() => {
@@ -122,13 +117,6 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
     }, CONFETTI_DURATION_MS);
     return () => clearTimeout(t);
   }, [showConfetti, onComplete]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setSideIconIndex((i) => (i + 1) % COUNTDOWN_SIDE_ICONS.length);
-    }, SIDE_ICON_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, []);
 
   const excitementText = getExcitementText(timeLeft);
 
@@ -212,7 +200,6 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
     "text-5xl font-bold tabular-nums leading-none tracking-tight sm:text-6xl";
   const activeDigitClass =
     "text-6xl font-bold tabular-nums leading-none tracking-tight sm:text-7xl";
-  const CurrentSideIcon = COUNTDOWN_SIDE_ICONS[sideIconIndex];
 
   return (
     <motion.div
@@ -273,74 +260,20 @@ export default function MatchCountdown({ targetTime, onComplete, eventTitle }: M
             <p className="mt-2 text-base font-semibold text-[#eec7cf]">{eventTitle}</p>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-row items-center justify-center gap-0 py-6 pl-1 pr-2 sm:gap-2 sm:pl-2 sm:pr-4">
-            <div
-              className="relative flex w-[5.25rem] shrink-0 flex-col items-center justify-center self-stretch pl-2 sm:w-[5.75rem] sm:pl-4"
-              aria-hidden
-            >
-              <div className="translate-x-2 sm:translate-x-4">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={sideIconIndex}
-                    initial={{ opacity: 0, scale: 0.9, filter: "blur(6px)" }}
-                    animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
-                    transition={{
-                      duration: 0.72,
-                      ease: [0.22, 0.99, 0.36, 1],
-                    }}
-                    className="relative flex h-[5.5rem] w-[5.5rem] items-center justify-center sm:h-[6.25rem] sm:w-[6.25rem]"
-                  >
-                    <div className="pointer-events-none absolute inset-0 z-0 overflow-visible">
-                      {Array.from({ length: GLITTER_DOT_COUNT }, (_, i) => {
-                        const left = 8 + ((i * 67) % 84);
-                        const top = 6 + ((i * 41 + 23) % 88);
-                        return (
-                          <motion.span
-                            key={`${sideIconIndex}-g-${i}`}
-                            className="absolute rounded-full bg-[#fff5f7]"
-                            style={{
-                              left: `${left}%`,
-                              top: `${top}%`,
-                              width: i % 3 === 0 ? 4 : 3,
-                              height: i % 3 === 0 ? 4 : 3,
-                              marginLeft: -2,
-                              marginTop: -2,
-                              boxShadow: "0 0 8px rgba(255,230,235,0.95), 0 0 14px rgba(232,180,195,0.55)",
-                            }}
-                            initial={{ opacity: 0, scale: 0 }}
-                            animate={{
-                              opacity: [0, 1, 0.75, 0],
-                              scale: [0, 1.35, 1, 0],
-                            }}
-                            transition={{
-                              duration: 1.05,
-                              delay: i * 0.045,
-                              ease: [0.16, 1, 0.3, 1],
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                    <CurrentSideIcon
-                      className="relative z-10 h-[3.35rem] w-[3.35rem] text-[#e8c9d2] sm:h-[4rem] sm:w-[4rem]"
-                      strokeWidth={1.45}
-                    />
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </div>
-
-            <div className="flex min-w-0 flex-1 flex-col items-center justify-center -translate-x-2 sm:-translate-x-4">
+          <div className="relative flex min-h-0 flex-1 items-center justify-center py-6 pl-2 pr-2 sm:pl-4 sm:pr-4">
+            <div className="pointer-events-none absolute left-3 top-1/2 z-10 w-[min(40vw,10.5rem)] -translate-y-1/2 translate-x-2 sm:left-5 sm:translate-x-3 sm:w-[12rem]">
               <motion.p
                 key={excitementText}
-                className="mb-8 max-w-[min(100%,20rem)] px-2 text-center text-xl font-semibold leading-snug tracking-tight text-[#f5e6ea] sm:text-2xl sm:leading-snug"
+                className="px-1 text-left text-xl font-semibold leading-snug tracking-tight text-[#f5e6ea] sm:text-2xl sm:leading-snug"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 320, damping: 30 }}
               >
                 {excitementText}
               </motion.p>
+            </div>
+
+            <div className="flex flex-col items-center justify-center -translate-x-2 sm:-translate-x-3">
               <div
                 className="relative mx-auto w-full max-w-[360px]"
                 style={{ height: ARC_RADIUS * 2 + 128 }}

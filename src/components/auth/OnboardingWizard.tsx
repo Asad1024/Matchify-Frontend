@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { readJwtSub } from "@/lib/authUserIdReconcile";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import PhotoUpload from "@/components/profile/PhotoUpload";
 import { ArrowRight, ArrowLeft, Check, Sparkles, Heart, Star, Camera, Target, Users, Smile, X, Zap, BookOpen, MessageCircle, Trophy, Award, TrendingUp, Send } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -337,42 +338,50 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
     }
   }, [currentChapter, journeyStyle]);
 
+  const patchUserId = useMemo(() => {
+    try {
+      return readJwtSub(localStorage.getItem("authToken") || "") || userId;
+    } catch {
+      return userId;
+    }
+  }, [userId]);
+
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      try {
-        return await apiRequest("PATCH", `/api/users/${userId}`, data);
-      } catch (error) {
-        const currentUser = localStorage.getItem("currentUser");
-        if (currentUser) {
-          const user = JSON.parse(currentUser);
-          const updatedUser = { ...user, ...data, onboardingCompleted: true };
-          localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-        }
-        return data;
-      }
+      const id = patchUserId;
+      if (!id) throw new Error("Missing user id — sign in again.");
+      const res = await apiRequest("PATCH", `/api/users/${id}`, data);
+      return (await res.json()) as Record<string, unknown>;
     },
-    onSuccess: async () => {
+    onSuccess: async (serverUser) => {
       toast({
         title: "Profile completed!",
         description: "Welcome — opening your Marriage home.",
       });
-      
-      // Update user object in localStorage
+
+      // Merge server profile (includes marriage fields) into localStorage — old code only set onboardingCompleted.
       const currentUser = localStorage.getItem("currentUser");
       if (currentUser) {
         try {
-          const user = JSON.parse(currentUser);
-          const updatedUser = { ...user, onboardingCompleted: true };
-          localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+          const user = JSON.parse(currentUser) as Record<string, unknown>;
+          localStorage.setItem(
+            "currentUser",
+            JSON.stringify({ ...user, ...serverUser, onboardingCompleted: true }),
+          );
         } catch (e) {
           // Ignore parse errors
         }
       }
       localStorage.setItem("onboardingCompleted", "true");
 
+      // Profile page uses staleTime:Infinity — must refetch or marriage strip stays empty after onboarding.
+      await queryClient.invalidateQueries({ queryKey: [`/api/users/${patchUserId}`] });
+
       onComplete();
     },
-    onError: () => {
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[OnboardingWizard] PATCH /api/users failed — profile not saved on server:", msg);
       const currentUserStr = localStorage.getItem("currentUser");
       if (currentUserStr) {
         try {
@@ -385,8 +394,11 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
       }
       localStorage.setItem("onboardingCompleted", "true");
       toast({
-        title: "Profile completed!",
-        description: "Welcome to Matchify (Demo Mode)",
+        title: "Saved locally only",
+        description:
+          "We could not save your profile to the server. Check you are logged in and the API is running. " +
+          (msg.length < 120 ? msg : msg.slice(0, 117) + "…"),
+        variant: "destructive",
       });
       onComplete();
     },
@@ -481,6 +493,12 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
 
   const handleComplete = () => {
     const basicInfo = form.getValues();
+    const qGender = (form.getValues() as Record<string, unknown>)["q-gender"];
+    const genderFromSlug =
+      qGender === "male" || qGender === "female" || qGender === "other"
+        ? qGender
+        : undefined;
+    const resolvedGender = basicInfo.gender ?? genderFromSlug;
     const age = basicInfo.age;
     
     const formValues = form.getValues() as any;
@@ -514,6 +532,7 @@ export default function OnboardingWizard({ userId, initialData, onComplete, onCl
     const firstPhoto = photos.length > 0 ? photos[0] : undefined;
     const profileData = {
       ...basicInfo,
+      ...(resolvedGender != null ? { gender: resolvedGender } : {}),
       heightCm: heightNum,
       height: heightNum != null ? `${heightNum} cm` : undefined,
       birthDate: calculatedBirthDate,

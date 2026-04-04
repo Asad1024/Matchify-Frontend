@@ -1,6 +1,8 @@
 import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { getPostsPersistOptions } from "./lib/queryPersist";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserProvider, useCurrentUser } from "@/contexts/UserContext";
@@ -11,11 +13,11 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { LoadingState } from "@/components/common/LoadingState";
 import { pullClientStateFromBackend, pushClientStateToBackend } from "@/lib/clientStateSync";
-import { reconcileCurrentUserIdWithJwt } from "@/lib/authUserIdReconcile";
+import { readJwtSub, reconcileCurrentUserIdWithJwt } from "@/lib/authUserIdReconcile";
 import { isNotificationsStreamSyncPayload } from "@/lib/notificationStream";
 import { buildApiUrl, getAuthHeaders, getNotificationsStreamUrl } from "@/services/api";
 import { notificationCreatedAtMs } from "@/lib/utils";
-import { useEffect, useState, lazy, Suspense, useRef } from "react";
+import { useEffect, useState, lazy, Suspense, useRef, useMemo } from "react";
 import type React from "react";
 import { LunaFab } from "@/components/assistant/LunaFab";
 import EventRevealWatcher from "@/components/events/EventRevealWatcher";
@@ -50,6 +52,7 @@ const RelationshipCoaching = lazy(() => import("@/pages/RelationshipCoaching"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const SettingsSocial = lazy(() => import("@/pages/SettingsSocial"));
 const SocialConnectionsPage = lazy(() => import("@/pages/SocialConnectionsPage"));
+const ChatRequestsPage = lazy(() => import("@/pages/ChatRequestsPage"));
 const Support = lazy(() => import("@/pages/Support"));
 const EventDetail = lazy(() => import("@/pages/EventDetail"));
 const EventMatchDemo = lazy(() => import("@/pages/EventMatchDemo"));
@@ -273,6 +276,17 @@ const PageLoader = () => (
   </div>
 );
 
+/** Wraps the app with persisted React Query cache (posts feed survives full page refresh). */
+function QueryPersistProvider({ children }: { children: React.ReactNode }) {
+  const { userId } = useCurrentUser();
+  const persistOptions = useMemo(() => getPostsPersistOptions(userId), [userId]);
+  return (
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+      {children}
+    </PersistQueryClientProvider>
+  );
+}
+
 // Error wrapper for lazy components
 const LazyErrorBoundary = ({ children }: { children: React.ReactNode }) => (
   <ErrorBoundary
@@ -301,7 +315,8 @@ function readAuthState() {
   if (!authToken) return { isAuthenticated: false, showOnboarding: false, userId: null as string | null };
   let isAdmin = localStorage.getItem("isAdmin") === "true";
   const onboardingFlag = localStorage.getItem("onboardingCompleted") === "true";
-  let userId: string | null = null;
+  const jwtSub = readJwtSub(authToken);
+  let userId: string | null = jwtSub;
   const inferOnboardedFromUser = (u: any): boolean => {
     if (!u || typeof u !== "object") return false;
     // Do NOT trust stale onboardingCompleted=true if core fields are missing.
@@ -318,7 +333,8 @@ function readAuthState() {
     const raw = localStorage.getItem("currentUser");
     if (raw) {
       const u = JSON.parse(raw);
-      userId = u.id || u.userId || null;
+      // PATCH /api/users/:id requires URL id === JWT sub; prefer sub over possibly stale currentUser.id.
+      userId = jwtSub || u.id || u.userId || null;
       if (u.isAdmin === true) {
         isAdmin = true;
         localStorage.setItem("isAdmin", "true");
@@ -572,6 +588,7 @@ function AppContent() {
             <Route path="/event/:id" component={EventDetail} />
             <Route path="/events" component={Events} />
             <Route path="/chat" component={Chat} />
+            <Route path="/chat-requests" component={ChatRequestsPage} />
             <Route path="/profile/social/edit" component={SocialEditProfile} />
             <Route path="/profile/social" component={SocialSelfProfile} />
             <Route path="/profile/social/user/:id" component={SocialUserProfile} />
@@ -643,16 +660,16 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <UserProvider>
+      <UserProvider>
+        <QueryPersistProvider>
           <UpgradeProvider>
             <TooltipProvider>
               <Toaster />
               <AppContent />
             </TooltipProvider>
           </UpgradeProvider>
-        </UserProvider>
-      </QueryClientProvider>
+        </QueryPersistProvider>
+      </UserProvider>
     </ErrorBoundary>
   );
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { useLocation, useSearchParams } from "wouter";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import Header from "@/components/common/Header";
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { eventAttendingDenominator } from "@/lib/eventGuestListDisplay";
 import { format } from "date-fns";
 import SwipeableEventCard from "@/components/events/SwipeableEventCard";
 import {
@@ -33,7 +34,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { pushExploreHistory } from "@/lib/muzzEconomy";
 import {
-  getMarriageComplimented,
   getMarriageFavorites,
   getMarriageLiked,
   getMarriagePassed,
@@ -44,6 +44,9 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import FeedFilterPills from "@/components/feed/FeedFilterPills";
 import { Calendar } from "@/components/ui/calendar";
 import CreatePostDialog from "@/components/posts/CreatePostDialog";
+import { filterToOppositeGender } from "@/lib/oppositeGenderPreference";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import { filterEventsVisibleToViewer } from "@/lib/eventVisibility";
 
 type PublicUser = {
   id: string;
@@ -55,6 +58,7 @@ type PublicUser = {
   verified?: boolean | null;
   interests?: string[] | null;
   createdAt?: string | null;
+  gender?: string | null;
   /** Job title (API / mock `career`) */
   career?: string | null;
 };
@@ -72,6 +76,9 @@ type ApiEvent = {
   capacity?: number;
   attendeesCount?: number;
   hostId?: string | null;
+  status?: string | null;
+  aiGenerated?: boolean;
+  aiGuestListCount?: number | null;
 };
 
 function eventSortTimeMs(e: ApiEvent): number {
@@ -131,7 +138,11 @@ function ExploreEventSwipeStack({
   }
 
   const attendees = current.attendeesCount ?? 0;
-  const capacity = current.capacity ?? 50;
+  const capacity = eventAttendingDenominator({
+    aiGenerated: current.aiGenerated,
+    aiGuestListCount: current.aiGuestListCount ?? null,
+    capacity: current.capacity ?? 50,
+  });
 
   return (
     <div className="relative mx-auto flex min-h-[26rem] w-full max-w-sm justify-center pb-2 pt-1">
@@ -177,6 +188,12 @@ function formatCardTime(iso: string | null | undefined): string {
 }
 
 const exploreSectionTitle = "text-lg font-bold text-foreground sm:text-xl";
+
+/**
+ * React Query default `gcTime` is 5m — after that, leaving Explore drops cached JSON and the next visit refetches.
+ * Longer retention keeps “For you” / Events / History payloads warm (images still use browser HTTP cache when URLs repeat).
+ */
+const EXPLORE_QUERY_GC_MS = 1000 * 60 * 60;
 
 type LikeReceivedRow = {
   user?: PublicUser | null;
@@ -291,6 +308,8 @@ function ExplorePeopleCard({
           className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"
           decoding="async"
+          fetchPriority="low"
+          sizes="(max-width: 32rem) 50vw, 11rem"
         />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-stone-300 to-stone-200" />
@@ -370,9 +389,7 @@ export default function ExploreMuzz() {
   }, [userId]);
   const prefersReducedMotion = useReducedMotion();
   const [tab, setTab] = useState<"foryou" | "events" | "history">("foryou");
-  const [historySub, setHistorySub] = useState<
-    "favorite" | "liked" | "passed" | "complimented"
-  >("favorite");
+  const [historySub, setHistorySub] = useState<"favorite" | "liked" | "passed">("favorite");
   const [deckEpoch, setDeckEpoch] = useState(0);
   const [eventsView, setEventsView] = useState<"all" | "swipe" | "calendar">("all");
   const [eventsAllSub, setEventsAllSub] = useState<"all" | "upcoming" | "mine" | "past">("all");
@@ -400,30 +417,50 @@ export default function ExploreMuzz() {
   const { data: users = [] } = useQuery<PublicUser[]>({
     queryKey: ["/api/users"],
     enabled: tab === "history",
+    gcTime: EXPLORE_QUERY_GC_MS,
   });
 
   const { data: likesReceivedRaw = [] } = useQuery<LikeReceivedRow[]>({
     queryKey: [`/api/users/${userId}/likes-received`],
     enabled: !!userId && tab === "foryou",
+    gcTime: EXPLORE_QUERY_GC_MS,
   });
 
   const { data: profileLikesRaw = [] } = useQuery<ProfileLikeReceivedRow[]>({
     queryKey: [`/api/users/${userId}/profile-likes-received`],
     enabled: !!userId && tab === "foryou",
+    gcTime: EXPLORE_QUERY_GC_MS,
   });
 
   const { data: visitorsRaw = [] } = useQuery<Array<{ user: PublicUser; viewedAt: string }>>({
     queryKey: [`/api/users/${userId}/profile-visitors`],
     enabled: !!userId && tab === "foryou",
+    gcTime: EXPLORE_QUERY_GC_MS,
   });
 
   const { data: recentJoiners = [] } = useQuery<PublicUser[]>({
     queryKey: ["/api/users/recent-joiners"],
     enabled: !!userId && tab === "foryou",
+    gcTime: EXPLORE_QUERY_GC_MS,
   });
+
+  const { data: viewerProfile } = useQuery<{ gender?: string | null; isAdmin?: boolean }>({
+    queryKey: [`/api/users/${userId}`],
+    enabled: !!userId && (tab === "foryou" || tab === "events"),
+    gcTime: EXPLORE_QUERY_GC_MS,
+  });
+
+  const recentJoinersForYou = useMemo(() => {
+    const g =
+      viewerProfile?.gender ??
+      (viewerProfile as { profile?: { gender?: string } } | undefined)?.profile?.gender;
+    return filterToOppositeGender(recentJoiners, g, false);
+  }, [recentJoiners, viewerProfile]);
 
   const { data: events = [] } = useQuery<ApiEvent[]>({
     queryKey: ["/api/events"],
+    enabled: tab === "events",
+    gcTime: EXPLORE_QUERY_GC_MS,
   });
 
   const list = Array.isArray(users) ? users : [];
@@ -472,8 +509,6 @@ export default function ExploreMuzz() {
         return getMarriageLiked();
       case "passed":
         return getMarriagePassed();
-      case "complimented":
-        return getMarriageComplimented();
       default:
         return [];
     }
@@ -487,6 +522,37 @@ export default function ExploreMuzz() {
     return m;
   }, [list]);
 
+  const historyUserIdsMissingFromList = useMemo(() => {
+    if (tab !== "history") return [];
+    const ids = marriageHistoryEntries.map((h) => h.id).filter((id) => !userNameById.has(id));
+    return Array.from(new Set(ids));
+  }, [tab, marriageHistoryEntries, userNameById]);
+
+  const historyUserQueries = useQueries({
+    queries: historyUserIdsMissingFromList.map((id) => ({
+      queryKey: ["/api/users", id],
+      enabled: tab === "history" && Boolean(id),
+      staleTime: 60_000,
+      queryFn: async () => {
+        const res = await fetch(buildApiUrl(`/api/users/${id}`), {
+          credentials: "include",
+          headers: { ...getAuthHeaders(false) },
+        });
+        if (!res.ok) return null;
+        return (await res.json()) as PublicUser;
+      },
+    })),
+  });
+
+  const historyPeopleById = useMemo(() => {
+    const m = new Map(userNameById);
+    historyUserIdsMissingFromList.forEach((id, i) => {
+      const data = historyUserQueries[i]?.data;
+      if (data && typeof data.id === "string") m.set(id, data);
+    });
+    return m;
+  }, [userNameById, historyUserIdsMissingFromList, historyUserQueries]);
+
   const historyBadge = useMemo(() => {
     switch (historySub) {
       case "passed":
@@ -495,14 +561,17 @@ export default function ExploreMuzz() {
         return { label: "Liked", className: "bg-red-600 text-white" };
       case "favorite":
         return { label: "Favorite", className: "bg-amber-500 text-white" };
-      case "complimented":
-        return { label: "Complimented", className: "bg-primary text-white" };
       default:
         return { label: "Saved", className: "bg-gray-800 text-white" };
     }
   }, [historySub]);
 
-  const safeEvents = Array.isArray(events) ? events : [];
+  const eventsRaw = Array.isArray(events) ? events : [];
+  const exploreViewerIsAdmin = !!viewerProfile?.isAdmin;
+  const safeEvents = useMemo(
+    () => filterEventsVisibleToViewer(eventsRaw, userId, exploreViewerIsAdmin),
+    [eventsRaw, userId, exploreViewerIsAdmin],
+  );
 
   const filteredEvents = useMemo(() => {
     let list = [...safeEvents];
@@ -765,16 +834,16 @@ export default function ExploreMuzz() {
               <section>
                 <h2 className={`mb-1 ${exploreSectionTitle}`}>Just joined</h2>
                 <p className="mb-3 text-xs text-gray-500 sm:text-sm">
-                  Newest members on Matchify (real accounts by signup date).
+                  Newest members (opposite gender from your profile when your gender is set — same as Marriage).
                 </p>
-                {recentJoiners.length === 0 ? (
+                {recentJoinersForYou.length === 0 ? (
                   <div className="rounded-[24px] border border-[#F0F0F0] bg-white/80 px-4 py-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
                     <Sparkles className="mx-auto h-6 w-6 text-slate-400" strokeWidth={1.75} aria-hidden />
                     <p className="mt-2 text-sm font-semibold text-slate-500">No new members to show yet.</p>
                   </div>
                 ) : (
-                  <ExploreTwoRowScroller hint="Two rows · scroll sideways for more new members." itemCount={recentJoiners.length}>
-                    {recentJoiners.map((u) => (
+                  <ExploreTwoRowScroller hint="Two rows · scroll sideways for more new members." itemCount={recentJoinersForYou.length}>
+                    {recentJoinersForYou.map((u) => (
                       <ExploreCardCell key={u.id}>
                         <ExplorePeopleCard
                           user={u}
@@ -1060,25 +1129,23 @@ export default function ExploreMuzz() {
           {tab === "history" && (
             <motion.div key="history" className="space-y-3 pt-4" {...tabMotion}>
               <FeedFilterPills
+                variant="equalWidth"
                 pills={[
                   { id: "favorite", label: "Favorites" },
                   { id: "liked", label: "Liked" },
                   { id: "passed", label: "Passed" },
-                  { id: "complimented", label: "Complimented" },
                 ]}
                 activeId={historySub}
-                onChange={(id) =>
-                  setHistorySub(id as "favorite" | "liked" | "passed" | "complimented")
-                }
+                onChange={(id) => setHistorySub(id as "favorite" | "liked" | "passed")}
               />
               {marriageHistoryEntries.length === 0 ? (
                 <p className="pt-2 text-sm text-gray-500">
-                  No one here yet — use the Marriage tab to favorite, like, pass, or send a compliment.
+                  No one here yet — use the Marriage tab to favorite, like, or pass.
                 </p>
               ) : (
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   {marriageHistoryEntries.map((h) => {
-                    const u = userNameById.get(h.id);
+                    const u = historyPeopleById.get(h.id);
                     const cardUser: PublicUser = {
                       id: h.id,
                       name: u?.name ?? `Profile ${h.id.slice(0, 8)}…`,

@@ -13,10 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Calendar, MapPin, Clock, Heart, Sparkles, Zap, UserRound, Mic2, Pencil } from "lucide-react";
-import { buildApiUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { requestChatWithUser } from "@/lib/requestChatWithUser";
 import { useCurrentUser } from "@/contexts/UserContext";
+import { useUpgrade } from "@/contexts/UpgradeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -27,6 +29,7 @@ import {
   parseEventQuestions,
   type EventQuestionItem,
 } from "@/lib/eventQuestionnaireDefaults";
+import { eventAttendingDenominator } from "@/lib/eventGuestListDisplay";
 
 interface Match {
   id: string;
@@ -43,6 +46,7 @@ export default function EventDetail() {
   const [searchParams] = useSearchParams();
   const [, params] = useRoute('/event/:id');
   const { userId } = useCurrentUser();
+  const { openUpgrade } = useUpgrade();
   const { logout } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -115,7 +119,10 @@ export default function EventDetail() {
     refetchOnMount: true, // Always refetch when component mounts
     queryFn: async () => {
       const url = buildApiUrl(`/api/users/${userId}/rsvps`);
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: getAuthHeaders(false),
+      });
       if (!res.ok) return [];
       return res.json();
     },
@@ -129,7 +136,10 @@ export default function EventDetail() {
     enabled: !!eventId && !!userId,
     queryFn: async () => {
       const url = buildApiUrl(`/api/events/${eventId}/questionnaire?userId=${userId}`);
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: getAuthHeaders(false),
+      });
       if (!res.ok) {
         // 404 or other errors mean questionnaire doesn't exist yet (not an error state)
         if (res.status === 404 || res.status === 401) return null;
@@ -150,7 +160,10 @@ export default function EventDetail() {
       const url = buildApiUrl(
         `/api/events/${eventId}/my-ai-invite?userId=${encodeURIComponent(userId!)}`,
       );
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: getAuthHeaders(false),
+      });
       if (!res.ok) return { status: null };
       return res.json();
     },
@@ -194,7 +207,10 @@ export default function EventDetail() {
     refetchInterval: isRSVPd ? 2000 : false,
     queryFn: async () => {
       const url = buildApiUrl(`/api/events/${eventId}`);
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: getAuthHeaders(false),
+      });
       if (!res.ok) throw new Error('Failed to fetch event');
       return res.json();
     },
@@ -233,6 +249,15 @@ export default function EventDetail() {
     return n || "";
   }, [event]);
 
+  const attendingDenominator = useMemo(() => {
+    if (!event) return 1;
+    return eventAttendingDenominator({
+      aiGenerated: event.aiGenerated,
+      aiGuestListCount: (event as { aiGuestListCount?: number | null }).aiGuestListCount ?? null,
+      capacity: event.capacity,
+    });
+  }, [event]);
+
   const revealAtMs = useMemo(() => {
     if (!event?.matchRevealTime) return NaN;
     const t = new Date(event.matchRevealTime).getTime();
@@ -259,7 +284,10 @@ export default function EventDetail() {
       const url = buildApiUrl(
         `/api/events/${eventId}/matches?userId=${encodeURIComponent(userId!)}`,
       );
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: getAuthHeaders(false),
+      });
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : [];
@@ -293,6 +321,9 @@ export default function EventDetail() {
     } else if (questionnaireCompleted) {
       // If questionnaire is completed, make sure it's hidden
       setShowQuestionnaire(false);
+      setIsEditingAnswers(false);
+      // Staying on "questionnaire" tab after the overlay closes can leave an empty panel (no matching TabsContent).
+      setActiveTab("details");
     }
   }, [
     event,
@@ -436,7 +467,7 @@ export default function EventDetail() {
         transition={{ duration: 0.5 }}
         className="mx-auto max-w-lg px-4 pb-6 pt-2"
       >
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="sync">
           {showQuestionnaire && !isHost ? (
             <motion.div
               key="questionnaire"
@@ -450,13 +481,18 @@ export default function EventDetail() {
                 eventTitle={event.title}
                 questions={questions}
                 onComplete={async () => {
+                  setActiveTab("details");
+                  setIsEditingAnswers(false);
                   setShowQuestionnaire(false);
-                  // Refetch questionnaire to update completion status
                   await refetchQuestionnaire();
-                  // Also invalidate event query
                   queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
+                  const suffix = fromExplore ? "?from=explore" : "";
+                  if (eventId) setLocation(`/event/${eventId}${suffix}`);
                 }}
-                onCancel={() => setShowQuestionnaire(false)}
+                onCancel={() => {
+                  setShowQuestionnaire(false);
+                  setActiveTab("details");
+                }}
               />
             </motion.div>
           ) : (
@@ -546,7 +582,7 @@ export default function EventDetail() {
                             {([
                               { icon: Calendar, label: event.date, sublabel: event.time },
                               { icon: MapPin, label: event.location, badge: event.type === 'online' ? 'Online' : 'In Person' },
-                              { icon: Users, label: `${event.attendeesCount || 0}/${event.capacity} attending` },
+                              { icon: Users, label: `${event.attendeesCount || 0}/${attendingDenominator} attending` },
                               hostDisplayName && {
                                 icon: UserRound,
                                 label: `Host: ${hostDisplayName}`,
@@ -737,14 +773,18 @@ export default function EventDetail() {
                               return undefined;
                             })()}
                             onComplete={async () => {
-                              setShowQuestionnaire(false);
+                              setActiveTab("details");
                               setIsEditingAnswers(false);
+                              setShowQuestionnaire(false);
                               await refetchQuestionnaire();
                               queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
+                              const suffix = fromExplore ? "?from=explore" : "";
+                              if (eventId) setLocation(`/event/${eventId}${suffix}`);
                             }}
                             onCancel={() => {
                               setShowQuestionnaire(false);
                               setIsEditingAnswers(false);
+                              setActiveTab("details");
                             }}
                           />
                         )}
@@ -759,7 +799,15 @@ export default function EventDetail() {
                             eventTitle={event.title}
                             eventId={event.id}
                           viewerUserId={userId}
-                            onMessage={(userId) => setLocation(`/chat?user=${userId}`)}
+                            onMessage={(matchedUserId) =>
+                              void requestChatWithUser({
+                                fromUserId: userId,
+                                toUserId: matchedUserId,
+                                setLocation,
+                                toast,
+                                openUpgrade,
+                              })
+                            }
                           />
                         ) : (
                           <Card className="border border-gray-100 bg-white shadow-sm">

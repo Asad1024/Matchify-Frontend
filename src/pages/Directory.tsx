@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import Header from "@/components/common/Header";
 import PageWrapper from "@/components/common/PageWrapper";
 import BottomNav from "@/components/common/BottomNav";
@@ -31,9 +31,11 @@ import type { User } from "@shared/schema";
 import { getAIMatches } from "@/services/aiMatchmaker.service";
 import type { AIMatch } from "@/services/aiMatchmaker.service";
 import { LayoutGroup, motion } from "framer-motion";
-import { buildApiUrl } from "@/services/api";
+import { requestChatWithUser } from "@/lib/requestChatWithUser";
+import { chatRequestsSummaryQueryKey, fetchChatRequestsSummary } from "@/lib/chatRequestsApi";
 import { useUpgrade } from "@/contexts/UpgradeContext";
 import { cn } from "@/lib/utils";
+import { desiredOppositeGender } from "@/lib/oppositeGenderPreference";
 
 type Profile = {
   id: string;
@@ -94,6 +96,7 @@ function DiscoverCard({
   profile,
   compatibility,
   liked,
+  messagePending,
   onViewProfile,
   onLike,
   onMessage,
@@ -101,6 +104,7 @@ function DiscoverCard({
   profile: Profile;
   compatibility: number;
   liked: boolean;
+  messagePending?: boolean;
   onViewProfile: (id: string) => void;
   onLike: (id: string) => void;
   onMessage: (id: string) => void;
@@ -158,13 +162,19 @@ function DiscoverCard({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              if (messagePending) return;
               onMessage(profile.id);
             }}
-            className="matchify-pill-active inline-flex items-center justify-center p-2.5 shadow-sm backdrop-blur-lg transition hover:brightness-[1.02]"
-            aria-label="Message"
-            title="Message"
+            disabled={!!messagePending}
+            className="matchify-pill-active inline-flex items-center justify-center p-2.5 shadow-sm backdrop-blur-lg transition hover:brightness-[1.02] disabled:opacity-60"
+            aria-label={messagePending ? "Request sent" : "Message"}
+            title={messagePending ? "Request sent" : "Message"}
           >
-            <MessageCircle className="h-4.5 w-4.5 text-white" strokeWidth={2} aria-hidden />
+            {messagePending ? (
+              <Check className="h-4.5 w-4.5 text-white" strokeWidth={2} aria-hidden />
+            ) : (
+              <MessageCircle className="h-4.5 w-4.5 text-white" strokeWidth={2} aria-hidden />
+            )}
           </button>
         </div>
       </div>
@@ -189,8 +199,9 @@ function DiscoverCard({
 export default function Directory() {
   const [activePage, setActivePage] = useState('explore');
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const { userId } = useCurrentUser();
-  const { tier, requireTier } = useUpgrade();
+  const { tier, requireTier, openUpgrade } = useUpgrade();
   const { logout } = useAuth();
   const { toast } = useToast();
   const [showMatchReveal, setShowMatchReveal] = useState(false);
@@ -202,6 +213,10 @@ export default function Directory() {
   const applyDiscoverTab = useCallback((t: "browse" | "curated") => {
     if (t === "curated" && tier === "free") {
       requireTier({ feature: "AI Matching", minTier: "plus", reason: "Free plan doesn’t include AI picks." });
+      setDiscoverTab("browse");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("tab");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
       return;
     }
     setDiscoverTab(t);
@@ -223,6 +238,20 @@ export default function Directory() {
     queryKey: ['/api/users'],
     enabled: !!userId,
   });
+
+  const { data: chatReqSummary } = useQuery({
+    queryKey: chatRequestsSummaryQueryKey(userId ?? ""),
+    queryFn: () => fetchChatRequestsSummary(userId!),
+    enabled: !!userId,
+  });
+
+  const pendingMessageTo = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of chatReqSummary?.outgoing ?? []) {
+      if (r.status === "pending" && r.otherUser?.id) s.add(r.otherUser.id);
+    }
+    return s;
+  }, [chatReqSummary]);
 
   const { data: unrevealedMatches = [] } = useQuery<UnrevealedMatch[]>({
     queryKey: [`/api/users/${userId}/unrevealed-matches`],
@@ -305,14 +334,17 @@ export default function Directory() {
   const aiMatchmakerComplete = hasAttractionBlueprint;
 
   useEffect(() => {
+    const raw = search.startsWith("?") ? search.slice(1) : search;
+    const params = new URLSearchParams(raw || "");
+    const tabParam = params.get("tab");
+
     if (!aiMatchmakerComplete) {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("tab") === "curated") applyDiscoverTab("browse");
+      if (tabParam === "curated") applyDiscoverTab("browse");
       return;
     }
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("tab") === "curated") setDiscoverTab("curated");
-  }, [aiMatchmakerComplete, applyDiscoverTab]);
+    /** Deep links (e.g. notifications) must use the same paywall as tapping the AI Matching tab. */
+    if (tabParam === "curated") applyDiscoverTab("curated");
+  }, [aiMatchmakerComplete, applyDiscoverTab, search, tier]);
 
   const { data: aiMatches = [] } = useQuery<AIMatch[]>({
     queryKey: [`/api/users/${userId}/ai-matches`],
@@ -366,36 +398,20 @@ export default function Directory() {
     likeProfileMutation.mutate({ targetId, compatibility });
   };
   const handleMessageProfile = (targetId: string) => {
-    // Send a message request (accept/reject) instead of opening chat immediately.
-    if (!userId) {
-      setLocation(`/chat?user=${encodeURIComponent(targetId)}`);
-      return;
-    }
-    fetch(buildApiUrl(`/api/users/${encodeURIComponent(userId)}/chat-requests`), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ toId: targetId, message: "Hey! Want to chat?" }),
-    })
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.message || "Could not send request");
-        toast({ title: "Request sent", description: "They’ll get an accept/reject notification." });
-      })
-      .catch((e: any) => {
-        toast({ title: "Could not send request", description: e?.message || "Try again", variant: "destructive" });
-      });
+    void requestChatWithUser({
+      fromUserId: userId,
+      toUserId: targetId,
+      setLocation,
+      toast,
+      openUpgrade,
+    });
   };
 
   const norm = (v: unknown): string => String(v ?? "").trim().toLowerCase();
   const isTruthy = (v: unknown): boolean =>
     v === true || v === 1 || v === "1" || norm(v) === "true" || norm(v) === "yes";
 
-  const inferredPreferredGender = (): string => {
-    const g = norm(currentUser?.gender);
-    if (g === "male" || g === "man" || g === "m") return "female";
-    if (g === "female" || g === "woman" || g === "f") return "male";
-    return "all";
-  };
+  const inferredPreferredGender = (): string => desiredOppositeGender(currentUser?.gender) ?? "all";
   const effectiveGenderFilter =
     selectedGender !== "all" ? selectedGender : inferredPreferredGender();
 
@@ -614,6 +630,7 @@ export default function Directory() {
                       profile={profile}
                       compatibility={aiMatch?.compatibility || 70}
                       liked={likedProfileIds.includes(profile.id)}
+                      messagePending={pendingMessageTo.has(profile.id)}
                       onViewProfile={(id) => setLocation(`/profile/${id}`)}
                       onLike={handleLikeProfile}
                       onMessage={handleMessageProfile}
@@ -790,6 +807,7 @@ export default function Directory() {
                     profile={profile}
                     compatibility={aiMatch?.compatibility || profile.compatibility}
                     liked={likedProfileIds.includes(profile.id)}
+                    messagePending={pendingMessageTo.has(profile.id)}
                     onViewProfile={(id) => setLocation(`/profile/${id}`)}
                     onLike={handleLikeProfile}
                     onMessage={handleMessageProfile}
@@ -813,7 +831,13 @@ export default function Directory() {
             if (currentMatch) markRevealedMutation.mutate(currentMatch.id);
             setShowMatchReveal(false);
             setCurrentMatch(null);
-            setLocation(`/chat?user=${matchedUserId}`);
+            void requestChatWithUser({
+              fromUserId: userId,
+              toUserId: matchedUserId,
+              setLocation,
+              toast,
+              openUpgrade,
+            });
           }}
         />
       )}

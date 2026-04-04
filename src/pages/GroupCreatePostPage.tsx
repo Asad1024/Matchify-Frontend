@@ -395,7 +395,7 @@ export default function GroupCreatePostPage() {
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   className={cn(
-                    "mt-2 min-h-[180px] w-full resize-y rounded-2xl border-0 bg-transparent p-0 text-[18px] leading-relaxed text-slate-900 shadow-none",
+                    "mt-2 min-h-[180px] w-full resize-y rounded-2xl border-0 bg-transparent px-3.5 py-2.5 text-[18px] leading-relaxed text-slate-900 shadow-none",
                     "placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0",
                   )}
                 />

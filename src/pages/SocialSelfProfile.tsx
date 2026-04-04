@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
@@ -26,7 +26,8 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { fetchPostsFeed } from "@/lib/fetchPostsFeed";
+import { fetchPostsFeedPage, POSTS_FEED_PAGE_SIZE } from "@/lib/fetchPostsFeed";
+import { postsFeedQueryOptions } from "@/lib/queryPersist";
 import { isFeedMockMode } from "@/lib/feedMockMode";
 import { setMockPostLiked } from "@/lib/mockLikesStore";
 import { fetchPostComments, postCommentsQueryKey, type PostCommentRow } from "@/lib/postCommentsApi";
@@ -154,12 +155,6 @@ export default function SocialSelfProfile() {
     }
   }, [userId]);
 
-  const { data: posts = [] } = useQuery<Post[]>({
-    queryKey: ["/api/posts", { viewer: userId ?? "" }],
-    queryFn: async () => (await fetchPostsFeed()) as Post[],
-    enabled: !!userId,
-  });
-
   const { data: socialSummary, isLoading: socialSummaryLoading } = useSocialSummaryQuery();
   const followingIds = useMemo(
     () => new Set(socialSummary?.followingIds ?? []),
@@ -171,11 +166,72 @@ export default function SocialSelfProfile() {
     enabled: !!userId,
   });
 
+  const membershipIds = useMemo(() => {
+    if (!Array.isArray(memberships)) return new Set<string>();
+    return new Set(
+      memberships
+        .map((m: { groupId?: string }) => m.groupId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    );
+  }, [memberships]);
+
+  const groupsKey = useMemo(
+    () => Array.from(membershipIds).sort((a, b) => a.localeCompare(b)).join(","),
+    [membershipIds],
+  );
+
+  const authoredInfinite = useInfiniteQuery({
+    ...postsFeedQueryOptions,
+    queryKey: ["/api/posts", { viewer: userId ?? "", scope: "author", author: userId ?? "" }],
+    queryFn: async ({ pageParam }) => {
+      const offset = typeof pageParam === "number" ? pageParam : 0;
+      if (!userId) return [] as Post[];
+      return fetchPostsFeedPage({
+        limit: POSTS_FEED_PAGE_SIZE,
+        offset,
+        authorId: userId,
+      }) as Promise<Post[]>;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _pages, lastOffset) => {
+      if (!Array.isArray(lastPage) || lastPage.length < POSTS_FEED_PAGE_SIZE) return undefined;
+      return lastOffset + POSTS_FEED_PAGE_SIZE;
+    },
+    enabled: !!userId,
+  });
+
+  const allPosts = useMemo(
+    () => authoredInfinite.data?.pages.flat() ?? [],
+    [authoredInfinite.data],
+  );
+
   const { data: groups = [] } = useQuery<GroupRow[]>({
     queryKey: ["/api/groups"],
   });
 
-  const allPosts = useMemo(() => (Array.isArray(posts) ? posts : []), [posts]);
+  const { data: commentScanPosts = [] } = useQuery({
+    queryKey: ["/api/posts", { viewer: userId ?? "", scope: "profile-comments-scan", g: groupsKey }],
+    queryFn: () =>
+      fetchPostsFeedPage({
+        limit: 40,
+        offset: 0,
+        inGroups: Array.from(membershipIds),
+      }) as Promise<Post[]>,
+    enabled: !!userId && membershipIds.size > 0,
+  });
+
+  const { data: likedFeedData } = useQuery({
+    queryKey: [`/api/users/${userId}/social/liked-posts`],
+    queryFn: () =>
+      apiRequestJson<{
+        items: Array<{
+          postId: string;
+          likedAt: string;
+          preview: { content: string; author: unknown; image?: string | null } | null;
+        }>;
+      }>("GET", `/api/users/${encodeURIComponent(userId!)}/social/liked-posts`),
+    enabled: !!userId,
+  });
 
   const { data: savedFeedData, isLoading: savedFeedLoading } = useQuery({
     queryKey: ["/api/users", userId, "social-saved-posts"],
@@ -223,7 +279,8 @@ export default function SocialSelfProfile() {
 
   const myPosts = useMemo(() => {
     if (!userId) return [];
-    return allPosts.filter((p) => (p as Post & { userId?: string }).userId === userId);
+    const me = String(userId).trim();
+    return allPosts.filter((p) => String((p as Post & { userId?: string }).userId || "").trim() === me);
   }, [allPosts, userId]);
 
   const myPhotoPosts = useMemo(() => {
@@ -235,10 +292,40 @@ export default function SocialSelfProfile() {
   }, [myPosts]);
 
   const myLikedPosts = useMemo(() => {
-    return allPosts.filter((p) => !!(p as Post & { likedByMe?: boolean }).likedByMe);
-  }, [allPosts]);
+    const items = likedFeedData?.items;
+    if (!Array.isArray(items) || !items.length) return [] as Post[];
+    const byId = new Map(allPosts.map((p) => [p.id, p]));
+    const out: Post[] = [];
+    for (const row of items) {
+      const full = byId.get(row.postId);
+      if (full) {
+        out.push({ ...(full as object), likedByMe: true } as unknown as Post);
+        continue;
+      }
+      if (row.preview) {
+        const au = normalizeAuthorPreview(row.preview.author);
+        const likedAt = String(row.likedAt);
+        out.push({
+          id: row.postId,
+          userId: "",
+          content: row.preview.content || "",
+          imageUrl: row.preview.image || undefined,
+          image: row.preview.image || undefined,
+          createdAt: likedAt,
+          likesCount: 0,
+          commentsCount: 0,
+          likedByMe: true,
+          user: { name: au.name, avatar: au.avatar || undefined },
+        } as unknown as Post);
+      }
+    }
+    return out;
+  }, [likedFeedData, allPosts]);
 
-  const postsForCommentLookup = useMemo(() => allPosts.slice(0, 48), [allPosts]);
+  const postsForCommentLookup = useMemo(
+    () => (Array.isArray(commentScanPosts) ? commentScanPosts : []).slice(0, 48),
+    [commentScanPosts],
+  );
 
   const commentQueries = useQueries({
     queries: postsForCommentLookup.map((post) => ({
@@ -632,7 +719,7 @@ export default function SocialSelfProfile() {
                           likedByMe={p.likedByMe}
                           visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                           savedByMe={!!p.savedByMe}
-                          isFollowingAuthor={followingIds.has(p.userId || "")}
+                          isFollowingAuthor={followingIds.has(String(p.userId || "").trim())}
                           firstComment={p.firstComment ?? null}
                           groupId={gid}
                           groupName={gid ? groupNameById.get(gid) : undefined}
@@ -728,7 +815,7 @@ export default function SocialSelfProfile() {
                           likedByMe={p.likedByMe ?? false}
                           visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                           savedByMe
-                          isFollowingAuthor={followingIds.has(p.userId || "")}
+                          isFollowingAuthor={followingIds.has(String(p.userId || "").trim())}
                           firstComment={p.firstComment ?? null}
                           groupId={gid}
                           groupName={gid ? groupNameById.get(gid) : undefined}
@@ -873,7 +960,7 @@ export default function SocialSelfProfile() {
                           likedByMe={p.likedByMe ?? true}
                           visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                           savedByMe={!!p.savedByMe}
-                          isFollowingAuthor={followingIds.has(p.userId || "")}
+                          isFollowingAuthor={followingIds.has(String(p.userId || "").trim())}
                           firstComment={p.firstComment ?? null}
                           groupId={gid}
                           groupName={gid ? groupNameById.get(gid) : undefined}

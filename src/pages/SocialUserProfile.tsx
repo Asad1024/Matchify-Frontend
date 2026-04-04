@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useQueries, useQuery, useMutation } from "@tanstack/react-query";
+import { useQueries, useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ArrowLeft, Users, MessageCircle, Heart, Pencil, MapPin, Calendar } from "lucide-react";
 import BottomNav from "@/components/common/BottomNav";
@@ -10,11 +10,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingState } from "@/components/common/LoadingState";
 import type { Group, Post } from "@shared/schema";
 import PostCard from "@/components/posts/PostCard";
-import { fetchPostsFeed } from "@/lib/fetchPostsFeed";
+import { fetchPostsFeedPage, POSTS_FEED_PAGE_SIZE } from "@/lib/fetchPostsFeed";
+import { postsFeedQueryOptions } from "@/lib/queryPersist";
 import { postDisplayImageUrl } from "@/lib/postImage";
 import { useCurrentUser } from "@/contexts/UserContext";
+import { useUpgrade } from "@/contexts/UpgradeContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { requestChatWithUser } from "@/lib/requestChatWithUser";
+import { chatRequestPairQueryKey, fetchChatRequestPair } from "@/lib/chatRequestsApi";
 import { isFeedMockMode } from "@/lib/feedMockMode";
 import { setMockPostLiked } from "@/lib/mockLikesStore";
 import { fetchPostComments, postCommentsQueryKey, type PostCommentRow } from "@/lib/postCommentsApi";
@@ -23,6 +27,31 @@ import { apiRequestJson } from "@/services/api";
 import { splitLocation, membershipBadgeLabel } from "@/lib/profileLabels";
 import { cn } from "@/lib/utils";
 import type { SocialSummary } from "@/lib/socialPreferencesService";
+
+function patchViewerFollowingInCache(viewerId: string, targetUserId: string, following: boolean) {
+  queryClient.setQueryData<SocialSummary>(["/api/users", viewerId, "social-summary"], (old) => {
+    if (!old) return old;
+    const set = new Set(old.followingIds ?? []);
+    if (following) set.add(targetUserId);
+    else set.delete(targetUserId);
+    return {
+      ...old,
+      followingIds: Array.from(set),
+      followingCount: set.size,
+    };
+  });
+}
+
+function patchViewedFollowerCountCache(viewedUserId: string, delta: number) {
+  queryClient.setQueryData<SocialSummary>(
+    ["/api/users", viewedUserId, "social-summary-viewed"],
+    (old) => {
+      if (!old) return old;
+      const n = Math.max(0, (old.followerCount ?? 0) + delta);
+      return { ...old, followerCount: n };
+    },
+  );
+}
 
 type MeUser = {
   id: string;
@@ -51,9 +80,11 @@ function normalizeAuthorPreview(raw: unknown): { name: string; avatar?: string |
 
 export default function SocialUserProfile() {
   const [, params] = useRoute("/profile/social/user/:id");
-  const viewedUserId = params?.id ? decodeURIComponent(params.id) : "";
+  const viewedUserIdRaw = params?.id ? decodeURIComponent(params.id) : "";
+  const viewedUserId = String(viewedUserIdRaw).trim();
   const [, setLocation] = useLocation();
   const { userId: currentUserId } = useCurrentUser();
+  const { openUpgrade } = useUpgrade();
   const { toast } = useToast();
   const [tab, setTab] = useState<"posts" | "comments" | "likes" | "groups">("posts");
 
@@ -72,20 +103,85 @@ export default function SocialUserProfile() {
 
   const { data: socialSummary } = useSocialSummaryQuery();
   const followingIds = useMemo(() => new Set(socialSummary?.followingIds ?? []), [socialSummary?.followingIds]);
+  const blockedIds = useMemo(() => new Set(socialSummary?.blockedUserIds ?? []), [socialSummary?.blockedUserIds]);
   const isMe = !!currentUserId && !!viewedUserId && String(currentUserId) === String(viewedUserId);
+
+  const { data: chatPair } = useQuery({
+    queryKey: chatRequestPairQueryKey(currentUserId ?? "", viewedUserId),
+    queryFn: () => fetchChatRequestPair(currentUserId!, viewedUserId),
+    enabled: !!currentUserId && !!viewedUserId && !isMe,
+  });
+  const iBlockedThem = !isMe && !!viewedUserId && blockedIds.has(viewedUserId);
   const isFollowing = !isMe && !!viewedUserId && followingIds.has(viewedUserId);
 
-  const { data: posts = [], isLoading: postsLoading } = useQuery<Post[]>({
-    queryKey: ["/api/posts", { viewer: currentUserId ?? "" }],
-    queryFn: async () => (await fetchPostsFeed()) as Post[],
+  const { data: viewerMemberships = [] } = useQuery({
+    queryKey: ["/api/users", currentUserId, "memberships"],
     enabled: !!currentUserId && !!viewedUserId,
   });
 
-  const allPosts = useMemo(() => (Array.isArray(posts) ? posts : []), [posts]);
-  const userPosts = useMemo(
-    () => allPosts.filter((p) => (p as Post & { userId?: string }).userId === viewedUserId),
-    [allPosts, viewedUserId],
+  const viewerMembershipIds = useMemo(() => {
+    if (!Array.isArray(viewerMemberships)) return new Set<string>();
+    return new Set(
+      viewerMemberships
+        .map((m: { groupId?: string }) => m.groupId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    );
+  }, [viewerMemberships]);
+
+  const viewerGroupsKey = useMemo(
+    () => Array.from(viewerMembershipIds).sort((a, b) => a.localeCompare(b)).join(","),
+    [viewerMembershipIds],
   );
+
+  const authoredInfinite = useInfiniteQuery({
+    ...postsFeedQueryOptions,
+    queryKey: [
+      "/api/posts",
+      { viewer: currentUserId ?? "", scope: "author", author: viewedUserId },
+    ],
+    queryFn: async ({ pageParam }) => {
+      const offset = typeof pageParam === "number" ? pageParam : 0;
+      return fetchPostsFeedPage({
+        limit: POSTS_FEED_PAGE_SIZE,
+        offset,
+        authorId: viewedUserId,
+      }) as Promise<Post[]>;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _pages, lastOffset) => {
+      if (!Array.isArray(lastPage) || lastPage.length < POSTS_FEED_PAGE_SIZE) return undefined;
+      return lastOffset + POSTS_FEED_PAGE_SIZE;
+    },
+    enabled: !!currentUserId && !!viewedUserId,
+  });
+
+  const allPosts = useMemo(
+    () => authoredInfinite.data?.pages.flat() ?? [],
+    [authoredInfinite.data],
+  );
+
+  const postsLoading = authoredInfinite.isPending;
+
+  const userPosts = useMemo(() => {
+    const vid = String(viewedUserId).trim();
+    return allPosts.filter(
+      (p) => String((p as Post & { userId?: string }).userId || "").trim() === vid,
+    );
+  }, [allPosts, viewedUserId]);
+
+  const { data: commentScanPosts = [] } = useQuery({
+    queryKey: [
+      "/api/posts",
+      { viewer: currentUserId ?? "", scope: "userprof-comment-scan", g: viewerGroupsKey },
+    ],
+    queryFn: () =>
+      fetchPostsFeedPage({
+        limit: 40,
+        offset: 0,
+        inGroups: Array.from(viewerMembershipIds),
+      }) as Promise<Post[]>,
+    enabled: !!currentUserId && !!viewedUserId && viewerMembershipIds.size > 0,
+  });
 
   const { data: likedFeedData } = useQuery({
     queryKey: [`/api/users/${viewedUserId}/social/liked-posts`],
@@ -129,7 +225,10 @@ export default function SocialUserProfile() {
     return out;
   }, [likedFeedData, allPosts]);
 
-  const postsForCommentLookup = useMemo(() => allPosts.slice(0, 48), [allPosts]);
+  const postsForCommentLookup = useMemo(
+    () => (Array.isArray(commentScanPosts) ? commentScanPosts : []).slice(0, 48),
+    [commentScanPosts],
+  );
   const commentQueries = useQueries({
     queries: postsForCommentLookup.map((post) => ({
       queryKey: postCommentsQueryKey(post.id),
@@ -213,9 +312,15 @@ export default function SocialUserProfile() {
       if (!res.ok) throw new Error("Failed to unfollow");
       return { following: false };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "social-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users", viewedUserId, "social-summary-viewed"] });
+    onSuccess: (_d, { follow }) => {
+      if (currentUserId && viewedUserId) {
+        patchViewerFollowingInCache(currentUserId, viewedUserId, follow);
+        patchViewedFollowerCountCache(viewedUserId, follow ? 1 : -1);
+      }
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "social-summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", viewedUserId, "social-summary-viewed"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", currentUserId, "social-feed-lists"] });
     },
     onError: () => toast({ title: "Could not update follow", variant: "destructive" }),
   });
@@ -225,6 +330,40 @@ export default function SocialUserProfile() {
     return (
       <div className="min-h-screen bg-[hsl(var(--surface-2))] flex items-center justify-center pb-24">
         <LoadingState message="Loading profile…" showMascot />
+      </div>
+    );
+  }
+
+  if (iBlockedThem) {
+    return (
+      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
+        <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 shadow-2xs backdrop-blur-xl safe-top">
+          <div className="mx-auto flex max-w-lg items-center gap-2 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-full text-stone-800 hover:bg-stone-100/90"
+              onClick={goBack}
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="truncate font-display text-[15px] font-bold text-stone-900">Profile</h1>
+          </div>
+        </div>
+        <div className="mx-auto max-w-lg px-3 pt-6">
+          <div className="matchify-surface p-8 text-center">
+            <p className="font-display text-lg font-semibold text-stone-900">You&apos;ve blocked this account</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Their profile stays hidden until you unblock them in Settings → Feed preferences.
+            </p>
+            <Button type="button" className="mt-6 rounded-full" onClick={goBack}>
+              Go back
+            </Button>
+          </div>
+        </div>
+        <BottomNav active="community" onNavigate={() => {}} />
       </div>
     );
   }
@@ -325,11 +464,38 @@ export default function SocialUserProfile() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-11 w-full rounded-full border-stone-200 bg-white font-semibold text-stone-900"
-                    onClick={() => setLocation(`/chat?user=${encodeURIComponent(viewedUserId)}`)}
+                    className={cn(
+                      "h-11 w-full rounded-full font-semibold",
+                      chatPair?.outgoingStatus === "pending" &&
+                        "border-primary/35 bg-primary/5 text-primary hover:bg-primary/10",
+                      chatPair?.outgoingStatus === "accepted" &&
+                        "border-transparent bg-primary text-primary-foreground hover:bg-primary/90",
+                      (chatPair?.outgoingStatus === "none" || chatPair?.outgoingStatus === "declined") &&
+                        "border-stone-200 bg-white text-stone-900",
+                    )}
+                    disabled={chatPair?.outgoingStatus === "pending"}
+                    onClick={() => {
+                      const o = chatPair?.outgoingStatus ?? "none";
+                      if (o === "accepted") {
+                        setLocation(`/chat?user=${encodeURIComponent(viewedUserId)}`);
+                        return;
+                      }
+                      if (o === "pending") return;
+                      void requestChatWithUser({
+                        fromUserId: currentUserId,
+                        toUserId: viewedUserId,
+                        setLocation,
+                        toast,
+                        openUpgrade,
+                      });
+                    }}
                   >
                     <MessageCircle className="mr-2 h-4 w-4" strokeWidth={1.75} aria-hidden />
-                    Message
+                    {chatPair?.outgoingStatus === "pending"
+                      ? "Request sent"
+                      : chatPair?.outgoingStatus === "accepted"
+                        ? "Chat"
+                        : "Message"}
                   </Button>
                   <Button
                     type="button"
@@ -395,7 +561,7 @@ export default function SocialUserProfile() {
                         likedByMe={!!p.likedByMe}
                         visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                         savedByMe={!!p.savedByMe}
-                        isFollowingAuthor={followingIds.has(p.userId || "")}
+                        isFollowingAuthor={followingIds.has(String(p.userId || "").trim())}
                         firstComment={p.firstComment ?? null}
                         groupId={gid}
                         groupName={gid ? groupNameById.get(gid) : undefined}
@@ -465,7 +631,7 @@ export default function SocialUserProfile() {
                         likedByMe={!!p.likedByMe}
                         visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
                         savedByMe={!!p.savedByMe}
-                        isFollowingAuthor={followingIds.has(p.userId || "")}
+                        isFollowingAuthor={followingIds.has(String(p.userId || "").trim())}
                         firstComment={p.firstComment ?? null}
                         groupId={gid}
                         groupName={gid ? groupNameById.get(gid) : undefined}

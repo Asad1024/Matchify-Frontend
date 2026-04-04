@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import PostCard from "@/components/posts/PostCard";
 import { useCurrentUser } from "@/contexts/UserContext";
-import { fetchPostsFeed } from "@/lib/fetchPostsFeed";
+import { fetchPostById } from "@/lib/fetchPostsFeed";
 import { postDisplayImageUrl } from "@/lib/postImage";
 import { apiRequestJson } from "@/services/api";
 import { useSocialSummaryQuery } from "@/hooks/useSocialSummary";
@@ -54,9 +54,9 @@ export default function CommunityPostPage() {
     [socialSummary?.followingIds],
   );
 
-  const { data: posts = [], isLoading: postsLoading } = useQuery<Post[]>({
-    queryKey: ["/api/posts", { viewer: userId ?? "" }],
-    queryFn: async () => (await fetchPostsFeed()) as Post[],
+  const { data: postFromApi, isLoading: postApiLoading } = useQuery({
+    queryKey: ["/api/posts", "one", postId],
+    queryFn: () => fetchPostById(postId),
     enabled: !!userId && !!postId,
   });
 
@@ -87,8 +87,9 @@ export default function CommunityPostPage() {
 
   const post = useMemo(() => {
     if (!postId) return null;
-    const fromFeed = (Array.isArray(posts) ? posts : []).find((p) => p.id === postId);
-    if (fromFeed) return fromFeed as Post & Record<string, unknown>;
+    if (postFromApi && typeof postFromApi === "object") {
+      return postFromApi as Post & Record<string, unknown>;
+    }
     if (savedRow?.preview) {
       const au = normalizeAuthor(savedRow.preview.author);
       return {
@@ -108,7 +109,7 @@ export default function CommunityPostPage() {
       } as unknown as Post & Record<string, unknown>;
     }
     return null;
-  }, [postId, posts, savedRow]);
+  }, [postId, postFromApi, savedRow]);
 
   const likeMutation = useMutation({
     mutationFn: async ({ postId: pid, like }: { postId: string; like: boolean }) => {
@@ -145,7 +146,7 @@ export default function CommunityPostPage() {
     return <Redirect to="/community" />;
   }
 
-  const loading = postsLoading || savedLoading;
+  const loading = postApiLoading || savedLoading;
 
   const p = post as
     | (Post & {
@@ -217,7 +218,7 @@ export default function CommunityPostPage() {
               likedByMe={!!p.likedByMe}
               visibility={(p as { visibility?: "public" | "private" }).visibility ?? "public"}
               savedByMe={!!p.savedByMe}
-              isFollowingAuthor={followingIds.has(p.userId || "")}
+              isFollowingAuthor={followingIds.has(String(p.userId || "").trim())}
               firstComment={p.firstComment ?? null}
               groupId={gid}
               groupName={gid ? groupNameById.get(gid) : undefined}

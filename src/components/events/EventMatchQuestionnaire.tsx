@@ -8,7 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, ArrowRight, ArrowLeft, Sparkles, Heart, X, Check, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { buildApiUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { useCurrentUser } from "@/contexts/UserContext";
 
 interface Question {
@@ -57,7 +57,7 @@ export default function EventMatchQuestionnaire({
       const url = buildApiUrl(`/api/events/${eventId}/questionnaire`);
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
         credentials: "include",
         body: JSON.stringify(data),
       });
@@ -71,13 +71,14 @@ export default function EventMatchQuestionnaire({
     },
     onSuccess: () => {
       setShowSuccess(true);
-      setTimeout(() => {
-        toast({
-          title: "Questionnaire submitted! ✅",
-          description: "Your answers have been saved. Matches will be revealed at the event!",
-        });
+      toast({
+        title: "Questionnaire submitted! ✅",
+        description: "Your answers have been saved. Matches will be revealed at the event!",
+      });
+      // Brief success state, then return to the event page (parent resets tabs / route).
+      window.setTimeout(() => {
         onComplete();
-      }, 2000);
+      }, 900);
     },
     onError: (error: Error) => {
       setIsSubmitting(false);

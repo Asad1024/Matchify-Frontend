@@ -5,14 +5,7 @@ import AddPartnerDialog from "@/components/relationship-coaching/AddPartnerDialo
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import {
   Heart,
@@ -32,6 +25,7 @@ import {
   AlignLeft,
   HeartHandshake,
   Shield,
+  Pencil,
 } from "lucide-react";
 import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -50,11 +44,10 @@ import {
   splitLocation,
 } from "@/lib/profileLabels";
 import { labelAlcohol, labelEthnicity, labelSmoking } from "@/lib/profileDemographics";
-import ProfileEditTab, { type ProfileEditUser } from "@/components/profile/ProfileEditTab";
+import type { ProfileEditUser } from "@/components/profile/ProfileEditTab";
 import { ProfilePreviewCard } from "@/components/profile/ProfilePreviewCard";
 import { ImageLightbox } from "@/components/profile/ImageLightbox";
-import { cn } from "@/lib/utils";
-import { apiRequest } from "@/services/api";
+import { VerificationRequestBanner } from "@/components/profile/VerificationRequestBanner";
 
 type User = ProfileEditUser & {
   id: string;
@@ -105,16 +98,8 @@ function formatLanguages(raw: string | string[] | null | undefined): string {
 export default function Profile() {
   const [, setLocation] = useLocation();
   const [searchParams] = useSearchParams();
-  const marriageMenuFocus = searchParams.get("marriage") === "1";
-  const forceEditTab = marriageMenuFocus || searchParams.get("tab") === "edit";
-  const [profileTab, setProfileTab] = useState<"preview" | "edit">(() =>
-    forceEditTab ? "edit" : "preview",
-  );
   const [addPartnerOpen, setAddPartnerOpen] = useState(false);
   const [securityDialogOpen, setSecurityDialogOpen] = useState(false);
-  const [verifyOpen, setVerifyOpen] = useState(false);
-  const [verifyNote, setVerifyNote] = useState("");
-  const VERIFICATION_NOTE_MIN = 10;
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const { userId } = useCurrentUser();
   const { toast } = useToast();
@@ -137,40 +122,6 @@ export default function Profile() {
   >({
     queryKey: [`/api/users/${user?.partnerId}`],
     enabled: !!user?.partnerId,
-  });
-
-  const submitVerificationRequest = useMutation({
-    mutationFn: async (message: string) => {
-      if (!userId) throw new Error("Not signed in");
-      const res = await apiRequest("POST", `/api/users/${userId}/verification-request`, { message });
-      if (!res.ok) {
-        let msg = "Request failed";
-        try {
-          const j = (await res.json()) as { message?: string };
-          if (j?.message) msg = j.message;
-        } catch {
-          /* use default */
-        }
-        throw new Error(msg);
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
-      toast({
-        title: "Request sent",
-        description: "Our team will review your message. You will get a notification when you are verified.",
-      });
-      setVerifyOpen(false);
-      setVerifyNote("");
-    },
-    onError: (e: Error) => {
-      toast({
-        title: "Could not send request",
-        description: e.message,
-        variant: "destructive",
-      });
-    },
   });
 
   const removePartner = useMutation({
@@ -211,8 +162,16 @@ export default function Profile() {
   );
 
   useEffect(() => {
-    if (forceEditTab) setProfileTab("edit");
-  }, [forceEditTab]);
+    const tab = searchParams.get("tab");
+    const marriage = searchParams.get("marriage");
+    if (tab === "edit") {
+      setLocation("/profile/social/edit");
+      return;
+    }
+    if (marriage === "1" && typeof window !== "undefined") {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [searchParams, setLocation]);
 
   const goAIMatchmaker = useCallback(async () => {
     if (!userId) {
@@ -312,58 +271,27 @@ export default function Profile() {
               <h1 className="flex-1 min-w-0 text-center text-base font-semibold text-gray-900 truncate px-2">
                 {user.name}
               </h1>
-              <div className="w-11 shrink-0 flex justify-end">
-                {profileTab === "preview" ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full text-gray-800"
-                    onClick={shareProfile}
-                    aria-label="Share profile"
-                  >
-                    <Share2 className="w-5 h-5" />
-                  </Button>
-                ) : (
-                  <span className="inline-block h-10 w-11" aria-hidden />
-                )}
-              </div>
-            </div>
-            <div className="px-3 pb-3">
-              <div className="rounded-full bg-muted/60 p-1">
-                <div className="grid grid-cols-2 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setProfileTab("preview")}
-                    className={cn(
-                      "relative h-10 rounded-full text-[13px] font-semibold transition",
-                      profileTab === "preview"
-                        ? "text-slate-900"
-                        : "text-slate-500 hover:text-slate-700",
-                    )}
-                  >
-                    {profileTab === "preview" ? (
-                      <span className="absolute inset-0 rounded-full bg-background shadow-2xs" />
-                    ) : null}
-                    <span className="relative">Preview</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setProfileTab("edit")}
-                    className={cn(
-                      "relative h-10 rounded-full text-[13px] font-semibold transition",
-                      profileTab === "edit"
-                        ? "text-slate-900"
-                        : "text-slate-500 hover:text-slate-700",
-                    )}
-                  >
-                    {profileTab === "edit" ? (
-                      <span className="absolute inset-0 rounded-full bg-background shadow-2xs" />
-                    ) : null}
-                    <span className="relative">Edit</span>
-                  </button>
-                </div>
+              <div className="flex shrink-0 justify-end gap-0.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-gray-800"
+                  onClick={() => setLocation("/profile/social/edit")}
+                  aria-label="Edit profile and photos"
+                >
+                  <Pencil className="w-5 h-5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-gray-800"
+                  onClick={shareProfile}
+                  aria-label="Share profile"
+                >
+                  <Share2 className="w-5 h-5" />
+                </Button>
               </div>
             </div>
           </div>
@@ -372,84 +300,15 @@ export default function Profile() {
         <div className="max-w-lg mx-auto">
           {user && !user.verified ? (
             <div className="px-3 pt-2">
-              <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-start gap-2">
-                  <Shield className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">Get verified</p>
-                    <p className="text-xs text-muted-foreground">
-                      {user.verificationRequest?.status === "pending"
-                        ? "Your request is with our team. We will notify you when your profile is verified."
-                        : "Submit a short note for reviewers. If approved, you will get the verification badge on your name."}
-                    </p>
-                  </div>
-                </div>
-                {user.verificationRequest?.status !== "pending" ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0 rounded-full"
-                    onClick={() => setVerifyOpen(true)}
-                  >
-                    Request verification
-                  </Button>
-                ) : null}
-              </div>
+              <VerificationRequestBanner
+                userId={userId}
+                verified={user.verified}
+                verificationRequest={user.verificationRequest}
+              />
             </div>
           ) : null}
 
-          <Dialog open={verifyOpen} onOpenChange={setVerifyOpen}>
-            <DialogContent className="max-w-md rounded-2xl">
-              <DialogHeader>
-                <DialogTitle>Request profile verification</DialogTitle>
-                <DialogDescription>
-                  Introduce yourself to our reviewers (for example what confirms your identity or why you want the badge).
-                  This is only visible to admins.
-                </DialogDescription>
-              </DialogHeader>
-              <Textarea
-                id="verification-request-note"
-                value={verifyNote}
-                onChange={(e) => setVerifyNote(e.target.value)}
-                placeholder={`Write at least ${VERIFICATION_NOTE_MIN} characters…`}
-                className="min-h-[120px] rounded-xl"
-                aria-describedby="verification-request-hint"
-              />
-              <p
-                id="verification-request-hint"
-                className={`text-xs leading-relaxed ${verifyNote.trim().length < VERIFICATION_NOTE_MIN ? "text-muted-foreground" : "text-primary/90"}`}
-              >
-                {verifyNote.trim().length < VERIFICATION_NOTE_MIN ? (
-                  <>
-                    Send request stays disabled until you write at least{" "}
-                    <span className="font-semibold text-foreground">{VERIFICATION_NOTE_MIN} characters</span> so
-                    reviewers have enough context ({verifyNote.trim().length}/{VERIFICATION_NOTE_MIN}).
-                  </>
-                ) : (
-                  <>You&apos;re good to send — {verifyNote.trim().length} characters.</>
-                )}
-              </p>
-              <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="outline" onClick={() => setVerifyOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  disabled={
-                    verifyNote.trim().length < VERIFICATION_NOTE_MIN || submitVerificationRequest.isPending
-                  }
-                  className="disabled:pointer-events-none disabled:opacity-50"
-                  onClick={() => submitVerificationRequest.mutate(verifyNote.trim())}
-                >
-                  {submitVerificationRequest.isPending ? "Sending…" : "Send request"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {profileTab === "preview" && (
-            <div className="space-y-3 px-3 pb-10 pt-2">
+          <div className="space-y-3 px-3 pb-10 pt-2">
               {/* Hero — taller photo area */}
               <div className="matchify-surface overflow-hidden rounded-3xl">
                 <div className="relative isolate aspect-[3/4] w-full min-h-[300px] max-h-[min(520px,78vh)] bg-muted">
@@ -532,8 +391,34 @@ export default function Profile() {
                 description="A quick hello in your own words."
               >
                 <p className="text-sm font-medium leading-relaxed text-foreground/90">
-                  {user.bio?.trim() || "Add a short intro from the Edit tab."}
+                  {user.bio?.trim() || "Add a short intro from Social profile edit."}
                 </p>
+              </ProfilePreviewCard>
+
+              <ProfilePreviewCard
+                icon={Shield}
+                title="Account"
+                description="What you can change in the app."
+              >
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full rounded-2xl border-stone-200 font-semibold"
+                    onClick={() => setLocation("/profile/social/edit")}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit name, bio &amp; photos
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full rounded-2xl border-stone-200 font-semibold"
+                    onClick={() => setSecurityDialogOpen(true)}
+                  >
+                    Change password
+                  </Button>
+                </div>
               </ProfilePreviewCard>
 
               <div className="space-y-3">
@@ -564,6 +449,23 @@ export default function Profile() {
                     <p className="text-sm font-medium text-muted-foreground">Loading partner intentions…</p>
                   </div>
                 )}
+                <div
+                  className="matchify-surface rounded-2xl border border-border/70 bg-card px-4 py-3.5 shadow-2xs"
+                  role="status"
+                >
+                  <p className="text-center text-[13px] font-medium leading-snug text-foreground">
+                    Onboarding is locked — open{" "}
+                    <button
+                      type="button"
+                      className="font-semibold text-[#722F37] underline decoration-[#722F37] decoration-2 underline-offset-[3px] hover:opacity-90"
+                      onClick={() => setLocation("/support")}
+                    >
+                      Help &amp; support
+                    </button>
+                    {" "}
+                    to request changes.
+                  </p>
+                </div>
               </div>
 
               <ProfilePreviewCard
@@ -605,7 +507,9 @@ export default function Profile() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Add interests from Edit.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Set during onboarding. To update, contact support through Help &amp; support.
+                  </p>
                 )}
               </ProfilePreviewCard>
 
@@ -656,7 +560,9 @@ export default function Profile() {
                   {!user.loveLanguage &&
                   !(user.values && user.values.length) &&
                   !(user.lifestyle && user.lifestyle.length) ? (
-                    <p className="text-sm text-muted-foreground">Fill this in from Edit.</p>
+                    <p className="text-sm text-muted-foreground">
+                      Set during onboarding. To update, contact support through Help &amp; support.
+                    </p>
                   ) : null}
                 </div>
               </ProfilePreviewCard>
@@ -809,22 +715,6 @@ export default function Profile() {
                 )}
               </ProfilePreviewCard>
             </div>
-          )}
-
-          {profileTab === "edit" && (
-            <div className="space-y-3 px-3 pb-10 pt-2">
-              <ProfileEditTab
-                user={user}
-                hasPartner={Boolean(user.partnerId)}
-                marriageRestrictedEdit={marriageMenuFocus}
-                onOpenSecurity={() => setSecurityDialogOpen(true)}
-                onOpenAddPartner={() => setAddPartnerOpen(true)}
-                onGoCoaching={() => setLocation("/relationship-coaching")}
-                onGoAIMatchmaker={goAIMatchmaker}
-                onImagePreview={openLightbox}
-              />
-            </div>
-          )}
         </div>
 
       </div>

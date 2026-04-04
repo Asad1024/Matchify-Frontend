@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   MapPin,
   Heart,
@@ -29,29 +27,16 @@ import {
 import { MuzzMarriageTimeline } from "@/components/muzz/MuzzMarriageTimeline";
 import { getReligionLabel } from "@/lib/religionOptions";
 import { labelAlcohol, labelEthnicity, labelSmoking } from "@/lib/profileDemographics";
-import { complimentsLeft, consumeCompliment } from "@/lib/entitlements";
-import { useUpgrade } from "@/contexts/UpgradeContext";
-import { addMarriageComplimented } from "@/lib/marriageDeckStore";
-import {
-  cancelOutgoingChatRequest,
-  createComplimentChatRequest,
-  type OutgoingChatRecord,
-} from "@/lib/marriageChatRequests";
+import { postChatRequestToUser, DEFAULT_CHAT_REQUEST_MESSAGE } from "@/lib/requestChatWithUser";
 import { useToast } from "@/hooks/use-toast";
+import { useUpgrade } from "@/contexts/UpgradeContext";
 import { cn } from "@/lib/utils";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 export type MarriageDiscoveryUser = {
   id: string;
   name: string;
+  /** Used for opposite-gender deck filtering (from `/api/users` + `/api/users/:id`). */
+  gender?: string | null;
   age: number | null;
   location: string | null;
   bio: string | null;
@@ -158,40 +143,13 @@ function languagesForUser(id: string): string {
   return a === b ? a : `${a} · ${b}`;
 }
 
-function marriageComplimentDraftKey(viewerId: string, targetId: string): string {
-  return `matchify_marriage_chat_draft_${viewerId}_${targetId}`;
-}
-
-function persistComplimentDraft(viewerId: string, targetId: string, text: string): void {
-  try {
-    sessionStorage.setItem(marriageComplimentDraftKey(viewerId, targetId), text);
-  } catch {
-    /* ignore */
-  }
-}
-
-function readComplimentDraft(viewerId: string, targetId: string): string {
-  try {
-    return sessionStorage.getItem(marriageComplimentDraftKey(viewerId, targetId)) || "";
-  } catch {
-    return "";
-  }
-}
-
-function clearComplimentDraft(viewerId: string, targetId: string): void {
-  try {
-    sessionStorage.removeItem(marriageComplimentDraftKey(viewerId, targetId));
-  } catch {
-    /* ignore */
-  }
-}
+export type MarriageMessageRequestStatus = "none" | "pending" | "declined" | "accepted";
 
 type Props = {
   user: MarriageDiscoveryUser;
   me?: MarriageDiscoveryUser | null;
   viewerId: string;
-  viewerName: string;
-  outgoing: OutgoingChatRecord | null;
+  messageRequestStatus: MarriageMessageRequestStatus;
   compatibilityScore: number;
   isFavorite: boolean;
   onToggleFavorite: () => void;
@@ -201,16 +159,14 @@ type Props = {
   onBlock: () => void;
   onReport: () => void;
   onOpenChat: (initialMessage?: string) => void;
-  onExploreNext: () => void;
-  onComplimentSent?: () => void;
+  onMessageRequestSent?: () => void;
 };
 
 export function MarriageDiscoveryProfile({
   user,
   me,
   viewerId,
-  viewerName,
-  outgoing,
+  messageRequestStatus,
   compatibilityScore,
   isFavorite,
   onToggleFavorite,
@@ -220,23 +176,11 @@ export function MarriageDiscoveryProfile({
   onBlock,
   onReport,
   onOpenChat,
-  onExploreNext,
-  onComplimentSent,
+  onMessageRequestSent,
 }: Props) {
   const { toast } = useToast();
-  const { tier, requireTier } = useUpgrade();
-  const [chatDraft, setChatDraft] = useState("");
-  const [congratOpen, setCongratOpen] = useState(false);
-  const [complLeft, setComplLeft] = useState(() => complimentsLeft({ userId: viewerId, tier }));
-
-  useEffect(() => {
-    setComplLeft(complimentsLeft({ userId: viewerId, tier }));
-    if (outgoing?.status === "approved") {
-      setChatDraft(readComplimentDraft(viewerId, user.id));
-    } else {
-      setChatDraft("");
-    }
-  }, [user.id, viewerId, outgoing?.status, tier]);
+  const { openUpgrade } = useUpgrade();
+  const [sendingRequest, setSendingRequest] = useState(false);
   const firstName = user.name.split(/\s+/)[0] || user.name;
   const aboutRows = aboutMeRows(user);
   const faithChips = faithChipsFor(user);
@@ -253,136 +197,60 @@ export function MarriageDiscoveryProfile({
 
   const heroImage = user.profileBanner?.trim() || user.avatar?.trim() || null;
 
-  const submitComplimentMessage = async () => {
-    if (outgoing?.status === "pending") return;
-    const trimmed = chatDraft.trim();
-    if (!trimmed) {
-      toast({
-        title: "Write a message first",
-        description: `Tell ${firstName} something thoughtful — then tap Submit.`,
-        variant: "destructive",
+  const sendMessageRequest = async () => {
+    if (messageRequestStatus === "pending" || sendingRequest) return;
+    setSendingRequest(true);
+    try {
+      const result = await postChatRequestToUser({
+        fromUserId: viewerId,
+        toUserId: user.id,
+        message: DEFAULT_CHAT_REQUEST_MESSAGE,
       });
-      return;
+      if (result.ok) {
+        toast({
+          title: "Request sent",
+          description: "They’ll get a notification to accept or decline.",
+        });
+        onMessageRequestSent?.();
+      } else if (
+        result.code === "CHAT_REQUEST_DAILY_LIMIT" &&
+        result.minTier
+      ) {
+        openUpgrade({
+          feature: "More message requests",
+          minTier: result.minTier,
+          reason: result.message,
+        });
+      } else {
+        toast({
+          title: "Could not send request",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setSendingRequest(false);
     }
-    const res = consumeCompliment({ userId: viewerId, tier });
-    if (!res.ok) {
-      requireTier({
-        feature: "Compliments",
-        minTier: tier === "free" ? "plus" : "premium",
-        reason: tier === "free" ? "Free plan includes 3 compliments/week." : "You’ve hit this week’s limit on Plus.",
-      });
-      return;
-    }
-    addMarriageComplimented(user.id);
-    await createComplimentChatRequest(viewerId, viewerName, user.id, user.name, trimmed);
-    persistComplimentDraft(viewerId, user.id, trimmed);
-    setComplLeft(res.left);
-    setChatDraft("");
-    setCongratOpen(true);
-    onComplimentSent?.();
   };
 
-  const tryOpenChat = (draft?: string) => {
-    if (outgoing?.status === "pending") return;
-    if (outgoing?.status === "rejected") {
-      toast({
-        title: "Request declined",
-        description: `${firstName} declined your chat request.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    if (outgoing?.status === "cancelled") {
-      toast({
-        title: "No active request",
-        description: "Send another compliment to request chat again (demo).",
-      });
-      return;
-    }
-    if (outgoing?.status === "approved") {
-      const d = draft?.trim() || readComplimentDraft(viewerId, user.id).trim();
-      clearComplimentDraft(viewerId, user.id);
-      onOpenChat(d || undefined);
+  const openChatIfAccepted = () => {
+    if (messageRequestStatus === "accepted") {
+      onOpenChat();
       return;
     }
     toast({
       title: "Wait for a reply",
-      description: "They need to approve your chat request first.",
+      description: "They need to accept your message request first.",
     });
   };
 
-  const showComplimentForm =
-    outgoing?.status !== "pending" && outgoing?.status !== "approved";
-  const pendingRequest = outgoing?.status === "pending";
-  const approvedRequest = outgoing?.status === "approved";
-  const rejectedRequest = outgoing?.status === "rejected";
+  const pendingRequest = messageRequestStatus === "pending";
+  const approvedRequest = messageRequestStatus === "accepted";
+  const rejectedRequest = messageRequestStatus === "declined";
+  const canSendMessageRequest = messageRequestStatus === "none" || messageRequestStatus === "declined";
 
   return (
     <div className="mx-auto w-full max-w-[600px] px-4 pb-[calc(env(safe-area-inset-bottom)+8.5rem)] pt-3">
-      <AlertDialog open={congratOpen} onOpenChange={setCongratOpen}>
-        <AlertDialogContent className="max-h-[min(90dvh,560px)] max-w-md overflow-y-auto overflow-x-hidden rounded-2xl border-primary/15 bg-gradient-to-b from-white via-primary/[0.04] to-white px-6 pt-8 pb-6 shadow-2xl shadow-primary/10">
-          <div className="relative overflow-hidden rounded-2xl">
-          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <motion.div
-                key={i}
-                className="absolute text-primary"
-                initial={{ opacity: 0, scale: 0.2, y: 24 }}
-                animate={{
-                  opacity: [0, 1, 0.85, 0],
-                  scale: [0.2, 1, 1.1, 0.6],
-                  y: [24, -8, -28, -40],
-                  rotate: [0, 12, -8, 20],
-                }}
-                transition={{
-                  duration: 1.35,
-                  delay: 0.05 * i,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                style={{ left: `${8 + i * 16}%`, top: `${18 + (i % 3) * 8}%` }}
-              >
-                <Sparkles className="h-5 w-5 drop-shadow-sm" strokeWidth={2} />
-              </motion.div>
-            ))}
-          </div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 380, damping: 22 }}
-          >
-            <AlertDialogHeader className="relative z-[1] space-y-2 text-center sm:text-center">
-              <div className="mx-auto mb-1 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/35 ring-4 ring-primary/15">
-                <Sparkles className="h-7 w-7" strokeWidth={2} />
-              </div>
-              <AlertDialogTitle className="font-display text-2xl font-bold tracking-tight text-stone-900">
-                Compliment sent!
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-center text-base leading-relaxed text-stone-600">
-                You reached out to <span className="font-semibold text-stone-800">{firstName}</span> with a
-                thoughtful note. They&apos;ll get a chat request and can accept when they&apos;re ready — and
-                you&apos;ll be notified either way.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="relative z-[1] mt-6 flex-col gap-2 sm:flex-col">
-              <Button
-                type="button"
-                className="w-full rounded-xl font-semibold shadow-2xs"
-                onClick={() => {
-                  setCongratOpen(false);
-                  onExploreNext();
-                }}
-              >
-                Explore next profile
-              </Button>
-              <AlertDialogCancel className="mt-0 w-full rounded-xl border-stone-200 font-semibold">
-                Stay on this profile
-              </AlertDialogCancel>
-            </AlertDialogFooter>
-          </motion.div>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
         {/* Compact header: small photo + modern pills */}
         <Card className="matchify-surface overflow-hidden border-white/0 bg-card/70 shadow-lg">
@@ -581,59 +449,27 @@ export function MarriageDiscoveryProfile({
 
         {/* Bio shown in header (keep page compact). */}
 
-        {/* Connect: compliment → share → Fav / Block / Report (Pass / Like: fixed bar below) */}
+        {/* Connect: message request (same flow as profile chat requests) → share / fav / block */}
         <Card className="matchify-surface border-white/0 bg-card/70 shadow-2xs ring-1 ring-border/70">
           <CardContent className="space-y-4 p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Badge className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white shadow-2xs">
-                  Connect
-                </Badge>
-                <span className="text-sm font-semibold text-slate-900">Start a conversation</span>
-              </div>
-              <span className="inline-flex items-center rounded-full border border-border/70 bg-card/60 px-3 py-1 text-[11px] font-semibold text-slate-700">
-                Compliments left: <span className="ml-1 font-bold text-primary tabular-nums">{complLeft}</span>
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white shadow-2xs">
+                Connect
+              </Badge>
+              <span className="text-sm font-semibold text-slate-900">Start a conversation</span>
             </div>
             {pendingRequest ? (
               <div className="space-y-3 rounded-xl border border-amber-200/80 bg-amber-50/50 p-4">
                 <p className="text-sm font-medium text-stone-800">
-                  Chat request sent. {firstName} can approve or decline from their profile.
+                  Request sent. {firstName} can accept or decline from their notifications.
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full rounded-xl border-stone-300 font-semibold text-stone-800"
-                  onClick={() => cancelOutgoingChatRequest(viewerId, user.id)}
-                >
-                  Cancel chat request
-                </Button>
               </div>
             ) : approvedRequest ? (
               <div className="space-y-3">
-                <h3 className="font-display text-base font-bold leading-snug text-stone-900">
-                  Don&apos;t wait — chat with {firstName} now
-                </h3>
                 <p className="text-sm font-medium text-emerald-800">
-                  {firstName} accepted your chat request. Your saved message can go with you to Chat.
+                  {firstName} accepted your message request.
                 </p>
-                <div className="rounded-[24px] border border-border/70 bg-card/60 px-4 py-3 shadow-2xs">
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Message
-                  </label>
-                  <Textarea
-                    value={chatDraft}
-                    onChange={(e) => setChatDraft(e.target.value)}
-                    placeholder="Edit your message before opening Chat…"
-                    rows={4}
-                    className="mt-2 min-h-[100px] resize-y rounded-2xl border-0 bg-transparent p-0 text-[15px] leading-relaxed text-slate-900 shadow-none placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  className="w-full gap-2 rounded-xl font-bold"
-                  onClick={() => tryOpenChat(chatDraft)}
-                >
+                <Button type="button" className="w-full gap-2 rounded-xl font-bold" onClick={openChatIfAccepted}>
                   <MessageCircle className="h-4 w-4" />
                   Open chat
                 </Button>
@@ -642,46 +478,24 @@ export function MarriageDiscoveryProfile({
               <>
                 {rejectedRequest ? (
                   <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-600">
-                    {firstName} declined your chat request. You can send a new compliment if you have any
-                    left.
+                    {firstName} declined your last request. You can send another message request.
                   </p>
                 ) : null}
 
-                {showComplimentForm ? (
+                {canSendMessageRequest ? (
                   <div className="space-y-3">
-                    <h3 className="font-display text-base font-bold leading-snug text-stone-900 sm:text-lg">
-                      Don&apos;t wait — chat with {firstName} now
-                    </h3>
-                    <div className="rounded-[24px] border border-border/70 bg-card/60 px-4 py-3 shadow-2xs">
-                      <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                        Chat now
-                      </label>
-                      <Textarea
-                        value={chatDraft}
-                        onChange={(e) => setChatDraft(e.target.value)}
-                        disabled={complLeft < 1}
-                        placeholder={
-                          complLeft < 1
-                            ? "Get more compliments from Menu to send a message…"
-                            : `Say hi to ${firstName} — a warm line goes a long way…`
-                        }
-                        rows={5}
-                        className="mt-2 min-h-[120px] resize-y rounded-2xl border-0 bg-transparent p-0 text-[15px] leading-relaxed text-slate-900 shadow-none placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-60"
-                      />
-                    </div>
+                    <p className="text-sm text-stone-600">
+                      Send a message request — they approve in notifications, then you can chat.
+                    </p>
                     <Button
                       type="button"
-                      className="h-[30px] w-full rounded-full bg-primary text-[12px] font-semibold text-white shadow-2xs hover:brightness-[0.98]"
-                      disabled={complLeft < 1 || !chatDraft.trim()}
-                      onClick={submitComplimentMessage}
+                      className="w-full gap-2 rounded-xl font-bold"
+                      disabled={sendingRequest}
+                      onClick={() => void sendMessageRequest()}
                     >
-                      Submit
+                      <MessageCircle className="h-4 w-4" />
+                      {sendingRequest ? "Sending…" : "Message"}
                     </Button>
-                    {complLeft < 1 ? (
-                      <p className="text-center text-xs text-stone-500">
-                        You&apos;re out of compliments. Check Menu or subscriptions (demo).
-                      </p>
-                    ) : null}
                   </div>
                 ) : null}
               </>

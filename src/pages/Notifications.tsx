@@ -10,14 +10,24 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { getNotificationsStreamUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders, getNotificationsStreamUrl } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
+  filterMarriageSyntheticDuplicatesAgainstApi,
   isMarriageSyntheticNotificationId,
   markMarriageSyntheticNotificationRead,
   marriageNotificationsForUser,
+  patchMarriageIncomingDecision,
+  removeMarriageSyntheticNotification,
 } from "@/lib/marriageChatRequests";
+import { normalizeNotificationRowFromApi, notificationRequestIdForPatch } from "@/lib/notificationRow";
 import { notificationCreatedAtMs } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { useUpgrade } from "@/contexts/UpgradeContext";
+import { refreshChatRequestQueries } from "@/lib/chatRequestsApi";
+
+/** Shown on Message requests page instead of the main bell list. */
+const BELL_HIDDEN_NOTIFICATION_TYPES = new Set(["chat_request_sent", "chat_request_outgoing_declined"]);
 
 type Notification = {
   id: string;
@@ -32,7 +42,9 @@ type Notification = {
     | "marriage_chat_request"
     | "marriage_chat_accepted"
     | "chat_request"
-    | "chat_request_accepted";
+    | "chat_request_accepted"
+    | "chat_request_declined"
+    | "chat_request_you_accepted";
   title: string;
   message: string;
   read: boolean | null;
@@ -46,7 +58,10 @@ export default function Notifications() {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
+  const { tier, requireTier } = useUpgrade();
+  const { toast } = useToast();
   const [marriageEpoch, setMarriageEpoch] = useState(0);
+  const [actionNotificationId, setActionNotificationId] = useState<string | null>(null);
 
   useEffect(() => {
     const onUpd = () => setMarriageEpoch((e) => e + 1);
@@ -86,6 +101,60 @@ export default function Notifications() {
     },
   });
 
+  const respondMarriageReqMutation = useMutation({
+    mutationFn: async (vars: {
+      requestId: string;
+      decision: "approved" | "rejected";
+      fromUserId?: string | null;
+    }) => {
+      if (!userId) throw new Error("Not signed in");
+      return patchMarriageIncomingDecision(userId, vars.requestId, vars.decision, {
+        fromUserId: vars.fromUserId,
+      });
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "marriage-incoming"] });
+      setMarriageEpoch((e) => e + 1);
+      if (vars.decision === "approved") toast({ title: "Request accepted" });
+      else toast({ title: "Request declined" });
+    },
+    onError: (e) => {
+      toast({
+        variant: "destructive",
+        title: "Could not update request",
+        description: e instanceof Error ? e.message : "Try again.",
+      });
+    },
+  });
+
+  const respondChatReqMutation = useMutation({
+    mutationFn: async (vars: { requestId: string; decision: "approved" | "rejected" }) => {
+      if (!userId) throw new Error("Not signed in");
+      const res = await fetch(buildApiUrl(`/api/users/${userId}/chat-requests/${vars.requestId}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
+        credentials: "include",
+        body: JSON.stringify({ decision: vars.decision }),
+      });
+      if (!res.ok) throw new Error("Failed to respond");
+      return res.json() as Promise<{ conversationId?: string }>;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+      refreshChatRequestQueries(userId!);
+      if (vars.decision === "approved") toast({ title: "Request accepted" });
+      else toast({ title: "Request declined" });
+    },
+    onError: (e) => {
+      toast({
+        variant: "destructive",
+        title: "Could not update request",
+        description: e instanceof Error ? e.message : "Try again.",
+      });
+    },
+  });
+
   const markAllReadMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("Not signed in");
@@ -103,7 +172,30 @@ export default function Notifications() {
     },
   });
 
-  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/notifications/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error("Failed to delete notification");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Could not delete",
+        description: "Try again in a moment.",
+      });
+    },
+  });
+
+  const safeNotifications = useMemo(() => {
+    const arr = Array.isArray(notifications) ? notifications : [];
+    return arr.map((n) => {
+      const norm = normalizeNotificationRowFromApi(n);
+      return { ...(n as Notification), ...norm };
+    });
+  }, [notifications]);
 
   const mergedNotifications = useMemo(() => {
     void marriageEpoch;
@@ -111,32 +203,48 @@ export default function Notifications() {
     const marriageRows: Notification[] = marriageNotificationsForUser(userId).map((m) => ({
       id: m.id,
       userId: m.userId,
-      type: m.type,
+      type: m.type as Notification["type"],
       title: m.title,
       message: m.message,
       read: m.read,
       createdAt: m.createdAt ? new Date(m.createdAt) : null,
       relatedUserId: m.relatedUserId ?? undefined,
+      relatedEntityId: m.relatedEntityId ?? null,
     }));
-    return [...marriageRows, ...safeNotifications].sort(
+    const marriageFiltered = filterMarriageSyntheticDuplicatesAgainstApi(marriageRows, safeNotifications);
+    return [...marriageFiltered, ...safeNotifications].sort(
       (a, b) => notificationCreatedAtMs(b.createdAt) - notificationCreatedAtMs(a.createdAt),
     );
   }, [userId, marriageEpoch, safeNotifications]);
 
-  const matchNotifications = mergedNotifications.filter(
+  const mergedForBell = useMemo(
+    () => mergedNotifications.filter((n) => !BELL_HIDDEN_NOTIFICATION_TYPES.has(String(n.type))),
+    [mergedNotifications],
+  );
+
+  const matchNotifications = mergedForBell.filter(
     (n) => n.type === "match" || n.type === "curated_match",
   );
-  const messageNotifications = mergedNotifications.filter((n) => n.type === "message");
-  const eventNotifications = mergedNotifications.filter(
+  const messageNotifications = mergedForBell.filter(
+    (n) =>
+      n.type === "message" ||
+      n.type === "marriage_chat_request" ||
+      n.type === "marriage_chat_accepted" ||
+      n.type === "chat_request" ||
+      n.type === "chat_request_accepted" ||
+      n.type === "chat_request_declined" ||
+      n.type === "chat_request_you_accepted",
+  );
+  const eventNotifications = mergedForBell.filter(
     (n) => n.type === "event" || n.type === "ai_event_invite",
   );
-  const systemNotifications = mergedNotifications.filter((n) => n.type === "system");
+  const systemNotifications = mergedForBell.filter((n) => n.type === "system");
 
-  const unreadCount = mergedNotifications.filter((n) => !n.read).length;
+  const unreadCount = mergedForBell.filter((n) => !n.read).length;
 
   const handleMarkReadOnly = useCallback(
     (id: string) => {
-      const raw = mergedNotifications.find((x) => x.id === id);
+      const raw = mergedForBell.find((x) => x.id === id);
       if (!raw || raw.read) return;
       if (userId && isMarriageSyntheticNotificationId(raw.id)) {
         markMarriageSyntheticNotificationRead(userId, raw.id);
@@ -145,7 +253,20 @@ export default function Notifications() {
       }
       markReadMutation.mutate(id);
     },
-    [mergedNotifications, userId, markReadMutation],
+    [mergedForBell, userId, markReadMutation],
+  );
+
+  const handleDeleteNotification = useCallback(
+    (id: string) => {
+      if (!userId) return;
+      if (isMarriageSyntheticNotificationId(id)) {
+        removeMarriageSyntheticNotification(userId, id);
+        setMarriageEpoch((e) => e + 1);
+        return;
+      }
+      deleteNotificationMutation.mutate(id);
+    },
+    [userId, deleteNotificationMutation],
   );
 
   const handleNotificationClick = useCallback(
@@ -168,11 +289,40 @@ export default function Notifications() {
 
       switch (n.type) {
         case "match":
-          // Matches should open the curated area so users see the card immediately.
+        case "curated_match":
+          if (tier === "free") {
+            requireTier({
+              feature: "AI Matching",
+              minTier: "plus",
+              reason: "Free plan doesn’t include AI picks.",
+            });
+            break;
+          }
           setLocation("/directory?tab=curated");
           break;
-        case "curated_match":
-          setLocation("/directory?tab=curated");
+        case "marriage_chat_request":
+        case "chat_request":
+          if (other) {
+            setLocation(`/profile/${encodeURIComponent(other)}`);
+          }
+          break;
+        case "chat_request_declined":
+          setLocation("/chat-requests");
+          break;
+        case "chat_request_you_accepted":
+          if (other) {
+            setLocation(`/chat?user=${encodeURIComponent(other)}`);
+          } else {
+            setLocation("/chat-requests");
+          }
+          break;
+        case "marriage_chat_accepted":
+        case "chat_request_accepted":
+          if (other) {
+            setLocation(`/chat?user=${encodeURIComponent(other)}`);
+          } else {
+            setLocation("/chat");
+          }
           break;
         case "message":
           if (other) {
@@ -195,7 +345,7 @@ export default function Notifications() {
           break;
       }
     },
-    [markReadMutation, setLocation, userId],
+    [markReadMutation, requireTier, setLocation, tier, userId],
   );
 
   const formatRow = (n: Notification) => ({
@@ -210,7 +360,7 @@ export default function Notifications() {
 
   const tabRows =
     notificationTab === "all"
-      ? mergedNotifications.map(formatRow)
+      ? mergedForBell.map(formatRow)
       : notificationTab === "matches"
         ? matchNotifications.map(formatRow)
         : notificationTab === "messages"
@@ -229,7 +379,7 @@ export default function Notifications() {
             <div className="py-10">
               <LoadingState message="Loading notifications..." showMascot={true} />
             </div>
-          ) : mergedNotifications.length === 0 ? (
+          ) : mergedForBell.length === 0 ? (
             <div className="py-10">
               <EmptyNotifications />
             </div>
@@ -238,7 +388,7 @@ export default function Notifications() {
               <div className="matchify-surface p-2">
                 <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
                   {[
-                    { value: "all", label: `All (${mergedNotifications.length})` },
+                    { value: "all", label: `All (${mergedForBell.length})` },
                     { value: "matches", label: `Matches (${matchNotifications.length})` },
                     { value: "messages", label: `Messages (${messageNotifications.length})` },
                     { value: "events", label: `Events (${eventNotifications.length})` },
@@ -288,10 +438,85 @@ export default function Notifications() {
                     read={row.read}
                     timestamp={row.timestamp}
                     user={row.user}
+                    relatedEntityId={(row as Notification).relatedEntityId ?? null}
                     onMarkRead={!row.read ? handleMarkReadOnly : undefined}
                     markReadDisabled={markReadMutation.isPending}
+                    onDelete={handleDeleteNotification}
+                    deleteDisabled={deleteNotificationMutation.isPending}
+                    onAccept={(id) => {
+                      if (actionNotificationId) return;
+                      const raw = mergedForBell.find((x) => x.id === id);
+                      const reqId = raw ? notificationRequestIdForPatch(raw as Notification) : "";
+                      const other = raw?.relatedUserId || null;
+                      if (!raw) return;
+                      if (raw.type === "chat_request") {
+                        if (!reqId || !other) return;
+                      } else if (raw.type === "marriage_chat_request") {
+                        if (!reqId && !other) return;
+                      } else {
+                        return;
+                      }
+                      setActionNotificationId(id);
+                      if (raw.type === "chat_request") {
+                        respondChatReqMutation.mutate(
+                          { requestId: reqId, decision: "approved" },
+                          {
+                            onSuccess: () => {
+                              if (other) setLocation(`/chat?user=${encodeURIComponent(other)}`);
+                            },
+                            onSettled: () => setActionNotificationId(null),
+                          },
+                        );
+                      } else if (raw.type === "marriage_chat_request") {
+                        respondMarriageReqMutation.mutate(
+                          { requestId: reqId, decision: "approved", fromUserId: other },
+                          {
+                            onSuccess: () => {
+                              const u = other ?? raw.relatedUserId;
+                              if (u) setLocation(`/chat?user=${encodeURIComponent(u)}`);
+                            },
+                            onSettled: () => setActionNotificationId(null),
+                          },
+                        );
+                      } else {
+                        setActionNotificationId(null);
+                      }
+                    }}
+                    onDecline={(id) => {
+                      if (actionNotificationId) return;
+                      const raw = mergedForBell.find((x) => x.id === id);
+                      const reqId = raw ? notificationRequestIdForPatch(raw as Notification) : "";
+                      const other = raw?.relatedUserId ?? null;
+                      if (!raw) return;
+                      if (raw.type === "chat_request") {
+                        if (!reqId) return;
+                      } else if (raw.type === "marriage_chat_request") {
+                        if (!reqId && !other) return;
+                      } else {
+                        return;
+                      }
+                      setActionNotificationId(id);
+                      if (raw.type === "chat_request") {
+                        respondChatReqMutation.mutate(
+                          { requestId: reqId, decision: "rejected" },
+                          { onSettled: () => setActionNotificationId(null) },
+                        );
+                      } else if (raw.type === "marriage_chat_request") {
+                        respondMarriageReqMutation.mutate(
+                          { requestId: reqId, decision: "rejected", fromUserId: other },
+                          { onSettled: () => setActionNotificationId(null) },
+                        );
+                      } else {
+                        setActionNotificationId(null);
+                      }
+                    }}
+                    actionsDisabled={
+                      actionNotificationId === row.id ||
+                      respondMarriageReqMutation.isPending ||
+                      respondChatReqMutation.isPending
+                    }
                     onClick={(id) => {
-                      const raw = mergedNotifications.find((x) => x.id === id);
+                      const raw = mergedForBell.find((x) => x.id === id);
                       if (raw) handleNotificationClick(raw);
                     }}
                   />

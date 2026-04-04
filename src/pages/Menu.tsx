@@ -12,8 +12,10 @@ import {
   SlidersHorizontal,
   Sparkles,
   LogOut,
+  MessageCircle,
 } from "lucide-react";
 import { VerifiedTick } from "@/components/common/VerifiedTick";
+import { VerificationRequestBanner } from "@/components/profile/VerificationRequestBanner";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -68,6 +70,11 @@ export default function Menu() {
     username?: string;
     avatar?: string | null;
     verified?: boolean | null;
+    verificationRequest?: {
+      status?: string;
+      message?: string;
+      submittedAt?: string;
+    } | null;
   }>({
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
@@ -81,9 +88,16 @@ export default function Menu() {
       {
         id: "edit",
         label: "Edit profile",
-        sub: "Keep your profile fresh and intentional.",
+        sub: "Name, username, bio, and photos (onboarding changes go through support).",
         icon: Pencil,
-        onClick: () => setLocation("/profile?marriage=1&tab=edit"),
+        onClick: () => setLocation("/profile/social/edit"),
+      },
+      {
+        id: "message-requests",
+        label: "Message requests",
+        sub: "Requests you’ve sent and received before chat opens.",
+        icon: MessageCircle,
+        onClick: () => setLocation("/chat-requests"),
       },
       {
         id: "settings",
@@ -138,10 +152,6 @@ export default function Menu() {
                 onClick={() => {
                   setMode("marriage");
                   setExploreModePersisted("marriage");
-                  toast({
-                    title: "Marriage mode",
-                    description: "Explore shows people sorted for serious dating.",
-                  });
                 }}
                 className={cn(
                   "relative h-10 rounded-full text-[13px] font-medium transition-colors",
@@ -159,10 +169,6 @@ export default function Menu() {
                 onClick={() => {
                   setMode("social");
                   setExploreModePersisted("social");
-                  toast({
-                    title: "Social mode",
-                    description: "Explore prioritizes friends & community-first connections.",
-                  });
                 }}
                 className={cn(
                   "relative h-10 rounded-full text-[13px] font-medium transition-colors",
@@ -180,6 +186,17 @@ export default function Menu() {
             </div>
           </div>
         </div>
+
+        {userId && me && !me.verified ? (
+          <div className="mt-3">
+            <VerificationRequestBanner
+              userId={userId}
+              verified={me.verified}
+              verificationRequest={me.verificationRequest}
+              compact
+            />
+          </div>
+        ) : null}
 
         <div className="mt-3 space-y-3">
           {mode === "marriage" && (
@@ -210,7 +227,7 @@ export default function Menu() {
                       type="button"
                       variant="outline"
                       className="h-9 w-11 rounded-full px-0"
-                      onClick={() => setLocation("/profile?marriage=1&tab=edit")}
+                      onClick={() => setLocation("/profile/social/edit")}
                       aria-label="Edit profile"
                       title="Edit profile"
                     >

@@ -33,6 +33,8 @@ export type SenderChatEvent = {
   message: string;
   relatedUserId: string;
   kind?: "sender_event" | "incoming_request" | "outgoing_request";
+  /** Incoming compliment / chat request id (matches server `relatedEntityId`). */
+  requestId?: string;
 };
 
 function emit(): void {
@@ -136,6 +138,72 @@ export async function getIncomingChatRequestsRemote(
   }
 }
 
+/**
+ * PATCH approve/reject for a marriage compliment chat request.
+ * If `requestId` is missing or not found on the server but `fromUserId` is known,
+ * resolves the pending row from GET incoming and PATCHes that id.
+ */
+export async function patchMarriageIncomingDecision(
+  recipientId: string,
+  requestId: string,
+  decision: "approved" | "rejected",
+  options?: { fromUserId?: string | null },
+): Promise<unknown> {
+  const resolvePendingIdFromSender = async (): Promise<string | null> => {
+    const from = options?.fromUserId?.trim();
+    if (!from) return null;
+    const incoming = await getIncomingChatRequestsRemote(recipientId);
+    const alt = incoming.find((x) => x.fromId === from && x.status === "pending");
+    return alt?.id ?? null;
+  };
+
+  let rid = requestId.trim();
+  if (!rid) {
+    rid = (await resolvePendingIdFromSender()) ?? "";
+    if (!rid) {
+      throw new Error(JSON.stringify({ message: "Request not found" }));
+    }
+  }
+
+  const bodyPayload = (): string =>
+    JSON.stringify({
+      decision,
+      ...(options?.fromUserId?.trim() ? { fromUserId: options.fromUserId.trim() } : {}),
+    });
+
+  let res = await fetch(
+    buildApiUrl(`/api/users/${recipientId}/marriage/chat-requests/${encodeURIComponent(rid)}`),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
+      credentials: "include",
+      body: bodyPayload(),
+    },
+  );
+
+  if (res.status === 404 && options?.fromUserId) {
+    const altId = await resolvePendingIdFromSender();
+    if (altId && altId !== rid) {
+      rid = altId;
+      res = await fetch(
+        buildApiUrl(`/api/users/${recipientId}/marriage/chat-requests/${encodeURIComponent(rid)}`),
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
+          credentials: "include",
+          body: bodyPayload(),
+        },
+      );
+    }
+  }
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `Failed (${res.status})`);
+  }
+  return res.json();
+}
+
 function writeIncoming(recipientId: string, list: IncomingChatRequest[]): void {
   localStorage.setItem(incomingKey(recipientId), JSON.stringify(list.slice(0, 80)));
   markClientStateDirty();
@@ -203,16 +271,8 @@ export async function createComplimentChatRequest(
     relatedUserId: toId,
     kind: "outgoing_request",
   });
-  // Recipient gets a real notification row in bell/list.
-  pushUserEvent(toId, {
-    id: uid(),
-    at,
-    read: false,
-    title: "New compliment request",
-    message: `${fromName.trim() || "Someone"} sent you a compliment and chat request.`,
-    relatedUserId: fromId,
-    kind: "incoming_request",
-  });
+
+  let finalRequestId = requestId;
   // Mirror to backend for cross-browser consistency.
   try {
     const res = await fetch(buildApiUrl(`/api/users/${fromId}/marriage/chat-requests`), {
@@ -223,16 +283,43 @@ export async function createComplimentChatRequest(
     });
     if (res.ok) {
       const j = (await res.json()) as { requestId?: string };
-      if (j?.requestId) {
-        emit();
-        return j.requestId;
+      const serverRequestId = j?.requestId;
+      if (serverRequestId && serverRequestId !== requestId) {
+        setOutgoingChatRecord(fromId, {
+          toId,
+          at,
+          status: "pending",
+          requestId: serverRequestId,
+        });
+        const inc = getIncomingChatRequests(toId);
+        const fixed = inc.map((row) =>
+          row.id === requestId && row.status === "pending" ? { ...row, id: serverRequestId } : row,
+        );
+        writeIncoming(toId, fixed);
+        finalRequestId = serverRequestId;
+      } else if (serverRequestId) {
+        finalRequestId = serverRequestId;
       }
     }
   } catch {
     /* fallback to local only */
   }
+
+  // Recipient row uses final id so Accept/Decline PATCH matches the server when POST succeeded
+  // (avoids stale client ids in shared localStorage / same-browser multi-account testing).
+  pushUserEvent(toId, {
+    id: uid(),
+    at,
+    read: false,
+    title: "New compliment request",
+    message: `${fromName.trim() || "Someone"} sent you a compliment and chat request.`,
+    relatedUserId: fromId,
+    kind: "incoming_request",
+    requestId: finalRequestId,
+  });
+
   emit();
-  return requestId;
+  return finalRequestId;
 }
 
 export async function respondToIncomingChatRequest(
@@ -287,48 +374,89 @@ export async function respondToIncomingChatRequest(
   });
   // Mirror to backend for cross-browser consistency.
   try {
-    await fetch(buildApiUrl(`/api/users/${recipientId}/marriage/chat-requests/${requestId}`), {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
-      credentials: "include",
-      body: JSON.stringify({ decision }),
-    });
+    await fetch(
+      buildApiUrl(`/api/users/${recipientId}/marriage/chat-requests/${encodeURIComponent(requestId)}`),
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
+        credentials: "include",
+        body: JSON.stringify({ decision, fromUserId: req.fromId }),
+      },
+    );
   } catch {
     /* fallback remains local */
   }
   emit();
 }
 
+/**
+ * If the DB already returned a marriage compliment row for sender `relatedUserId`, drop the
+ * localStorage synthetic duplicate (it may carry a stale client-generated request id).
+ */
+export function filterMarriageSyntheticDuplicatesAgainstApi<
+  T extends { id: string; type: string; relatedUserId?: string | null },
+>(marriageRows: T[], apiRows: T[]): T[] {
+  const apiSenders = new Set(
+    apiRows
+      .filter((n) => n.type === "marriage_chat_request" && n.relatedUserId)
+      .map((n) => String(n.relatedUserId)),
+  );
+  return marriageRows.filter((m) => {
+    if (m.type !== "marriage_chat_request" || !m.relatedUserId) return true;
+    if (!m.id.startsWith("marriage-sender-")) return true;
+    return !apiSenders.has(String(m.relatedUserId));
+  });
+}
+
 /** Merge sender events + API-style notifications for bell + list. */
 export function marriageNotificationsForUser(userId: string): Array<{
   id: string;
   userId: string;
-  type: "message";
+  type: "message" | "marriage_chat_request";
   title: string;
   message: string;
   read: boolean | null;
   createdAt: string | null;
   relatedUserId?: string | null;
+  relatedEntityId?: string | null;
   marriageMeta?: { kind: "sender_event" | "incoming_request" | "outgoing_request" };
 }> {
   const events = getUserChatEvents(userId);
-  return events.map((e) => ({
-    id: `marriage-sender-${e.id}`,
-    userId,
-    type: "message" as const,
-    title: e.title,
-    message: e.message,
-    read: e.read,
-    createdAt: e.at,
-    relatedUserId: e.relatedUserId,
-    marriageMeta: { kind: e.kind || "sender_event" },
-  }));
+  return events.map((e) => {
+    const incomingCompliment =
+      e.kind === "incoming_request" &&
+      e.title === "New compliment request" &&
+      Boolean(e.requestId?.trim());
+    return {
+      id: `marriage-sender-${e.id}`,
+      userId,
+      type: incomingCompliment ? ("marriage_chat_request" as const) : ("message" as const),
+      title: e.title,
+      message: e.message,
+      read: e.read,
+      createdAt: e.at,
+      relatedUserId: e.relatedUserId,
+      relatedEntityId: incomingCompliment ? e.requestId ?? null : null,
+      marriageMeta: { kind: e.kind || "sender_event" },
+    };
+  });
 }
 
 export function markMarriageSyntheticNotificationRead(userId: string, syntheticId: string): void {
   const realId = syntheticId.replace(/^marriage-sender-/, "");
   const list = getUserChatEvents(userId);
   const next = list.map((x) => (x.id === realId ? { ...x, read: true } : x));
+  localStorage.setItem(userEventsKey(userId), JSON.stringify(next));
+  markClientStateDirty();
+  emit();
+}
+
+/** Remove a merged marriage sender event from localStorage (Notifications page delete). */
+export function removeMarriageSyntheticNotification(userId: string, syntheticId: string): void {
+  const realId = syntheticId.replace(/^marriage-sender-/, "");
+  const list = getUserChatEvents(userId);
+  const next = list.filter((x) => x.id !== realId);
+  if (next.length === list.length) return;
   localStorage.setItem(userEventsKey(userId), JSON.stringify(next));
   markClientStateDirty();
   emit();

@@ -9,6 +9,8 @@ interface FeedFilterPillsProps {
   onChange: (id: string) => void;
   groups?: FeedGroupChip[];
   className?: string;
+  /** When set with no `groups`, pills split the row evenly (e.g. Discover → My history). */
+  variant?: "default" | "equalWidth";
 }
 
 export default function FeedFilterPills({
@@ -17,7 +19,10 @@ export default function FeedFilterPills({
   onChange,
   groups = [],
   className,
+  variant = "default",
 }: FeedFilterPillsProps) {
+  const equalWidth = variant === "equalWidth" && groups.length === 0;
+
   return (
     <div
       className={cn(
@@ -25,7 +30,13 @@ export default function FeedFilterPills({
         className,
       )}
     >
-      <div className="flex gap-2 overflow-x-auto px-3 py-2.5 scrollbar-hide" aria-label="Feed and group filters">
+      <div
+        className={cn(
+          "flex gap-2 px-3 py-2.5",
+          equalWidth ? "w-full" : "overflow-x-auto scrollbar-hide",
+        )}
+        aria-label="Feed and group filters"
+      >
         {pills.map((f) => {
           const active = activeId === f.id;
           return (
@@ -34,10 +45,13 @@ export default function FeedFilterPills({
               type="button"
               onClick={() => onChange(f.id)}
               className={cn(
-                "inline-flex min-w-[92px] flex-shrink-0 items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium tracking-[0.2px] transition",
+                "items-center justify-center rounded-full px-2 py-1.5 text-xs font-medium tracking-[0.2px] transition sm:px-3",
                 "border border-[#F0F0F0] bg-white text-slate-600 hover:bg-slate-900/[0.03]",
                 active &&
                   "border-transparent bg-primary text-primary-foreground shadow-[0_10px_30px_-18px_rgba(114,47,55,0.35)]",
+                equalWidth
+                  ? "flex min-w-0 flex-1"
+                  : "inline-flex min-w-[92px] flex-shrink-0",
               )}
             >
               {f.label}

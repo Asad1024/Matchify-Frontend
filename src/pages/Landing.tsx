@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { readJwtSub } from "@/lib/authUserIdReconcile";
 import SplashScreen from "@/components/auth/SplashScreen";
 import AuthScreen from "@/components/auth/AuthScreen";
 import OnboardingWizard from "@/components/auth/OnboardingWizard";
@@ -54,7 +55,9 @@ export default function Landing() {
   };
 
   const handleAuth = (user: any, isNewUser: boolean) => {
-    const userIdValue = user.id || user.userId || `user-${Date.now()}`;
+    const tok = typeof user.token === "string" ? user.token : "";
+    const userIdValue =
+      (tok ? readJwtSub(tok) : null) || user.id || user.userId || `user-${Date.now()}`;
     setUserId(userIdValue);
     setUserData({ name: user.name, email: user.email });
 
@@ -99,7 +102,13 @@ export default function Landing() {
   };
 
   if (step === "splash") {
-    return <SplashScreen onGetStarted={handleGetStarted} onLogin={handleLogin} />;
+    return (
+      <SplashScreen
+        onGetStarted={handleGetStarted}
+        onLogin={handleLogin}
+        onViewPlans={() => setLocation("/subscriptions")}
+      />
+    );
   }
 
   if (step === "auth") {
@@ -123,6 +132,11 @@ export default function Landing() {
   }
 
   // Fallback to splash if something goes wrong
-  return <SplashScreen onGetStarted={handleGetStarted} />;
+  return (
+    <SplashScreen
+      onGetStarted={handleGetStarted}
+      onViewPlans={() => setLocation("/subscriptions")}
+    />
+  );
 }
 

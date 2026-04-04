@@ -82,7 +82,13 @@ export default function SwipeableEventCard({
       >
         <div className="relative isolate min-h-[220px] shrink-0 basis-[min(42vh,300px)] overflow-hidden sm:min-h-[260px] sm:basis-[min(44vh,320px)]">
           {image ? (
-            <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <img
+              src={image}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              decoding="async"
+              fetchPriority="high"
+            />
           ) : (
             <div
               className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${theme.gradient}`}

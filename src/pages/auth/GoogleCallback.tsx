@@ -11,6 +11,7 @@ import {
   closeOAuthPopupAndNavigate,
   MATCHIFY_GOOGLE_OAUTH_WINDOW_NAME,
 } from "@/lib/googleOAuthPopup";
+import { readJwtSub } from "@/lib/authUserIdReconcile";
 
 export default function GoogleCallback() {
   const [, setLocation] = useLocation();
@@ -49,8 +50,15 @@ export default function GoogleCallback() {
           // Without a token most authenticated endpoints will fail and the UI will appear "partially loaded".
           throw new Error("Missing token from Google login response.");
         }
+        const jwtSub = readJwtSub(token);
         localStorage.setItem("authToken", token);
-        localStorage.setItem("currentUser", JSON.stringify(userData));
+        localStorage.setItem(
+          "currentUser",
+          JSON.stringify({
+            ...userData,
+            ...(jwtSub ? { id: jwtSub, userId: jwtSub } : {}),
+          }),
+        );
         notifyHeaderUserUpdated();
         // Same-tab localStorage writes do not fire "storage" events.
         window.dispatchEvent(new Event("matchify-auth-changed"));
@@ -72,7 +80,9 @@ export default function GoogleCallback() {
           // Existing Google account: do not force onboarding again due stale flags.
           localStorage.setItem("onboardingCompleted", "true");
           try {
-            const uid = String((userData as any).id || (userData as any).userId || "").trim();
+            const uid = String(
+              readJwtSub(token) || (userData as any).id || (userData as any).userId || "",
+            ).trim();
             if (uid) {
               void fetch(buildApiUrl(`/api/users/${uid}`), {
                 method: "PATCH",

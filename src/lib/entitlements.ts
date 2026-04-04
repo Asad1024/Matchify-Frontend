@@ -48,28 +48,6 @@ function safeSetInt(key: string, value: number): void {
   }
 }
 
-export function complimentsWeeklyLimitForTier(tier: MembershipTier): number {
-  if (tier === "free") return 3;
-  if (tier === "plus") return 20;
-  return Number.POSITIVE_INFINITY;
-}
-
-export function complimentsLeft(params: { userId: string; tier: MembershipTier }): number {
-  const limit = complimentsWeeklyLimitForTier(params.tier);
-  if (!Number.isFinite(limit)) return 9999;
-  const used = safeGetInt(weeklyKey("compliments_used", params.userId));
-  return Math.max(0, limit - used);
-}
-
-export function consumeCompliment(params: { userId: string; tier: MembershipTier }): { ok: true; left: number } | { ok: false; left: number } {
-  const left = complimentsLeft(params);
-  if (left < 1) return { ok: false, left };
-  const key = weeklyKey("compliments_used", params.userId);
-  const used = safeGetInt(key);
-  safeSetInt(key, used + 1);
-  return { ok: true, left: complimentsLeft(params) };
-}
-
 export function lunaDailyLimitForTier(tier: MembershipTier): number {
   if (tier === "free") return 0;
   if (tier === "plus") return 30;
@@ -79,6 +57,13 @@ export function lunaDailyLimitForTier(tier: MembershipTier): number {
 export function lunaPartnerDailyLimitForTier(tier: MembershipTier): number {
   if (tier === "free") return 0;
   if (tier === "plus") return 20;
+  return Number.POSITIVE_INFINITY;
+}
+
+/** Outgoing message requests per UTC day (enforced on server). */
+export function messageRequestDailyLimitForTier(tier: MembershipTier): number {
+  if (tier === "free") return 2;
+  if (tier === "plus") return 10;
   return Number.POSITIVE_INFINITY;
 }
 

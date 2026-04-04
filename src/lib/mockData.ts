@@ -251,7 +251,7 @@ const mockCoaches = [
     pricePerSession: 75,
     languages: ["English", "Urdu"],
     avatar:
-      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop&q=80",
+      "https://img.freepik.com/free-photo/young-beautiful-woman-pink-warm-sweater-natural-look-smiling-portrait-isolated-long-hair_285396-896.jpg?w=360",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -265,7 +265,7 @@ const mockCoaches = [
     pricePerSession: 90,
     languages: ["English", "French"],
     avatar:
-      "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&q=80",
+      "https://img.freepik.com/free-photo/young-bearded-man-with-striped-shirt_273609-5677.jpg",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -293,7 +293,7 @@ const mockCoaches = [
     pricePerSession: 70,
     languages: ["English", "Mandarin"],
     avatar:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&q=80",
+      "https://img.freepik.com/free-photo/red-haired-serious-young-man-blogger-looks-confidently_273609-16730.jpg?w=360",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -307,7 +307,7 @@ const mockCoaches = [
     pricePerSession: 65,
     languages: ["English", "Portuguese", "Spanish"],
     avatar:
-      "https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?w=400&h=400&fit=crop&q=80",
+      "https://t4.ftcdn.net/jpg/06/24/08/27/360_F_624082743_aVEka1dU9sc3beNvTNqVEosOXz53oJPZ.jpg",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -321,7 +321,7 @@ const mockCoaches = [
     pricePerSession: 80,
     languages: ["English"],
     avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&q=80",
+      "https://img.freepik.com/free-photo/portrait-smiling-young-man_1268-21877.jpg?w=360",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -364,7 +364,7 @@ function shapeMockEventForClient(
   e: Record<string, unknown>,
   viewerId: string | null,
 ): Record<string, unknown> {
-  const hostUserId = String(e.hostUserId ?? mockUsers[0].id);
+  const hostUserId = String(e.hostUserId ?? e.hostId ?? mockUsers[0].id);
   const host = mockUsers.find((u) => u.id === hostUserId) || mockUsers[0];
   const attendeesCount =
     typeof e.rsvpCount === "number"
@@ -377,9 +377,32 @@ function shapeMockEventForClient(
     attendeesCount,
     hasQuestionnaire: e.hasQuestionnaire !== false,
     hostUserId,
+    hostId: hostUserId,
     hostName: host.name,
     isHost: Boolean(viewerId && viewerId === hostUserId),
   };
+}
+
+function mockViewerIsAdminFromStorage(): boolean {
+  try {
+    const raw = localStorage.getItem("currentUser");
+    if (!raw) return false;
+    const j = JSON.parse(raw) as { isAdmin?: boolean };
+    return j.isAdmin === true;
+  } catch {
+    return false;
+  }
+}
+
+function mockEventRowVisibleToViewer(ev: MockEventRow, viewerId: string | null, isAdmin: boolean): boolean {
+  const st = String(ev.status ?? "pending")
+    .trim()
+    .toLowerCase();
+  if (st === "approved") return true;
+  if (isAdmin) return true;
+  const hid = String(ev.hostUserId || "").trim();
+  const vid = String(viewerId || "").trim();
+  return Boolean(vid && hid && vid === hid);
 }
 
 function mockPathnameFromUrl(url: string): string {
@@ -831,13 +854,17 @@ export const getMockData = (endpoint: string): any => {
       const eventId = m[1];
       const base = mockEvents.find((ev) => ev.id === eventId);
       const viewer = getCurrentUserId();
+      const admin = mockViewerIsAdminFromStorage();
+      if (base && !mockEventRowVisibleToViewer(base, viewer, admin)) return null;
       if (base) return shapeMockEventForClient(base as Record<string, unknown>, viewer);
-      return shapeMockEventForClient({ ...mockEvents[0], id: eventId } as Record<string, unknown>, viewer);
+      return null;
     }
   }
   if (path === "/api/events" || /^\/api\/events\/?$/.test(path)) {
     const viewer = getCurrentUserId();
-    return mockEvents.map((ev) => shapeMockEventForClient(ev as Record<string, unknown>, viewer));
+    const admin = mockViewerIsAdminFromStorage();
+    const visible = mockEvents.filter((ev) => mockEventRowVisibleToViewer(ev, viewer, admin));
+    return visible.map((ev) => shapeMockEventForClient(ev as Record<string, unknown>, viewer));
   }
   if (/^\/api\/admin\/coach-bookings\/?$/.test(path)) {
     return mockCoachBookings

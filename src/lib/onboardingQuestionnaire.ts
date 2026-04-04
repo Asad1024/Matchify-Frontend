@@ -723,6 +723,24 @@ export function getDefaultOnboardingQuestionnaireItems(): OnboardingQuestionnair
   ];
 }
 
+/**
+ * Maps questionnaire rows to react-hook-form / profile keys. Stored admin JSON sometimes sets
+ * `fieldKey` equal to `id` (e.g. "q-gender"), which would register the wrong form key and drop
+ * `gender` on save — prefer the canonical default `fieldKey` when the row looks like a slug mistake.
+ */
+export function formFieldKeyForQuestionnaireItem(
+  item: OnboardingQuestionnaireItem,
+  defaultById: Map<string, OnboardingQuestionnaireItem>,
+): string {
+  const base = defaultById.get(item.id);
+  const rk = item.fieldKey?.trim();
+  if (base) {
+    const bk = base.fieldKey;
+    if (!rk || rk === item.id || (rk.startsWith("q-") && rk !== bk)) return bk;
+  }
+  return rk || base?.fieldKey || item.id;
+}
+
 export function normalizeOnboardingQuestionnaire(
   items: OnboardingQuestionnaireItem[] | null | undefined,
 ): OnboardingQuestionnaireItem[] {
@@ -734,10 +752,14 @@ export function normalizeOnboardingQuestionnaire(
   for (const row of items) {
     if (!row?.id) continue;
     const base = byId.get(row.id);
-    merged.push({
+    const candidate: OnboardingQuestionnaireItem = {
       ...(base || row),
       ...row,
       options: row.options?.length ? row.options : base?.options,
+    };
+    merged.push({
+      ...candidate,
+      fieldKey: formFieldKeyForQuestionnaireItem(candidate, byId),
     });
     seen.add(row.id);
   }
@@ -772,13 +794,14 @@ export function buildChaptersRecord(
     "future-together",
   ];
   const result = {} as Record<ChapterKey, BuiltChapter>;
+  const defaultById = new Map(getDefaultOnboardingQuestionnaireItems().map((d) => [d.id, d]));
   for (const ck of chapters) {
     const meta = CHAPTER_META[ck][style];
     const qs = items
       .filter((i) => i.chapterKey === ck && itemAppliesToStyle(i, style))
       .sort((a, b) => a.order - b.order)
       .map((i) => ({
-        id: i.fieldKey,
+        id: formFieldKeyForQuestionnaireItem(i, defaultById),
         label: labelForStyle(i, style),
         type: i.type,
         required: i.required,

@@ -7,8 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Heart, MessageCircle, Sparkles, Zap, Star, RefreshCw, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
-import { buildApiUrl } from "@/services/api";
+import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
+import { useUpgrade } from "@/contexts/UpgradeContext";
+import { requestChatWithUser } from "@/lib/requestChatWithUser";
 
 interface Match {
   id: string;
@@ -34,6 +36,7 @@ interface EventMatchResultsProps {
 export default function EventMatchResults({ matches, eventTitle, eventId, onMessage, isDemo, viewerUserId }: EventMatchResultsProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { openUpgrade } = useUpgrade();
   const queryClient = useQueryClient();
   const [showConfetti, setShowConfetti] = useState(true);
   const [revealedMatches, setRevealedMatches] = useState<Set<string>>(new Set());
@@ -48,8 +51,8 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
       const url = buildApiUrl(`/api/events/${eventId}/reshuffle-matches`);
       const res = await fetch(url, {
         method: "POST",
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: "include",
+        headers: getAuthHeaders(true),
       });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to reshuffle matches' }));
@@ -59,6 +62,7 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/matches`] });
+      await queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
       toast({
         title: "Matches reshuffled! 🔄",
         description: "Your event matches list was refreshed.",
@@ -84,7 +88,7 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
       const res = await fetch(url, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ userId: viewerUserId }),
       });
       if (!res.ok) {
@@ -364,6 +368,14 @@ export default function EventMatchResults({ matches, eventTitle, eventId, onMess
                         onClick={() => {
                           if (onMessage) {
                             onMessage(match.userId);
+                          } else if (viewerUserId) {
+                            void requestChatWithUser({
+                              fromUserId: viewerUserId,
+                              toUserId: match.userId,
+                              setLocation,
+                              toast,
+                              openUpgrade,
+                            });
                           } else {
                             setLocation(`/chat?user=${match.userId}`);
                           }

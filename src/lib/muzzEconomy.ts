@@ -1,4 +1,4 @@
-/** Client-side Muzz-style economy (boosts, compliments, Gold) — demo / product shell until billing exists. */
+/** Client-side Muzz-style economy (boosts, Gold) — demo / product shell until billing exists. */
 
 import { markClientStateDirty } from "@/lib/clientStateSync";
 
@@ -11,17 +11,6 @@ export const getBoosts = (): number => {
 
 export const setBoosts = (n: number): void => {
   localStorage.setItem(`${P}boosts`, String(Math.max(0, n)));
-  markClientStateDirty();
-};
-
-export const getCompliments = (): number => {
-  // Unlimited mode removed; compliments are now tied to subscription/limits.
-  const n = parseInt(localStorage.getItem(`${P}compliments`) || "2", 10);
-  return Number.isFinite(n) ? n : 2;
-};
-
-export const setCompliments = (n: number): void => {
-  localStorage.setItem(`${P}compliments`, String(Math.max(0, n)));
   markClientStateDirty();
 };
 
@@ -63,7 +52,6 @@ export const pushExploreHistory = (userId: string): void => {
   markClientStateDirty();
 };
 
-export const buyMoreDemo = (kind: "boosts" | "compliments"): void => {
+export const buyMoreDemo = (kind: "boosts"): void => {
   if (kind === "boosts") setBoosts(getBoosts() + 5);
-  else setCompliments(getCompliments() + 5);
 };

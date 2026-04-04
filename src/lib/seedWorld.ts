@@ -154,19 +154,26 @@ function sampleUnique<T>(rnd: () => number, list: readonly T[], k: number): T[] 
   return out;
 }
 
-function pravatar(id: string): string {
-  // Deterministic, light-weight avatar source.
-  const n = Math.abs(hash32(id)) % 70;
-  return `https://i.pravatar.cc/400?img=${1 + n}`;
-}
+/** Same portrait pools as backend seed (no Unsplash) — keeps mock Explore snappy. */
+const MOCK_MALE_AVATARS = [
+  "https://img.freepik.com/free-photo/young-bearded-man-with-striped-shirt_273609-5677.jpg",
+  "https://thumbs.dreamstime.com/b/urban-smiley-young-man-close-up-copy-space-93583763.jpg",
+  "https://img.freepik.com/free-photo/red-haired-serious-young-man-blogger-looks-confidently_273609-16730.jpg?w=360",
+  "https://img.freepik.com/free-photo/portrait-smiling-young-man_1268-21877.jpg?semt=ais_incoming&w=740&q=80",
+  "https://thumbs.dreamstime.com/b/urban-smiley-young-man-close-up-copy-space-93583763.jpg",
+] as const;
+const MOCK_FEMALE_AVATARS = [
+  "https://img.freepik.com/free-photo/young-beautiful-woman-pink-warm-sweater-natural-look-smiling-portrait-isolated-long-hair_285396-896.jpg?semt=ais_incoming&w=740&q=80",
+  "https://img.freepik.com/free-photo/young-determined-armenian-curlyhaired-female-university-student-listen-carefully-asignment-look-confident-ready-task-cross-hands-chest-smiling-selfassured-standing-white-background_176420-56066.jpg?semt=ais_incoming&w=740&q=80",
+  "https://t4.ftcdn.net/jpg/06/24/08/27/360_F_624082743_aVEka1dU9sc3beNvTNqVEosOXz53oJPZ.jpg",
+  "https://t3.ftcdn.net/jpg/02/81/81/86/360_F_281818663_XXRCNuGktKeZsnknqWkKI0rR4JPWui3H.jpg",
+  "https://news.cornell.edu/sites/default/files/styles/breakout/public/2020-05/0521_abebegates.jpg?itok=OdW8otpB",
+] as const;
 
-function hash32(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
+function seedPortraitAvatar(userIndex: number): string {
+  const pool = userIndex % 2 === 0 ? MOCK_FEMALE_AVATARS : MOCK_MALE_AVATARS;
+  const slot = Math.floor(userIndex / 2) % pool.length;
+  return pool[slot]!;
 }
 
 export const DEFAULT_SEED_GROUP_IDS = [
@@ -277,7 +284,7 @@ export function createSeedWorld(opts: SeedWorldOptions) {
       location: pick(rnd, LOCATIONS),
       bio: "Intentional, curious, and here for meaningful connection. Ask me about my favorite weekend ritual.",
       interests: sampleUnique(rnd, INTERESTS, 3 + Math.floor(rnd() * 3)),
-      avatar: pravatar(id),
+      avatar: seedPortraitAvatar(i),
       membershipTier: pick(rnd, TIERS),
       verified: rnd() < 0.45,
       onboardingCompleted: true,
