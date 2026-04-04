@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { resolveUserDisplayAvatarUrl } from "@/lib/userDisplayAvatar";
 
 interface BottomNavProps {
   active: string;
@@ -39,11 +40,16 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
   });
   const chatUnread = Math.min(99, Math.max(0, unreadPayload?.count ?? 0));
 
-  const { data: me } = useQuery<{ name?: string | null; avatar?: string | null }>({
+  const { data: me } = useQuery<{
+    name?: string | null;
+    avatar?: string | null;
+    picture?: string | null;
+    photos?: unknown;
+  }>({
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
   });
-  const menuAvatarUrl = me?.avatar?.trim() || null;
+  const menuAvatarUrl = resolveUserDisplayAvatarUrl(me ?? undefined);
   const menuInitials = (me?.name || "Me").slice(0, 2).toUpperCase();
 
   const handleNav = (item: { id: string; path: string }) => {

@@ -12,6 +12,7 @@ import { useCurrentUser } from "@/contexts/UserContext";
 import { showOnlineDotForSelf } from "@/lib/presence";
 import { OnlineIndicator } from "@/components/profile/OnlineIndicator";
 import { cn } from "@/lib/utils";
+import { resolveUserDisplayAvatarUrl } from "@/lib/userDisplayAvatar";
 
 /** Dispatched when `localStorage.currentUser` is updated (profile save, etc.). */
 export const MATCHIFY_CURRENT_USER_UPDATED_EVENT = "matchify-header-user";
@@ -23,11 +24,12 @@ function parseHeaderUser(raw: string | null): { avatar: string | null; name: str
     const u = JSON.parse(raw) as {
       avatar?: string | null;
       picture?: string | null;
+      photos?: unknown;
       name?: string;
     };
-    const avatar = (u.avatar || u.picture || null) as string | null;
+    const avatar = resolveUserDisplayAvatarUrl(u);
     return {
-      avatar: avatar?.trim() ? avatar : null,
+      avatar,
       name: (u.name || "").trim() || "Profile",
     };
   } catch {

@@ -8,6 +8,9 @@ import { BrandLogo } from "@/components/common/BrandLogo";
 import { buildApiUrl } from "@/services/api";
 import { startGoogleOAuth } from "@/lib/googleOAuthPopup";
 import { notifyHeaderUserUpdated } from "@/components/common/Header";
+import { queryClient } from "@/lib/queryClient";
+import { readJwtSub } from "@/lib/authUserIdReconcile";
+import { resolveUserDisplayAvatarUrl } from "@/lib/userDisplayAvatar";
 
 export type GoogleSignupPrefill = {
   code: string;
@@ -108,20 +111,27 @@ export default function AuthScreen({
           throw new Error((err as { message?: string }).message || "Could not create account");
         }
         const user = await response.json();
-        if (user.token) localStorage.setItem("authToken", user.token);
-        if (user.id || user.userId) {
-          if (user.isAdmin === true) {
+        const av = resolveUserDisplayAvatarUrl(user);
+        const userNorm = av ? { ...user, avatar: av } : user;
+        if (userNorm.token) localStorage.setItem("authToken", userNorm.token);
+        if (userNorm.id || userNorm.userId) {
+          if (userNorm.isAdmin === true) {
             localStorage.setItem("isAdmin", "true");
             localStorage.setItem("onboardingCompleted", "true");
           } else {
             localStorage.removeItem("isAdmin");
             localStorage.removeItem("onboardingCompleted");
           }
-          localStorage.setItem("currentUser", JSON.stringify(user));
+          localStorage.setItem("currentUser", JSON.stringify(userNorm));
           notifyHeaderUserUpdated();
           window.dispatchEvent(new Event("matchify-auth-changed"));
         }
-        onAuth?.(user, true);
+        const uid =
+          (typeof userNorm.token === "string" ? readJwtSub(userNorm.token) : null) ||
+          userNorm.id ||
+          userNorm.userId;
+        if (uid) void queryClient.invalidateQueries({ queryKey: [`/api/users/${uid}`] });
+        onAuth?.(userNorm, true);
         return;
       }
 
@@ -140,21 +150,28 @@ export default function AuthScreen({
         throw new Error(error.message || 'Authentication failed');
       }
       const user = await response.json();
-      if (user.token) localStorage.setItem("authToken", user.token);
-      if (user.id || user.userId) {
-        if (user.isAdmin === true) {
+      const av = resolveUserDisplayAvatarUrl(user);
+      const userNorm = av ? { ...user, avatar: av } : user;
+      if (userNorm.token) localStorage.setItem("authToken", userNorm.token);
+      if (userNorm.id || userNorm.userId) {
+        if (userNorm.isAdmin === true) {
           localStorage.setItem("isAdmin", "true");
           localStorage.setItem("onboardingCompleted", "true");
         } else {
           localStorage.removeItem("isAdmin");
-          if (user.onboardingCompleted === true) localStorage.setItem("onboardingCompleted", "true");
-          else if (user.onboardingCompleted === false) localStorage.removeItem("onboardingCompleted");
+          if (userNorm.onboardingCompleted === true) localStorage.setItem("onboardingCompleted", "true");
+          else if (userNorm.onboardingCompleted === false) localStorage.removeItem("onboardingCompleted");
         }
-        localStorage.setItem("currentUser", JSON.stringify(user));
+        localStorage.setItem("currentUser", JSON.stringify(userNorm));
         notifyHeaderUserUpdated();
         window.dispatchEvent(new Event("matchify-auth-changed"));
       }
-      onAuth?.(user, isSignUp);
+      const uid =
+        (typeof userNorm.token === "string" ? readJwtSub(userNorm.token) : null) ||
+        userNorm.id ||
+        userNorm.userId;
+      if (uid) void queryClient.invalidateQueries({ queryKey: [`/api/users/${uid}`] });
+      onAuth?.(userNorm, isSignUp);
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Authentication failed", variant: "destructive" });
     } finally {
