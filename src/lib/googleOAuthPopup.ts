@@ -1,12 +1,24 @@
 /**
- * Google OAuth always uses a full-page redirect so login/signup and the post-Google
- * steps stay in the same browser tab (no separate popup window on desktop).
+ * Google OAuth: prefer a **popup** so the login/signup SPA stays mounted (smooth, like email login).
+ * If the browser blocks the popup, fall back to a full redirect to `startUrl`.
  */
 export const MATCHIFY_GOOGLE_OAUTH_WINDOW_NAME = "matchify_google_oauth";
 
+const POPUP_FEATURES =
+  "width=520,height=680,scrollbars=yes,resizable=yes,status=no,toolbar=no,menubar=no,location=yes";
+
 export function startGoogleOAuth(startUrl: string): void {
   if (typeof window === "undefined") return;
-  window.location.assign(startUrl);
+  const popup = window.open(startUrl, MATCHIFY_GOOGLE_OAUTH_WINDOW_NAME, POPUP_FEATURES);
+  if (!popup || popup.closed || typeof popup.closed === "undefined") {
+    window.location.assign(startUrl);
+    return;
+  }
+  try {
+    popup.focus();
+  } catch {
+    /* ignore */
+  }
 }
 
 /** After auth completes in the OAuth popup: sync opener and close. Returns false if not a popup. */
@@ -20,7 +32,7 @@ export function closeOAuthPopupAndNavigate(path: string): boolean {
       ? path
       : new URL(path.startsWith("/") ? path : `/${path}`, op.location.origin).href;
     op.dispatchEvent(new Event("matchify-auth-changed"));
-    op.location.assign(target);
+    op.location.replace(target);
     window.close();
     return true;
   } catch {
