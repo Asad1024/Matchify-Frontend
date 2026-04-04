@@ -16,6 +16,7 @@ import { pullClientStateFromBackend, pushClientStateToBackend } from "@/lib/clie
 import { readJwtSub, reconcileCurrentUserIdWithJwt } from "@/lib/authUserIdReconcile";
 import { isNotificationsStreamSyncPayload } from "@/lib/notificationStream";
 import { buildApiUrl, getAuthHeaders, getNotificationsStreamUrl } from "@/services/api";
+import { resolveUserDisplayAvatarUrl } from "@/lib/userDisplayAvatar";
 import { notificationCreatedAtMs } from "@/lib/utils";
 import { useEffect, useState, lazy, Suspense, useRef, useMemo } from "react";
 import type React from "react";
@@ -410,10 +411,12 @@ function AppContent() {
           try {
             const raw = localStorage.getItem("currentUser");
             const cur = raw ? JSON.parse(raw) : {};
-            localStorage.setItem(
-              "currentUser",
-              JSON.stringify({ ...cur, ...user, onboardingCompleted: true }),
-            );
+            const merged = { ...cur, ...user, onboardingCompleted: true };
+            const av = resolveUserDisplayAvatarUrl(merged);
+            const final = av ? { ...merged, avatar: av } : merged;
+            localStorage.setItem("currentUser", JSON.stringify(final));
+            const { token: _t, ...pub } = final as Record<string, unknown>;
+            queryClient.setQueryData([`/api/users/${userId}`], { ...pub, id: userId, userId });
           } catch {
             /* ignore */
           }
@@ -426,10 +429,12 @@ function AppContent() {
           try {
             const raw = localStorage.getItem("currentUser");
             const cur = raw ? JSON.parse(raw) : {};
-            localStorage.setItem(
-              "currentUser",
-              JSON.stringify({ ...cur, ...user, onboardingCompleted: true }),
-            );
+            const merged = { ...cur, ...user, onboardingCompleted: true };
+            const av = resolveUserDisplayAvatarUrl(merged);
+            const final = av ? { ...merged, avatar: av } : merged;
+            localStorage.setItem("currentUser", JSON.stringify(final));
+            const { token: _t, ...pub } = final as Record<string, unknown>;
+            queryClient.setQueryData([`/api/users/${userId}`], { ...pub, id: userId, userId });
           } catch {
             /* ignore parse failures */
           }

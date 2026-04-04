@@ -6,12 +6,18 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { notifyHeaderUserUpdated } from "@/components/common/Header";
 import { queryClient } from "@/lib/queryClient";
-import { buildApiUrl, getAuthHeaders } from "@/services/api";
+import { buildApiUrl } from "@/services/api";
 import {
   closeOAuthPopupAndNavigate,
   MATCHIFY_GOOGLE_OAUTH_WINDOW_NAME,
 } from "@/lib/googleOAuthPopup";
 import { readJwtSub } from "@/lib/authUserIdReconcile";
+import { resolveUserDisplayAvatarUrl } from "@/lib/userDisplayAvatar";
+
+function seedUserQueryCache(uid: string, userData: Record<string, unknown>) {
+  const { token: _t, ...pub } = userData;
+  queryClient.setQueryData([`/api/users/${uid}`], { ...pub, id: uid, userId: uid });
+}
 
 export default function GoogleCallback() {
   const [, setLocation] = useLocation();
@@ -37,70 +43,45 @@ export default function GoogleCallback() {
 
     const finishLogin = async (userData: Record<string, unknown>) => {
       try {
-        const avatar =
-          (typeof userData.avatar === "string" && userData.avatar) ||
-          (typeof userData.picture === "string" && userData.picture) ||
-          null;
-        if (avatar && !userData.avatar) {
-          userData.avatar = avatar;
-        }
-
         const token = typeof userData.token === "string" ? userData.token : "";
         if (!token) {
-          // Without a token most authenticated endpoints will fail and the UI will appear "partially loaded".
           throw new Error("Missing token from Google login response.");
         }
         const jwtSub = readJwtSub(token);
-        localStorage.setItem("authToken", token);
-        localStorage.setItem(
-          "currentUser",
-          JSON.stringify({
-            ...userData,
-            ...(jwtSub ? { id: jwtSub, userId: jwtSub } : {}),
-          }),
-        );
-        notifyHeaderUserUpdated();
-        // Same-tab localStorage writes do not fire "storage" events.
-        window.dispatchEvent(new Event("matchify-auth-changed"));
-        // Ensure no stale pre-login/mock cache survives post-login.
-        queryClient.clear();
-        
-        const isNewUser = isNewUserParam === 'true';
+        const uid = String(jwtSub || (userData as { id?: string }).id || (userData as { userId?: string }).userId || "").trim();
+        const merged: Record<string, unknown> = {
+          ...userData,
+          ...(jwtSub ? { id: jwtSub, userId: jwtSub } : {}),
+        };
+        const av = resolveUserDisplayAvatarUrl(merged);
+        if (av) merged.avatar = av;
 
-        const go = (href: string) => {
+        localStorage.setItem("authToken", token);
+        localStorage.setItem("currentUser", JSON.stringify(merged));
+        notifyHeaderUserUpdated();
+        window.dispatchEvent(new Event("matchify-auth-changed"));
+
+        // Seed profile cache so menu avatar shows immediately (avoid queryClient.clear() — it refetches everything and causes visible “jerks”).
+        if (uid) seedUserQueryCache(uid, merged);
+
+        const go = (href: string, replace?: boolean) => {
           if (closeOAuthPopupAndNavigate(href)) return;
-          setLocation(href);
+          setLocation(href, replace ? { replace: true } : undefined);
         };
 
         if (userData.isAdmin) {
           localStorage.setItem("isAdmin", "true");
           localStorage.setItem("onboardingCompleted", "true");
-          go("/admin");
+          go("/admin", true);
         } else if (!isNewUserParam || isNewUserParam === "false") {
-          // Existing Google account: do not force onboarding again due stale flags.
           localStorage.setItem("onboardingCompleted", "true");
-          try {
-            const uid = String(
-              readJwtSub(token) || (userData as any).id || (userData as any).userId || "",
-            ).trim();
-            if (uid) {
-              void fetch(buildApiUrl(`/api/users/${uid}`), {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json", ...getAuthHeaders(false) },
-                credentials: "include",
-                body: JSON.stringify({ onboardingCompleted: true }),
-              });
-            }
-          } catch {
-            /* ignore */
-          }
-          go("/");
-        } else if (isNewUser || !userData.onboardingCompleted) {
+          go("/", true);
+        } else if (isNewUserParam === "true" || !userData.onboardingCompleted) {
           localStorage.removeItem("onboardingCompleted");
-          go("/");
+          go("/", true);
         } else {
           localStorage.setItem("onboardingCompleted", "true");
-          go("/");
+          go("/", true);
         }
       } catch (e) {
         console.error("Failed to parse user data from Google callback:", e);

@@ -4,6 +4,8 @@ import { readJwtSub } from "@/lib/authUserIdReconcile";
 import SplashScreen from "@/components/auth/SplashScreen";
 import AuthScreen from "@/components/auth/AuthScreen";
 import OnboardingWizard from "@/components/auth/OnboardingWizard";
+import { queryClient } from "@/lib/queryClient";
+import { resolveUserDisplayAvatarUrl } from "@/lib/userDisplayAvatar";
 
 type LandingStep = "splash" | "auth" | "onboarding";
 
@@ -61,9 +63,17 @@ export default function Landing() {
     setUserId(userIdValue);
     setUserData({ name: user.name, email: user.email });
 
-    // Store auth state
     localStorage.setItem("authToken", user.token || "demo-token");
-    localStorage.setItem("currentUser", JSON.stringify({ ...user, id: userIdValue }));
+    const base = { ...user, id: userIdValue };
+    const av = resolveUserDisplayAvatarUrl(base);
+    const stored = av ? { ...base, avatar: av } : base;
+    localStorage.setItem("currentUser", JSON.stringify(stored));
+    const sid = String(userIdValue).trim();
+    if (sid) {
+      const { token: _t, ...pub } = stored as Record<string, unknown>;
+      queryClient.setQueryData([`/api/users/${sid}`], { ...pub, id: sid, userId: sid });
+      void queryClient.invalidateQueries({ queryKey: [`/api/users/${sid}`] });
+    }
 
     if (user.isAdmin === true) {
       localStorage.setItem("isAdmin", "true");

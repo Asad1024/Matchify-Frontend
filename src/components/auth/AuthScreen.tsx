@@ -130,7 +130,11 @@ export default function AuthScreen({
           (typeof userNorm.token === "string" ? readJwtSub(userNorm.token) : null) ||
           userNorm.id ||
           userNorm.userId;
-        if (uid) void queryClient.invalidateQueries({ queryKey: [`/api/users/${uid}`] });
+        if (uid) {
+          const { token: _tok, ...pub } = userNorm as Record<string, unknown>;
+          queryClient.setQueryData([`/api/users/${uid}`], { ...pub, id: uid, userId: uid });
+          void queryClient.invalidateQueries({ queryKey: [`/api/users/${uid}`] });
+        }
         onAuth?.(userNorm, true);
         return;
       }
@@ -170,7 +174,11 @@ export default function AuthScreen({
         (typeof userNorm.token === "string" ? readJwtSub(userNorm.token) : null) ||
         userNorm.id ||
         userNorm.userId;
-      if (uid) void queryClient.invalidateQueries({ queryKey: [`/api/users/${uid}`] });
+      if (uid) {
+        const { token: _tok, ...pub } = userNorm as Record<string, unknown>;
+        queryClient.setQueryData([`/api/users/${uid}`], { ...pub, id: uid, userId: uid });
+        void queryClient.invalidateQueries({ queryKey: [`/api/users/${uid}`] });
+      }
       onAuth?.(userNorm, isSignUp);
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Authentication failed", variant: "destructive" });

@@ -4,6 +4,8 @@ import { readJwtSub } from "@/lib/authUserIdReconcile";
 import AuthScreen from "@/components/auth/AuthScreen";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { closeOAuthPopupAndNavigate } from "@/lib/googleOAuthPopup";
+import { queryClient } from "@/lib/queryClient";
+import { resolveUserDisplayAvatarUrl } from "@/lib/userDisplayAvatar";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -35,13 +37,18 @@ export default function Login() {
     };
 
     if (user.isAdmin === true) {
+      const adminStore = { ...user, id: userIdValue, onboardingCompleted: true };
+      const av = resolveUserDisplayAvatarUrl(adminStore);
+      const adminNorm = av ? { ...adminStore, avatar: av } : adminStore;
       localStorage.setItem("authToken", user.token || "demo-token");
       localStorage.setItem("isAdmin", "true");
       localStorage.setItem("onboardingCompleted", "true");
-      localStorage.setItem(
-        "currentUser",
-        JSON.stringify({ ...user, id: userIdValue, onboardingCompleted: true }),
-      );
+      localStorage.setItem("currentUser", JSON.stringify(adminNorm));
+      const aid = String(userIdValue).trim();
+      if (aid) {
+        const { token: _t, ...pub } = adminNorm as Record<string, unknown>;
+        queryClient.setQueryData([`/api/users/${aid}`], { ...pub, id: aid, userId: aid });
+      }
       window.dispatchEvent(new Event("matchify-auth-changed"));
       go("/admin");
       return;
@@ -89,12 +96,20 @@ export default function Login() {
       ? user.onboardingCompleted 
       : previouslyCompletedOnboarding;
     
-    const userToStore = {
+    const userToStoreBase = {
       ...user,
       id: userIdValue,
       onboardingCompleted: finalOnboardingStatus,
     };
+    const av = resolveUserDisplayAvatarUrl(userToStoreBase);
+    const userToStore = av ? { ...userToStoreBase, avatar: av } : userToStoreBase;
     localStorage.setItem("currentUser", JSON.stringify(userToStore));
+    const sid = String(userIdValue).trim();
+    if (sid) {
+      const { token: _t, ...pub } = userToStore as Record<string, unknown>;
+      queryClient.setQueryData([`/api/users/${sid}`], { ...pub, id: sid, userId: sid });
+      void queryClient.invalidateQueries({ queryKey: [`/api/users/${sid}`] });
+    }
 
     if (isNewUser) {
       // New user - go to onboarding
