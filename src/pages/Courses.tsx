@@ -35,8 +35,9 @@ type CourseRow = {
   resourceUrl?: string | null;
   resourceName?: string | null;
   isFree?: boolean | number | null;
-  enrolled?: boolean;
-  canAccessMaterial?: boolean;
+  /** API may send booleans or 0/1 from the DB. */
+  enrolled?: boolean | number;
+  canAccessMaterial?: boolean | number;
 };
 
 export default function Courses() {
