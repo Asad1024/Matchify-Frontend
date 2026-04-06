@@ -373,7 +373,9 @@ function AppContent() {
     return hasCoreProfile;
   };
 
-  // Re-check on route change, same-tab auth (matchify-auth-changed), and cross-tab storage updates
+  // Re-check on same-tab auth (matchify-auth-changed) and cross-tab storage updates.
+  // Intentionally omit `location`: readAuthState() is localStorage-only; syncing on every route
+  // change triple-setState and contributed to visible “jerks” after Google OAuth.
   useEffect(() => {
     const sync = () => {
       const s = readAuthState();
@@ -388,7 +390,7 @@ function AppContent() {
       window.removeEventListener('storage', sync);
       window.removeEventListener('matchify-auth-changed', sync);
     };
-  }, [location]);
+  }, []);
 
   // Validate onboarding status against backend on login/app-load.
   // Prevents "asked again" if local flag is stale.
@@ -397,6 +399,18 @@ function AppContent() {
     let cancelled = false;
     const verify = async () => {
       try {
+        try {
+          const ts = sessionStorage.getItem("matchify_oauth_handoff_ts");
+          if (ts && Date.now() - Number(ts) < 15_000) {
+            sessionStorage.removeItem("matchify_oauth_handoff_ts");
+            // Skip the redundant GET /api/users right after OAuth, but keep onboarding driven by localStorage + readAuthState (not forced off).
+            setShowOnboarding(readAuthState().showOnboarding);
+            return;
+          }
+        } catch {
+          /* ignore */
+        }
+
         const res = await fetch(buildApiUrl(`/api/users/${userId}`), {
           method: "GET",
           headers: { ...getAuthHeaders(false) },

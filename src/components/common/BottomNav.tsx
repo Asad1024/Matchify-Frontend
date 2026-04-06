@@ -5,7 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { resolveUserDisplayAvatarUrl } from "@/lib/userDisplayAvatar";
+import {
+  avatarFromStoredCurrentUserForUserId,
+  resolveUserDisplayAvatarUrl,
+} from "@/lib/userDisplayAvatar";
 
 interface BottomNavProps {
   active: string;
@@ -49,7 +52,8 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
   });
-  const menuAvatarUrl = resolveUserDisplayAvatarUrl(me ?? undefined);
+  const menuAvatarUrl =
+    resolveUserDisplayAvatarUrl(me ?? undefined) || avatarFromStoredCurrentUserForUserId(userId);
   const menuInitials = (me?.name || "Me").slice(0, 2).toUpperCase();
 
   const handleNav = (item: { id: string; path: string }) => {

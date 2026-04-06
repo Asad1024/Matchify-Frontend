@@ -22,6 +22,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { setExploreModePersisted } from "@/lib/exploreMode";
 import { cn } from "@/lib/utils";
+import {
+  avatarFromStoredCurrentUserForUserId,
+  resolveUserDisplayAvatarUrl,
+} from "@/lib/userDisplayAvatar";
 
 export default function Menu() {
   const [location, setLocation] = useLocation();
@@ -79,6 +83,9 @@ export default function Menu() {
     queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
   });
+
+  const menuAvatarSrc =
+    resolveUserDisplayAvatarUrl(me ?? undefined) || avatarFromStoredCurrentUserForUserId(userId);
 
   const displayName = me?.name || "Member";
   const handle = me?.username ? `@${me.username}` : "";
@@ -204,7 +211,7 @@ export default function Menu() {
               <div className="matchify-surface rounded-[20px] p-5">
                 <div className="flex flex-col items-center text-center">
                   <Avatar className="h-28 w-28 border-[3px] border-white shadow-lg ring-1 ring-black/[0.04]">
-                    <AvatarImage src={me?.avatar || undefined} />
+                    <AvatarImage src={menuAvatarSrc || undefined} />
                     <AvatarFallback className="bg-amber-100 text-3xl">😊</AvatarFallback>
                   </Avatar>
                   <div className="mt-4 flex items-center justify-center gap-1.5 flex-wrap">
@@ -260,7 +267,7 @@ export default function Menu() {
               <div className="matchify-surface rounded-[20px] border-white/0 bg-card/70 p-5 shadow-2xs">
                 <div className="flex flex-col items-center text-center">
                   <Avatar className="h-28 w-28 border-[3px] border-white shadow-lg ring-1 ring-black/[0.04]">
-                    <AvatarImage src={me?.avatar || undefined} />
+                    <AvatarImage src={menuAvatarSrc || undefined} />
                     <AvatarFallback className="bg-amber-100 text-3xl">😊</AvatarFallback>
                   </Avatar>
                   <div className="mt-4 flex items-center justify-center gap-1.5 flex-wrap">

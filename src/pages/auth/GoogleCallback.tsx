@@ -28,7 +28,6 @@ export default function GoogleCallback() {
     const params = new URLSearchParams(window.location.search);
     const userDataEncoded = params.get('user');
     const exchangeCode = params.get('code');
-    const isNewUserParam = params.get('isNewUser');
     const errorParam = params.get('error');
 
     const fail = (msg: string) => {
@@ -64,23 +63,31 @@ export default function GoogleCallback() {
         // Seed profile cache so menu avatar shows immediately (avoid queryClient.clear() — it refetches everything and causes visible “jerks”).
         if (uid) seedUserQueryCache(uid, merged);
 
+        // Skip App.tsx’s immediate GET /api/users verify (same data we already have) — cuts extra load + re-render after OAuth.
+        try {
+          sessionStorage.setItem("matchify_oauth_handoff_ts", String(Date.now()));
+        } catch {
+          /* ignore */
+        }
+
         const go = (href: string, replace?: boolean) => {
           if (closeOAuthPopupAndNavigate(href)) return;
           setLocation(href, replace ? { replace: true } : undefined);
         };
 
+        // `isNewUser` in the query string means “first-time Google signup redirect”, not onboarding status.
+        // Existing users always get isNewUser=false; still respect server onboardingCompleted.
         if (userData.isAdmin) {
           localStorage.setItem("isAdmin", "true");
           localStorage.setItem("onboardingCompleted", "true");
           go("/admin", true);
-        } else if (!isNewUserParam || isNewUserParam === "false") {
-          localStorage.setItem("onboardingCompleted", "true");
-          go("/", true);
-        } else if (isNewUserParam === "true" || !userData.onboardingCompleted) {
-          localStorage.removeItem("onboardingCompleted");
-          go("/", true);
         } else {
-          localStorage.setItem("onboardingCompleted", "true");
+          localStorage.removeItem("isAdmin");
+          if (userData.onboardingCompleted === true) {
+            localStorage.setItem("onboardingCompleted", "true");
+          } else {
+            localStorage.removeItem("onboardingCompleted");
+          }
           go("/", true);
         }
       } catch (e) {
@@ -103,7 +110,7 @@ export default function GoogleCallback() {
           }
           const payload = (await res.json()) as Record<string, unknown>;
           await finishLogin(payload);
-          setLoading(false);
+          // Avoid setLoading(false): that flashes the “Redirecting…” shell before unmount (visible jerk).
           return;
         }
 
@@ -111,7 +118,6 @@ export default function GoogleCallback() {
         if (userDataEncoded) {
           const payload = JSON.parse(decodeURIComponent(userDataEncoded)) as Record<string, unknown>;
           await finishLogin(payload);
-          setLoading(false);
           return;
         }
 

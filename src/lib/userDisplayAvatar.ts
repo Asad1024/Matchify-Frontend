@@ -14,3 +14,18 @@ export function resolveUserDisplayAvatarUrl(
   }
   return null;
 }
+
+/** When `/api/users/:id` is still loading or omits an image, reuse the last login snapshot in localStorage. */
+export function avatarFromStoredCurrentUserForUserId(userId: string | null): string | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem("currentUser");
+    if (!raw) return null;
+    const u = JSON.parse(raw) as Record<string, unknown>;
+    const sid = String(u.userId ?? u.id ?? "").trim();
+    if (sid !== userId) return null;
+    return resolveUserDisplayAvatarUrl(u);
+  } catch {
+    return null;
+  }
+}
