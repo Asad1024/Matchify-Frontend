@@ -323,7 +323,7 @@ export default function SocialEditProfile() {
         <ProfilePreviewCard
           icon={Camera}
           title="Photos"
-          description="Main photo plus up to four gallery shots — same layout as your Matches profile preview. Photos save as soon as you add or change them."
+          description="Main photo plus up to four gallery shots — same layout as your Matches profile preview. After you pick a main photo, you can crop and zoom so it fits the circle; photos save when you confirm."
         >
           <div className="flex justify-center rounded-2xl bg-muted/40 py-4">
             <PhotoUpload

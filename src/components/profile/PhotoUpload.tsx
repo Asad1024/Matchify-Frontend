@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Camera, Upload, X, Loader2 } from "lucide-react";
+import { Camera, Upload, X, Loader2, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { uploadPostPhoto } from "@/services/upload.service";
+import { ImageCropDialog } from "@/components/profile/ImageCropDialog";
 
 interface PhotoUploadProps {
   /** Wide cover preview for profile banners; default is circular avatar. */
@@ -24,6 +25,11 @@ interface PhotoUploadProps {
   onOpenPreview?: (url: string) => void;
   /** Multi mode: label on the dashed add tile (default "Add"). */
   multiAddLabel?: string;
+  /**
+   * Single avatar only: open round crop/zoom before upload so faces match the profile circle.
+   * @default true
+   */
+  enableAvatarCrop?: boolean;
 }
 
 export default function PhotoUpload({
@@ -39,10 +45,13 @@ export default function PhotoUpload({
   suppressSuccessToast = false,
   onOpenPreview,
   multiAddLabel = "Add",
+  enableAvatarCrop = true,
 }: PhotoUploadProps) {
   const isMulti = onPhotosChange !== undefined;
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentPhoto || null);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -57,8 +66,44 @@ export default function PhotoUpload({
     lg: "w-32 h-32",
   };
 
+  const uploadFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const uploadedUrl = await uploadPostPhoto(file);
+      if (isMulti) {
+        const current = photos || [];
+        const updated = [...current, uploadedUrl].slice(0, maxPhotos);
+        onPhotosChange!(updated);
+      } else {
+        setPreview(uploadedUrl);
+        onPhotoChange?.(uploadedUrl);
+      }
+      if (!suppressSuccessToast) {
+        toast({ title: "Photo updated!" });
+      }
+    } catch (e) {
+      if (isMulti) {
+        toast({
+          title: "Upload failed",
+          description: e instanceof Error ? e.message : "Check your connection and API URL.",
+          variant: "destructive",
+        });
+      } else {
+        setPreview(currentPhoto || null);
+        toast({
+          title: "Upload failed",
+          description: e instanceof Error ? e.message : "Could not reach the server.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
@@ -71,44 +116,47 @@ export default function PhotoUpload({
       return;
     }
 
-    // Show local preview immediately
+    const useCrop = !isMulti && variant === "avatar" && enableAvatarCrop;
+    if (useCrop) {
+      const localUrl = URL.createObjectURL(file);
+      setCropSrc(localUrl);
+      setCropOpen(true);
+      return;
+    }
+
     const localUrl = URL.createObjectURL(file);
     setPreview(localUrl);
-
-    setUploading(true);
     try {
-      const uploadedUrl = await uploadPostPhoto(file);
-      if (isMulti) {
-        const current = photos || [];
-        const updated = [...current, uploadedUrl].slice(0, maxPhotos);
-        onPhotosChange!(updated);
-      } else {
-        setPreview(uploadedUrl);
-        onPhotoChange?.(uploadedUrl);
-      }
-      URL.revokeObjectURL(localUrl);
-      if (!suppressSuccessToast) {
-        toast({ title: "Photo updated!" });
-      }
-    } catch (e) {
-      URL.revokeObjectURL(localUrl);
-      if (isMulti) {
-        toast({
-          title: "Upload failed",
-          description: e instanceof Error ? e.message : "Check your connection and API URL.",
-          variant: "destructive",
-        });
-      } else {
-        setPreview(currentPhoto || null);
-        toast({
-          title: "Upload failed",
-          description: e instanceof Error ? e.message : "Could not reach the server. Banner was not saved.",
-          variant: "destructive",
-        });
-      }
+      await uploadFile(file);
     } finally {
-      setUploading(false);
+      URL.revokeObjectURL(localUrl);
     }
+  };
+
+  const handleCropDialogChange = (open: boolean) => {
+    setCropOpen(open);
+    if (!open && cropSrc) {
+      if (cropSrc.startsWith("blob:")) {
+        URL.revokeObjectURL(cropSrc);
+      }
+      setCropSrc(null);
+    }
+  };
+
+  /** Re-open crop editor on the current picture, or pick a new file if none / crop disabled. */
+  const openReCropEditor = () => {
+    if (uploading) return;
+    const raw = (preview || currentPhoto || "").trim();
+    if (!raw) {
+      fileInputRef.current?.click();
+      return;
+    }
+    if (enableAvatarCrop) {
+      setCropSrc(raw);
+      setCropOpen(true);
+      return;
+    }
+    fileInputRef.current?.click();
   };
 
   const handleRemove = (urlToRemove?: string) => {
@@ -241,6 +289,15 @@ export default function PhotoUpload({
 
   return (
     <div className="flex flex-col items-center gap-3">
+      <ImageCropDialog
+        open={cropOpen}
+        onOpenChange={handleCropDialogChange}
+        imageSrc={cropSrc}
+        title="Adjust main photo"
+        onApply={async (file) => {
+          await uploadFile(file);
+        }}
+      />
       <div className="relative inline-flex">
         <Avatar className={`${sizeMap[size]} border-2 border-primary/30`}>
           <AvatarImage src={preview || undefined} />
@@ -279,26 +336,40 @@ export default function PhotoUpload({
         onChange={handleFileChange}
       />
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={uploading}
-        onClick={() => fileInputRef.current?.click()}
-        className="rounded-full text-xs"
-      >
-        {uploading ? (
-          <>
-            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-            Uploading...
-          </>
-        ) : (
-          <>
-            <Upload className="w-3.5 h-3.5 mr-1.5" />
-            {label}
-          </>
-        )}
-      </Button>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={uploading}
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded-full text-xs"
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              Uploading...
+            </>
+          ) : (
+            <>
+              <Upload className="mr-1.5 h-3.5 w-3.5" />
+              {label}
+            </>
+          )}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={uploading}
+          onClick={openReCropEditor}
+          className="rounded-full px-3 text-xs"
+          aria-label="Adjust crop of current photo"
+          title="Adjust crop"
+        >
+          <Pencil className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+        </Button>
+      </div>
     </div>
   );
 }
