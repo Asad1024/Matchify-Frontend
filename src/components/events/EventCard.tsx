@@ -52,7 +52,7 @@ export default function EventCard({
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
     >
       <Card 
-        className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-gray-100/80 bg-white shadow-md transition-all hover:shadow-lg"
+        className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-border bg-card shadow-md transition-all hover:shadow-lg dark:shadow-[0_4px_24px_rgba(0,0,0,0.35)]"
         onClick={() => onClick?.(id)}
         data-testid={`card-event-${id}`}
       >
@@ -70,7 +70,7 @@ export default function EventCard({
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/35" />
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-3 pt-3">
             <span
-              className="inline-flex max-w-[56%] shrink-0 items-center truncate rounded-full border border-white/25 bg-white/95 px-3 py-1.5 text-[11px] font-bold text-gray-900 shadow-[0_2px_16px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:text-xs"
+              className="inline-flex max-w-[56%] shrink-0 items-center truncate rounded-full border border-white/25 bg-white/90 px-3 py-1.5 text-[11px] font-bold text-neutral-900 shadow-[0_2px_16px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:text-xs dark:border-white/20 dark:bg-black/55 dark:text-white"
               title={type === "online" ? "Online event" : "In person"}
             >
               {type === "online" ? "Online" : "In person"}

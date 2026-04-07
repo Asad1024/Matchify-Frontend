@@ -361,7 +361,7 @@ export function LunaChatPanel({
                 <div className={cn("flex items-end gap-2", m.role === "user" ? "justify-end" : "justify-start")}>
                   {m.role === "assistant" ? (
                     <div
-                      className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-white bg-gradient-to-br from-[#722F37] to-[#8B2942] shadow-[0_10px_30px_-18px_rgba(114,47,55,0.55)]"
+                      className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-background bg-gradient-to-br from-[#722F37] to-[#8B2942] shadow-[0_10px_30px_-18px_rgba(114,47,55,0.55)] dark:border-card"
                       aria-label="Luna"
                       title="Luna"
                     >
@@ -374,7 +374,7 @@ export function LunaChatPanel({
                       "rounded-[20px] px-4 py-3 shadow-sm",
                       m.role === "user"
                         ? "bg-primary text-primary-foreground rounded-br-[8px]"
-                        : "border border-white/60 bg-primary/[0.05] text-slate-900 backdrop-blur-md rounded-bl-[8px]",
+                        : "border border-border/80 bg-muted/50 text-foreground backdrop-blur-md rounded-bl-[8px]",
                     )}
                   >
                     <div
@@ -411,12 +411,12 @@ export function LunaChatPanel({
               <div className="max-w-[min(720px,90%)]">
                 <div className="flex items-end gap-2">
                   <div
-                    className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-white bg-gradient-to-br from-[#722F37] to-[#8B2942] shadow-[0_10px_30px_-18px_rgba(114,47,55,0.55)]"
+                    className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-background bg-gradient-to-br from-[#722F37] to-[#8B2942] shadow-[0_10px_30px_-18px_rgba(114,47,55,0.55)] dark:border-card"
                     aria-hidden
                   >
                     <Bot className="h-4 w-4 text-white" strokeWidth={1.75} aria-hidden />
                   </div>
-                  <div className="rounded-[20px] rounded-bl-[8px] border border-white/60 bg-primary/[0.05] px-4 py-3 text-slate-900 shadow-sm backdrop-blur-md">
+                  <div className="rounded-[20px] rounded-bl-[8px] border border-border/80 bg-muted/50 px-4 py-3 text-foreground shadow-sm backdrop-blur-md">
                     <TypingDots />
                   </div>
                 </div>
@@ -441,8 +441,11 @@ export function LunaChatPanel({
       <div className="safe-bottom px-4 pb-3 pt-2">
         <div className="mx-auto max-w-[720px]">
           {tier === "free" ? (
-            <div className="mb-2 rounded-[18px] border border-primary/15 bg-primary/[0.06] px-4 py-3 text-[13px] text-slate-700">
-              <span className="font-semibold text-slate-900">Upgrade required.</span> Luna is available on Plus and above.
+            <div className="mb-2 rounded-[18px] border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-[13px] dark:border-amber-400/25 dark:bg-amber-950/45">
+              <p className="text-foreground">
+                <span className="font-semibold">Upgrade required.</span>{" "}
+                <span className="text-muted-foreground">Luna is available on Plus and above.</span>
+              </p>
               <Button
                 className="mt-3 h-10 w-full rounded-full"
                 onClick={() => requireTier({ feature: "Luna (AI chat)", minTier: "plus" })}
@@ -451,7 +454,7 @@ export function LunaChatPanel({
               </Button>
             </div>
           ) : null}
-          <div className="rounded-full border border-[#F0F0F0] bg-white/75 shadow-[0_18px_60px_-28px_rgba(15,23,42,0.35)] backdrop-blur-md">
+          <div className="rounded-full border border-border bg-card/95 shadow-md backdrop-blur-md dark:shadow-[0_18px_60px_-28px_rgba(0,0,0,0.45)]">
             <div className="flex items-center gap-2 px-2 py-2">
               <div className="relative flex-1">
                 <Sparkles
@@ -469,8 +472,9 @@ export function LunaChatPanel({
                     if (e.key === "Enter") send();
                   }}
                   className={cn(
-                    "h-11 w-full rounded-full border-0 bg-transparent pl-10 pr-10 text-[14px] shadow-none",
-                    "placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0",
+                    "h-11 w-full rounded-full border-0 bg-transparent pl-10 pr-10 text-[14px] text-foreground shadow-none",
+                    "placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0",
+                    "disabled:cursor-not-allowed disabled:opacity-100 disabled:placeholder:text-muted-foreground/90",
                   )}
                 />
               </div>
@@ -485,7 +489,7 @@ export function LunaChatPanel({
                   "h-11 w-11 rounded-full",
                   canSend
                     ? "bg-primary text-primary-foreground shadow-[0_18px_60px_-28px_rgba(114,47,55,0.55)] glow-primary hover:brightness-[0.98]"
-                    : "bg-slate-200 text-slate-500 shadow-none",
+                    : "bg-muted text-muted-foreground shadow-none",
                 )}
               >
                 <Send className="h-4 w-4" strokeWidth={2} />
@@ -493,7 +497,7 @@ export function LunaChatPanel({
             </div>
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1 text-[11px] text-slate-500/90">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1 text-[11px] text-muted-foreground">
             <span className="min-w-0 truncate">Tip: tell me who you’re talking to and the vibe you want.</span>
             <div className="flex shrink-0 items-center gap-2">
               {persistKey && tier !== "free" ? (

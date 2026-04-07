@@ -672,11 +672,6 @@ function AppContent() {
 }
 
 function App() {
-  // Light-only: use :root tokens from index.css (remove legacy forced dark)
-  useEffect(() => {
-    document.documentElement.classList.remove("dark");
-  }, []);
-
   return (
     <ErrorBoundary>
       <UserProvider>

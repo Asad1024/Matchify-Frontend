@@ -126,13 +126,17 @@ const POST_REPORT_REASONS = [
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'Fitness': 'bg-primary/10 text-primary',
-  'Faith': 'bg-amber-100 text-amber-600',
-  'Career': 'bg-blue-100 text-blue-600',
-  'Travel': 'bg-sky-100 text-sky-600',
-  'Random': 'bg-violet-100 text-violet-600',
-  'Advice': 'bg-orange-100 text-orange-600',
-  'Food': 'bg-yellow-100 text-yellow-600',
+  Fitness: "bg-primary/10 text-primary",
+  Faith:
+    "bg-amber-100 text-amber-600 dark:bg-amber-950/55 dark:text-amber-200",
+  Career: "bg-blue-100 text-blue-600 dark:bg-blue-950/55 dark:text-blue-200",
+  Travel: "bg-sky-100 text-sky-600 dark:bg-sky-950/55 dark:text-sky-200",
+  Random:
+    "bg-violet-100 text-violet-600 dark:bg-violet-950/55 dark:text-violet-200",
+  Advice:
+    "bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-200",
+  Food:
+    "bg-yellow-100 text-yellow-600 dark:bg-yellow-950/50 dark:text-yellow-200",
 };
 
 export default function PostCard({
@@ -425,7 +429,9 @@ export default function PostCard({
     return () => observer.disconnect();
   }, [sessionKey, viewKey]);
 
-  const categoryColor = category ? (CATEGORY_COLORS[category] || 'bg-gray-100 text-gray-600') : null;
+  const categoryColor = category
+    ? CATEGORY_COLORS[category] || "bg-muted text-muted-foreground"
+    : null;
   const timeLabel =
     postedAt != null && String(postedAt).trim()
       ? formatPostRelativeTime(postedAt)
@@ -438,7 +444,7 @@ export default function PostCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "w-full bg-white rounded-[20px] border border-[#F0F0F0] shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden",
+        "w-full rounded-[20px] border border-border bg-card shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.35)] overflow-hidden",
         detailHref && "cursor-pointer",
       )}
       data-testid={`post-card-${id}`}
@@ -485,14 +491,14 @@ export default function PostCard({
           <div>
             <div className="flex items-center gap-1.5">
               {authorProfileHref ? (
-                <Link href={authorProfileHref} className="text-sm font-bold text-gray-900 hover:underline">
+                <Link href={authorProfileHref} className="text-sm font-bold text-foreground hover:underline">
                   <span className="inline-flex items-center gap-1.5">
                     <span>{author.name}</span>
                     {author.verified ? <VerifiedTick size="sm" /> : null}
                   </span>
                 </Link>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-900">
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
                   <span>{author.name}</span>
                   {author.verified ? <VerifiedTick size="sm" /> : null}
                 </span>
@@ -504,14 +510,14 @@ export default function PostCard({
               ) : null}
             </div>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
-              <span className="text-gray-500">{timeLabel}</span>
-              <span className="text-gray-400 font-black" aria-hidden>
+              <span className="text-muted-foreground">{timeLabel}</span>
+              <span className="text-muted-foreground/70 font-black" aria-hidden>
                 ·
               </span>
               {visibility === "private" ? (
-                <Lock className="h-3.5 w-3.5 text-gray-500" aria-label="Private post" />
+                <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="Private post" />
               ) : (
-                <Globe2 className="h-3.5 w-3.5 text-gray-500" aria-label="Public post" />
+                <Globe2 className="h-3.5 w-3.5 text-muted-foreground" aria-label="Public post" />
               )}
               {category && categoryColor && (
                 <Badge className={`text-[10px] px-1.5 py-0 h-4 ${categoryColor} border-0`}>
@@ -527,7 +533,7 @@ export default function PostCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                className="h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
                 aria-label="Post options"
               >
                 <MoreHorizontal className="h-5 w-5" strokeWidth={2} aria-hidden />
@@ -628,7 +634,7 @@ export default function PostCard({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100 -ml-2"
+              className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-full text-muted-foreground hover:text-foreground hover:bg-muted -ml-2"
               aria-label="Mute posts from user"
               disabled={muteMutation.isPending}
               onClick={() => startMuteAuthorPosts()}
@@ -646,7 +652,7 @@ export default function PostCard({
           className="block cursor-pointer transition-[opacity,filter] hover:opacity-[0.98] active:brightness-[0.99]"
         >
           <div className="px-4 pt-2 pb-3">
-            <p className="text-[16px] text-slate-900 leading-[1.6] whitespace-pre-wrap">{renderedContent}</p>
+            <p className="text-[16px] text-foreground leading-[1.6] whitespace-pre-wrap">{renderedContent}</p>
           </div>
           {renderedImage ? (
             <div className="mx-4 mb-3 rounded-xl border border-border overflow-hidden bg-muted/30">
@@ -663,7 +669,7 @@ export default function PostCard({
       ) : (
         <>
           <div className="px-4 pt-2 pb-3">
-            <p className="text-[16px] text-slate-900 leading-[1.6] whitespace-pre-wrap">{renderedContent}</p>
+            <p className="text-[16px] text-foreground leading-[1.6] whitespace-pre-wrap">{renderedContent}</p>
           </div>
           {renderedImage ? (
             <div className="mx-4 mb-3 rounded-xl border border-border overflow-hidden bg-muted/30">
@@ -695,7 +701,7 @@ export default function PostCard({
       </div>
 
       {(showComments || commentCount > 0) && (
-        <div className="px-4 pb-4 border-t border-gray-50">
+        <div className="px-4 pb-4 border-t border-border/80">
           <CommentSection
             postId={id}
             currentUserId={currentUserId ?? undefined}

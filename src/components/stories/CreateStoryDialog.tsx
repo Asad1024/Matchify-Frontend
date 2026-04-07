@@ -152,7 +152,7 @@ export default function CreateStoryDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[min(90vh,720px)] w-full max-w-md flex-col gap-0 overflow-hidden p-0 sm:rounded-xl [&>button.absolute]:z-[100]"
+        className="flex max-h-[min(90vh,720px)] w-full max-w-md flex-col gap-0 overflow-hidden border-border bg-popover p-0 text-popover-foreground sm:rounded-xl [&>button.absolute]:z-[100]"
         data-testid="dialog-create-story"
       >
         <div className="shrink-0 border-b border-border/70 px-6 pb-4 pt-6 pr-14">
@@ -284,10 +284,11 @@ export default function CreateStoryDialog({
           </form>
         </Form>
 
-        <DialogFooter className="shrink-0 gap-2 border-t border-border bg-background p-4 sm:justify-end">
+        <DialogFooter className="shrink-0 gap-2 border-t border-border bg-popover p-4 sm:justify-end">
           <Button
             type="button"
             variant="outline"
+            className="border-border bg-transparent hover:bg-muted/50"
             onClick={() => onOpenChange(false)}
             data-testid="button-cancel"
           >

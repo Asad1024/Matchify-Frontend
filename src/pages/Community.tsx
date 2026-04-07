@@ -11,19 +11,20 @@ import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
-import {
-  Users,
-  Calendar,
-  Brain,
-  Sparkles,
-  ArrowRight,
-  AlertCircle,
-} from "lucide-react";
+import { Users, Calendar, Plus, ImagePlus, Camera } from "lucide-react";
+import { OPEN_GLOBAL_SEARCH_EVENT } from "@/components/common/GlobalSearch";
 import type { Group, Story } from "@shared/schema";
 import StoryCircles from "@/components/stories/StoryCircles";
 import StoryViewer from "@/components/stories/StoryViewer";
 import CreateStoryDialog from "@/components/stories/CreateStoryDialog";
 import CreatePostDialog from "@/components/posts/CreatePostDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { groupStoriesIntoRings, type StoryRing } from "@/lib/storyRings";
 import { StorySkeleton } from "@/components/ui/skeleton-enhanced";
 import { fetchPostsFeedPage, POSTS_FEED_PAGE_SIZE } from "@/lib/fetchPostsFeed";
@@ -109,6 +110,7 @@ export default function Community() {
   } | null>(null);
   const [createStoryOpen, setCreateStoryOpen] = useState(false);
   const [createPostOpen, setCreatePostOpen] = useState(false);
+  const [composeChoiceOpen, setComposeChoiceOpen] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { userId: currentUserId } = useCurrentUser();
@@ -179,17 +181,6 @@ export default function Community() {
   const { data: groups = [] } = useQuery<GroupRow[]>({
     queryKey: ['/api/groups'],
   });
-
-  const { data: currentProfile } = useQuery<{
-    religion?: string | null;
-    meetPreference?: string | null;
-    attractionBlueprint?: unknown;
-  }>({
-    queryKey: [`/api/users/${currentUserId}`],
-    enabled: !!currentUserId,
-  });
-
-  const aiMatchmakerComplete = !!currentProfile?.attractionBlueprint;
 
   /** All groups as chips (sorted by name). */
   const sortedGroupChips = useMemo(() => {
@@ -306,24 +297,13 @@ export default function Community() {
       <Header
         showSearch={true}
         title="Explore"
-        subtitle="Stories, groups & discover"
-        onSearch={(query) => {
-          const q = query.trim();
-          if (q) {
-            try {
-              sessionStorage.setItem("matchify_explore_search", q);
-            } catch {
-              /* ignore */
-            }
-            setLocation("/explore");
-          }
-        }}
+        subtitle="People, events, stories & posts"
+        onSearch={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
         onNotifications={() => setLocation("/notifications")}
         onCreate={() => {
           setComposePrefillGroupId(null);
-          // Header sets a launcher flag for route-based flows; clear it for in-place open so refresh doesn't auto-open.
           clearCreatePostLauncherFlag();
-          setCreatePostOpen(true);
+          setComposeChoiceOpen(true);
         }}
         onSettings={() => setLocation("/profile")}
         onLogout={logout}
@@ -344,30 +324,7 @@ export default function Community() {
           />
         </div>
 
-        {!aiMatchmakerComplete && (
-              <div className="mx-4 mt-3 rounded-2xl border border-amber-400/60 bg-amber-50/70 p-4 shadow-2xs flex items-start gap-3 backdrop-blur-md">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <AlertCircle className="w-5 h-5 text-amber-700" aria-hidden />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-amber-950 mb-0.5">Finish AI Matchmaker to see matches</p>
-                  <p className="text-xs text-amber-900/85 mb-2 leading-relaxed">
-                    Complete all 30 questions to unlock Discover matches and AI scores.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setLocation("/ai-matchmaker/flow-b")}
-                    className="flex items-center gap-1.5 bg-primary text-primary-foreground rounded-xl px-3 py-1.5 text-xs font-semibold shadow-2xs"
-                  >
-                    <Sparkles className="w-3 h-3" aria-hidden />
-                    Continue
-                    <ArrowRight className="w-3 h-3" aria-hidden />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="mx-4 mt-3 overflow-hidden rounded-[20px] matchify-surface">
+        <div className="mx-4 mt-3 overflow-hidden rounded-[20px] matchify-surface">
               <div
                 className="overflow-x-auto scroll-smooth scrollbar-hide px-4 py-3"
                 aria-label="Stories"
@@ -387,7 +344,7 @@ export default function Community() {
                         setStoryViewer({ stories: ring.stories, initialIndex: 0 });
                       }
                     }}
-                    onCreateStory={() => setCreateStoryOpen(true)}
+                    onCreateStory={() => setComposeChoiceOpen(true)}
                   />
                 )}
               </div>
@@ -396,11 +353,85 @@ export default function Community() {
             <FeedQuickActions
               actions={[
                 { id: "people", label: "People", icon: Users, onClick: () => setLocation("/directory"), tone: "primary" },
-                { id: "events", label: "Events", icon: Calendar, onClick: () => setLocation("/explore?tab=events"), tone: "amber" },
-                { id: "luna", label: "AI Luna", icon: Sparkles, onClick: () => setLocation("/relationship-coaching"), tone: "violet" },
-                { id: "ai", label: "AI Match", icon: Brain, onClick: () => setLocation("/ai-matchmaker"), tone: "violet" },
+                { id: "events", label: "Events", icon: Calendar, onClick: () => setLocation("/events?from=community"), tone: "amber" },
+                {
+                  id: "create",
+                  label: "Create",
+                  icon: Plus,
+                  onClick: () => setComposeChoiceOpen(true),
+                  tone: "violet",
+                },
               ]}
             />
+
+            <Dialog open={composeChoiceOpen} onOpenChange={setComposeChoiceOpen}>
+              <DialogContent className="max-w-md gap-0 overflow-hidden rounded-[24px] border-border/80 p-0 sm:max-w-lg">
+                <DialogHeader className="space-y-1.5 px-6 pb-2 pt-6 text-left">
+                  <DialogTitle className="font-display text-xl">Create</DialogTitle>
+                  <DialogDescription className="text-[13px] leading-relaxed text-muted-foreground">
+                    Share in the feed or add a story friends see at the top.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-3 px-6 pb-6 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComposeChoiceOpen(false);
+                      setComposePrefillGroupId(null);
+                      clearCreatePostLauncherFlag();
+                      setCreatePostOpen(true);
+                    }}
+                    className={cn(
+                      "group flex flex-col items-center gap-3 rounded-2xl border border-border/70 bg-card/90 p-4 text-center shadow-2xs",
+                      "transition-all hover:border-primary/40 hover:bg-primary/[0.06] hover:shadow-md",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary shadow-2xs",
+                        "ring-1 ring-primary/15 transition group-hover:bg-primary/15 group-hover:ring-primary/25",
+                      )}
+                    >
+                      <ImagePlus className="h-7 w-7" strokeWidth={1.75} aria-hidden />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground">New post</p>
+                      <p className="mt-1 text-[11px] font-medium leading-snug text-muted-foreground">
+                        Photos &amp; text in the feed
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComposeChoiceOpen(false);
+                      setCreateStoryOpen(true);
+                    }}
+                    className={cn(
+                      "group flex flex-col items-center gap-3 rounded-2xl border border-border/70 bg-card/90 p-4 text-center shadow-2xs",
+                      "transition-all hover:border-violet-500/40 hover:bg-violet-500/[0.07] hover:shadow-md",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-violet-500/10 text-violet-700 shadow-2xs ring-1 ring-violet-500/15",
+                        "transition group-hover:bg-violet-500/15 group-hover:text-violet-800 dark:text-violet-300 dark:group-hover:text-violet-200 dark:ring-violet-400/20",
+                      )}
+                    >
+                      <Camera className="h-7 w-7" strokeWidth={1.75} aria-hidden />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground">New story</p>
+                      <p className="mt-1 text-[11px] font-medium leading-snug text-muted-foreground">
+                        Full-screen moment · 24h
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Posts feed */}
             <div className="px-4 mt-3 space-y-4">

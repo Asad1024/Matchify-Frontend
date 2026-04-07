@@ -41,8 +41,8 @@ const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
     title: "Main",
     items: [
       { icon: Sparkles, label: "AI Matchmaker", path: "/ai-matchmaker", highlight: true },
-      { icon: HeartHandshake, label: "Marriage", path: "/" },
-      { icon: Compass, label: "Discover", path: "/explore" },
+      { icon: HeartHandshake, label: "Matches", path: "/" },
+      { icon: Compass, label: "Activity", path: "/explore" },
       { icon: Globe, label: "Explore", path: "/community" },
       { icon: Users, label: "People", path: "/directory" },
       { icon: Calendar, label: "Events", path: "/events" },

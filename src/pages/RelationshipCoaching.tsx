@@ -54,7 +54,7 @@ export default function RelationshipCoaching() {
   });
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
       <Header
         showSearch={false}
         title="AI Luna Coach"

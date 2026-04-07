@@ -46,6 +46,7 @@ import {
 import { labelAlcohol, labelEthnicity, labelSmoking } from "@/lib/profileDemographics";
 import type { ProfileEditUser } from "@/components/profile/ProfileEditTab";
 import { ProfilePreviewCard } from "@/components/profile/ProfilePreviewCard";
+import { displayImageUrl } from "@/lib/displayImageUrl";
 import { ImageLightbox } from "@/components/profile/ImageLightbox";
 import { VerificationRequestBanner } from "@/components/profile/VerificationRequestBanner";
 
@@ -139,17 +140,21 @@ export default function Profile() {
   });
 
   const profileAvatarUrl = useMemo(() => {
-    if (user?.avatar?.trim()) return user.avatar;
-    if (!userId) return null;
-    try {
-      const raw = localStorage.getItem("currentUser");
-      if (!raw) return null;
-      const u = JSON.parse(raw) as { id?: string; avatar?: string | null; picture?: string | null };
-      if (u.id !== userId) return null;
-      return (u.avatar || u.picture || "").trim() || null;
-    } catch {
-      return null;
-    }
+    const raw = (() => {
+      if (user?.avatar?.trim()) return user.avatar.trim();
+      if (!userId) return null;
+      try {
+        const ls = localStorage.getItem("currentUser");
+        if (!ls) return null;
+        const u = JSON.parse(ls) as { id?: string; avatar?: string | null; picture?: string | null };
+        if (u.id !== userId) return null;
+        return (u.avatar || u.picture || "").trim() || null;
+      } catch {
+        return null;
+      }
+    })();
+    if (!raw) return null;
+    return displayImageUrl(raw) || raw;
   }, [user?.avatar, userId]);
 
   const profileGalleryUrls = useMemo(
@@ -241,7 +246,7 @@ export default function Profile() {
   if (!user) {
     return (
       <div className="min-h-screen bg-[hsl(var(--surface-2))] flex flex-col items-center justify-center gap-3 p-4">
-        <p className="text-gray-400">Profile not found</p>
+        <p className="text-muted-foreground">Profile not found</p>
         <Button variant="outline" onClick={() => setLocation("/menu")}>
           Go back
         </Button>
@@ -261,14 +266,14 @@ export default function Profile() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="rounded-full text-gray-800"
+                  className="rounded-full text-foreground"
                   onClick={closeProfile}
                   aria-label="Close profile"
                 >
                   <X className="w-5 h-5" />
                 </Button>
               </div>
-              <h1 className="flex-1 min-w-0 text-center text-base font-semibold text-gray-900 truncate px-2">
+              <h1 className="flex-1 min-w-0 truncate px-2 text-center text-base font-semibold text-foreground">
                 {user.name}
               </h1>
               <div className="flex shrink-0 justify-end gap-0.5">
@@ -276,7 +281,7 @@ export default function Profile() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="rounded-full text-gray-800"
+                  className="rounded-full text-foreground"
                   onClick={() => setLocation("/profile/social/edit")}
                   aria-label="Edit profile and photos"
                 >
@@ -286,7 +291,7 @@ export default function Profile() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="rounded-full text-gray-800"
+                  className="rounded-full text-foreground"
                   onClick={shareProfile}
                   aria-label="Share profile"
                 >
@@ -318,8 +323,7 @@ export default function Profile() {
                       alt=""
                       loading="eager"
                       decoding="async"
-                      className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover [filter:none]"
-                      style={{ transform: "translateZ(0)", WebkitBackfaceVisibility: "hidden" }}
+                      className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover object-center [filter:none]"
                     />
                   ) : (
                     <div
@@ -404,7 +408,7 @@ export default function Profile() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-11 w-full rounded-2xl border-stone-200 font-semibold"
+                    className="h-11 w-full rounded-2xl border-border font-semibold"
                     onClick={() => setLocation("/profile/social/edit")}
                   >
                     <Pencil className="mr-2 h-4 w-4" />
@@ -413,7 +417,7 @@ export default function Profile() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-11 w-full rounded-2xl border-stone-200 font-semibold"
+                    className="h-11 w-full rounded-2xl border-border font-semibold"
                     onClick={() => setSecurityDialogOpen(true)}
                   >
                     Change password
@@ -457,7 +461,7 @@ export default function Profile() {
                     Onboarding is locked — open{" "}
                     <button
                       type="button"
-                      className="font-semibold text-[#722F37] underline decoration-[#722F37] decoration-2 underline-offset-[3px] hover:opacity-90"
+                      className="font-semibold text-primary underline decoration-primary decoration-2 underline-offset-[3px] hover:text-primary/90"
                       onClick={() => setLocation("/support")}
                     >
                       Help &amp; support
@@ -474,13 +478,13 @@ export default function Profile() {
                 description="Background and how we highlight groups for you."
               >
                 <div className="space-y-3">
-                  <div className="rounded-2xl bg-stone-50/90 px-3.5 py-3">
+                  <div className="rounded-2xl border border-border bg-muted/35 px-3.5 py-3">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background</p>
                     <p className="mt-1 text-sm font-bold text-foreground">
                       {user.religion ? getReligionLabel(user.religion) : "—"}
                     </p>
                   </div>
-                  <div className="rounded-2xl bg-stone-50/90 px-3.5 py-3">
+                  <div className="rounded-2xl border border-border bg-muted/35 px-3.5 py-3">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Community</p>
                     <p className="mt-1 text-sm font-bold text-foreground">
                       {user.meetPreference
@@ -549,7 +553,7 @@ export default function Profile() {
                         {user.lifestyle.map((v) => (
                           <span
                             key={v}
-                            className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                            className="rounded-lg border border-border bg-muted/45 px-2.5 py-1.5 text-xs font-semibold text-foreground"
                           >
                             {v}
                           </span>
@@ -580,7 +584,7 @@ export default function Profile() {
                   ].map((row) => (
                     <div
                       key={row.k}
-                      className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50/90 px-3.5 py-3"
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/35 px-3.5 py-3"
                     >
                       <span className="text-xs font-bold text-muted-foreground">{row.k}</span>
                       <span className="max-w-[60%] text-right text-sm font-bold text-foreground">{row.v}</span>
@@ -607,7 +611,7 @@ export default function Profile() {
                   ].map((row) => (
                     <div
                       key={row.k}
-                      className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50/90 px-3.5 py-3"
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/35 px-3.5 py-3"
                     >
                       <span className="text-xs font-bold text-muted-foreground">{row.k}</span>
                       <span className="max-w-[65%] text-right text-sm font-semibold text-foreground">
@@ -694,7 +698,7 @@ export default function Profile() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-9 rounded-xl border-stone-200"
+                        className="h-9 rounded-xl border-border"
                         onClick={() => removePartner.mutate()}
                         disabled={removePartner.isPending}
                       >

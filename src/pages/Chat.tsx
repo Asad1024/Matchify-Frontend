@@ -4,6 +4,8 @@ import { useLocation, useSearchParams } from "wouter";
 import { buildApiUrl, getAuthHeaders } from "@/services/api";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/common/Header";
+import { OPEN_GLOBAL_SEARCH_EVENT } from "@/components/common/GlobalSearch";
+import { LunaChatPanel } from "@/components/assistant/PersonalAssistantOverlay";
 import PageWrapper from "@/components/common/PageWrapper";
 import BottomNav from "@/components/common/BottomNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,6 +34,7 @@ import { useCurrentUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "next-themes";
 import { VoiceNoteRecorder } from "@/components/chat/VoiceNoteRecorder";
 import { VoiceMessagePlayer } from "@/components/chat/VoiceMessagePlayer";
 import { Icebreakers } from "@/components/chat/Icebreakers";
@@ -138,6 +141,7 @@ export default function Chat() {
   const [showIcebreakers, setShowIcebreakers] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [lunaExpanded, setLunaExpanded] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [confirmDialog, setConfirmDialog] = useState<
@@ -147,6 +151,7 @@ export default function Chat() {
   const { userId } = useCurrentUser();
   const { logout } = useAuth();
   const { toast } = useToast();
+  const { resolvedTheme } = useTheme();
   const lastToastMsgIdRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
@@ -665,18 +670,8 @@ export default function Chat() {
         <Header
           showSearch={true}
           title="Chat"
-          subtitle="Your conversations and new interests"
-          onSearch={(query) => {
-            const q = query.trim();
-            if (q) {
-              try {
-                sessionStorage.setItem("matchify_explore_search", q);
-              } catch {
-                /* ignore */
-              }
-              setLocation("/explore");
-            }
-          }}
+          subtitle="Messages and AI Luna"
+          onSearch={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
           onNotifications={() => setLocation("/notifications")}
           onCreate={() => setLocation("/")}
           onSettings={() => setLocation("/profile")}
@@ -699,6 +694,32 @@ export default function Chat() {
               >
                 Message requests
               </button>
+              <div className="mt-3 rounded-2xl border border-border/70 bg-gradient-to-br from-primary/10 to-violet-500/5 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">AI Luna</p>
+                    <p className="text-[11px] text-muted-foreground">Dating & relationship help</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={lunaExpanded ? "secondary" : "default"}
+                    className="shrink-0 rounded-full"
+                    onClick={() => setLunaExpanded((v) => !v)}
+                  >
+                    {lunaExpanded ? "Hide" : "Open"}
+                  </Button>
+                </div>
+                {lunaExpanded && userId ? (
+                  <div className="mt-3 h-[min(52vh,420px)] min-h-[280px] rounded-xl border border-border/60 bg-background/80 overflow-hidden">
+                    <LunaChatPanel
+                      assistantPathname="/chat"
+                      persistKey={`matchify-luna-chat-${userId}`}
+                      className="h-full min-h-0"
+                    />
+                  </div>
+                ) : null}
+              </div>
             </div>
             {/* Search */}
             <div className="px-4 py-3 border-b border-border/70">
@@ -747,9 +768,9 @@ export default function Chat() {
                       </div>
                       <button
                         className="mt-1 bg-primary text-primary-foreground text-sm font-semibold px-6 py-2.5 rounded-full shadow-2xs hover:bg-primary/90 transition-colors"
-                        onClick={() => setLocation('/explore')}
+                        onClick={() => setLocation("/")}
                       >
-                        Explore matches
+                        Open Matches
                       </button>
                     </>
                   )}
@@ -816,7 +837,7 @@ export default function Chat() {
                     <button
                       key={conv.id}
                       onClick={() => setSelectedChat(conv.id)}
-                      className="w-full px-4 py-3.5 flex items-center gap-3 text-left transition-colors hover:bg-[#F9FAFB] active:bg-gray-100"
+                      className="w-full px-4 py-3.5 flex items-center gap-3 text-left transition-colors hover:bg-muted/80 active:bg-muted"
                       data-testid={`conversation-${conv.id}`}
                     >
                       <div className="relative flex-shrink-0">
@@ -843,7 +864,7 @@ export default function Chat() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-0.5">
-                          <p className="text-[16px] font-semibold text-slate-900 truncate leading-tight">
+                          <p className="text-[16px] font-semibold text-foreground truncate leading-tight">
                             {otherUser?.name || 'Unknown User'}
                           </p>
                           <span className="text-[12px] text-slate-400 whitespace-nowrap flex-shrink-0">
@@ -868,7 +889,7 @@ export default function Chat() {
           </div>
         ) : (
           /* Chat Area */
-          <div className="flex flex-col flex-1 overflow-hidden bg-white min-h-0">
+          <div className="flex flex-col flex-1 overflow-hidden bg-card min-h-0">
             {/* Chat Header */}
             <div className="px-4 py-3 bg-card/70 backdrop-blur-md border-b border-border/70 flex items-center gap-3 shrink-0">
               <button
@@ -896,7 +917,7 @@ export default function Chat() {
                 ) : null}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 text-[15px] leading-tight truncate">
+                <p className="font-semibold text-foreground text-[15px] leading-tight truncate">
                   {selectedOtherUser?.name || "Unknown User"}
                 </p>
                 <p className="text-[12px] text-slate-500 font-medium truncate">
@@ -969,7 +990,7 @@ export default function Chat() {
                               className={`px-3.5 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
                                 isCurrentUser
                                   ? "bg-primary text-white rounded-[18px] rounded-br-[6px]"
-                                  : "bg-[#F2F3F5] text-slate-900 rounded-[18px] rounded-bl-[6px]"
+                                  : "bg-muted text-foreground rounded-[18px] rounded-bl-[6px]"
                               } ${!isEditing ? "cursor-context-menu touch-manipulation" : ""}`}
                             >
                           {isDeleted ? (
@@ -1263,7 +1284,7 @@ export default function Chat() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="border-t border-gray-100 bg-white"
+                  className="border-t border-border bg-card"
                 >
                   <Icebreakers
                     onSelect={(text: string) => {
@@ -1292,7 +1313,7 @@ export default function Chat() {
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       placeholder="Type a message..."
-                      className="flex-1 min-w-0 bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none py-0.5"
+                      className="flex-1 min-w-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none py-0.5"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -1320,7 +1341,7 @@ export default function Chat() {
                         sideOffset={8}
                       >
                         <EmojiPicker
-                          theme={Theme.LIGHT}
+                          theme={resolvedTheme === "dark" ? Theme.DARK : Theme.LIGHT}
                           lazyLoadEmojis
                           width={300}
                           height={340}

@@ -53,11 +53,12 @@ export default function CreateEvent() {
   const editEventId = searchParams.get("edit")?.trim() || "";
   const eventsBackPath = fromAdmin
     ? "/admin/events"
-    : searchParams.get("from") === "explore"
-      ? "/explore?tab=events"
+    : searchParams.get("from") === "explore" || searchParams.get("from") === "community"
+      ? "/community"
       : "/events";
   const returnFromExploreRef = useRef(false);
-  returnFromExploreRef.current = searchParams.get("from") === "explore";
+  returnFromExploreRef.current =
+    searchParams.get("from") === "explore" || searchParams.get("from") === "community";
   const { toast } = useToast();
   const { userId: currentUserId } = useCurrentUser();
   const { logout } = useAuth();
@@ -538,7 +539,7 @@ export default function CreateEvent() {
 
               {/* Cover image: upload + preview (same flow as posts) */}
               <div className="space-y-3 rounded-[22px] border border-stone-200 bg-stone-50/70 p-4">
-                <Label className="text-sm font-semibold text-slate-900">Cover image (optional)</Label>
+                <Label className="text-sm font-semibold text-foreground">Cover image (optional)</Label>
                 <input
                   ref={imageFileRef}
                   type="file"

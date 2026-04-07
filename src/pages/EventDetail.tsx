@@ -225,8 +225,9 @@ export default function EventDetail() {
 
   /** User-hosted events (not AI); admins use the admin console for AI-hosted events. */
   const showHostTab = Boolean(isHost && event && !event.aiGenerated);
-  const fromExplore = searchParams.get("from") === "explore";
-  const editEventHref = `/events/create?edit=${encodeURIComponent(eventId || "")}${fromExplore ? "&from=explore" : ""}`;
+  const fromExplore =
+    searchParams.get("from") === "explore" || searchParams.get("from") === "community";
+  const editEventHref = `/events/create?edit=${encodeURIComponent(eventId || "")}${fromExplore ? "&from=community" : ""}`;
 
   const eventTabsCount = useMemo(() => {
     let n = 2;
@@ -418,7 +419,7 @@ export default function EventDetail() {
       {event?.aiGenerated && !isHost && aiInvite?.status === "invited" && !isRSVPd ? (
         <div className="mx-auto max-w-lg px-4 pt-3">
           <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.08] to-violet-500/[0.06] p-4 shadow-sm">
-            <p className="text-sm font-semibold text-slate-900">You&apos;re invited</p>
+            <p className="text-sm font-semibold text-foreground">You&apos;re invited</p>
             <p className="mt-1 text-xs leading-relaxed text-slate-600">
               Matchify AI matched you with this meetup by interests and area. Accept to RSVP — then complete the
               short questionnaire like other events.
@@ -486,7 +487,7 @@ export default function EventDetail() {
                   setShowQuestionnaire(false);
                   await refetchQuestionnaire();
                   queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
-                  const suffix = fromExplore ? "?from=explore" : "";
+                  const suffix = fromExplore ? "?from=community" : "";
                   if (eventId) setLocation(`/event/${eventId}${suffix}`);
                 }}
                 onCancel={() => {
@@ -778,7 +779,7 @@ export default function EventDetail() {
                               setShowQuestionnaire(false);
                               await refetchQuestionnaire();
                               queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
-                              const suffix = fromExplore ? "?from=explore" : "";
+                              const suffix = fromExplore ? "?from=community" : "";
                               if (eventId) setLocation(`/event/${eventId}${suffix}`);
                             }}
                             onCancel={() => {

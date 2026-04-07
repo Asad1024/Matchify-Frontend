@@ -27,8 +27,8 @@ export default function Support() {
               <ShieldCheck className="h-5 w-5" strokeWidth={1.75} aria-hidden />
             </div>
             <div className="min-w-0">
-              <p className="text-[15px] font-semibold text-slate-900">Support center</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
+              <p className="text-[15px] font-semibold text-foreground">Support center</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
                 Use chat for quick FAQs, or email us for account issues and bug reports.
               </p>
             </div>
@@ -40,20 +40,20 @@ export default function Support() {
               className="group flex items-center justify-between rounded-[18px] border border-border/70 bg-card/60 px-4 py-3 text-left shadow-2xs transition hover:bg-card"
             >
               <span className="inline-flex items-center gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-muted/60 text-slate-700">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-muted/60 text-muted-foreground">
                   <Mail className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[14px] font-semibold text-slate-900">Email support</span>
-                  <span className="block text-[12px] text-slate-500">{supportEmail}</span>
+                  <span className="block text-[14px] font-semibold text-foreground">Email support</span>
+                  <span className="block text-[12px] text-muted-foreground">{supportEmail}</span>
                 </span>
               </span>
-              <ExternalLink className="h-4 w-4 text-slate-400" strokeWidth={1.75} aria-hidden />
+              <ExternalLink className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} aria-hidden />
             </a>
 
             <Button
               variant="outline"
-              className="h-11 justify-start rounded-[18px] border-border/70 bg-card/60 px-4 text-slate-800 shadow-2xs hover:bg-card"
+              className="h-11 justify-start rounded-[18px] border-border/70 bg-card/60 px-4 text-foreground shadow-2xs hover:bg-card"
               onClick={() => setLocation("/settings")}
             >
               <ChevronLeft className="mr-2 h-4 w-4 rotate-180" strokeWidth={1.75} aria-hidden />
@@ -62,7 +62,7 @@ export default function Support() {
 
             <Button
               variant="outline"
-              className="h-11 justify-start rounded-[18px] border-border/70 bg-card/60 px-4 text-slate-800 shadow-2xs hover:bg-card"
+              className="h-11 justify-start rounded-[18px] border-border/70 bg-card/60 px-4 text-foreground shadow-2xs hover:bg-card"
               onClick={() => {
                 const url = `${window.location.origin}${window.location.pathname}`;
                 window.open(

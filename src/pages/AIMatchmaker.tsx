@@ -119,16 +119,16 @@ export default function AIMatchmaker() {
             {hasBlueprint
               ? (
                 <>
-                  <span className="font-semibold text-slate-900">{`Hi ${firstName},`}</span>{" "}
-                  <span className="font-normal text-slate-600">{`one AI match per ${getAiMatchCooldownLabel()}.`}</span>
+                  <span className="font-semibold text-foreground">{`Hi ${firstName},`}</span>{" "}
+                  <span className="font-normal text-muted-foreground">{`one AI match per ${getAiMatchCooldownLabel()}.`}</span>
                 </>
               )
-              : `Hi ${firstName} — finish 30 questions once to unlock timed picks and smarter Discover.`}
+              : `Hi ${firstName} — finish 30 questions once to unlock timed picks and smarter matching in People.`}
           </p>
         </div>
 
         {!aiAllowed ? (
-          <Card className="mb-4 overflow-hidden rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-22px_rgba(15,23,42,0.14)]">
+          <Card className="mb-4 overflow-hidden rounded-[24px] border border-border bg-card shadow-md dark:shadow-[0_10px_30px_-22px_rgba(0,0,0,0.4)]">
             <CardContent className="p-5">
               <div className="font-display text-[16px] font-bold text-foreground">AI Matchmaker is a Plus feature</div>
               <div className="mt-1 text-[13px] leading-5 text-muted-foreground">
@@ -141,7 +141,11 @@ export default function AIMatchmaker() {
                 >
                   Upgrade
                 </Button>
-                <Button variant="outline" className="h-11 flex-1 rounded-full" onClick={() => setLocation("/menu")}>
+                <Button
+                  variant="outline"
+                  className="h-11 flex-1 rounded-full border-border bg-transparent hover:bg-muted/50"
+                  onClick={() => setLocation("/menu")}
+                >
                   Back
                 </Button>
               </div>
@@ -150,10 +154,10 @@ export default function AIMatchmaker() {
         ) : null}
 
         {!hasBlueprint && (
-          <Card className="mb-4 border-amber-200 bg-amber-50/60">
+          <Card className="mb-4 border-amber-400/60 bg-amber-50/60 dark:border-amber-800/50 dark:bg-amber-950/45">
             <CardContent className="flex items-start gap-3 p-4">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden />
-              <p className="text-sm leading-relaxed text-amber-900">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden />
+              <p className="text-sm leading-relaxed text-amber-900 dark:text-amber-200/90">
                 To activate AI Matchmaker, please complete and submit all 30 questions once. This one-time
                 questionnaire is required before personalized matches can be generated.
               </p>
@@ -166,7 +170,7 @@ export default function AIMatchmaker() {
           <Card className="mb-4 border-border">
             <CardContent className="p-4 text-center text-sm text-muted-foreground">
               <Button variant="ghost" className="text-primary" onClick={() => setLocation("/directory")}>
-                Open Discover
+                Open People
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             </CardContent>
@@ -177,13 +181,13 @@ export default function AIMatchmaker() {
         {hasBlueprint && aiAllowed && (
           <Card
             className={cn(
-              "mb-4 overflow-hidden rounded-[24px] border border-white/60 bg-white/75 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)] backdrop-blur-lg",
-              "ring-1 ring-black/[0.03]",
+              "mb-4 overflow-hidden rounded-[24px] border border-border bg-card shadow-md backdrop-blur-lg dark:shadow-[0_10px_30px_-18px_rgba(0,0,0,0.45)]",
+              "ring-1 ring-black/[0.03] dark:ring-white/[0.06]",
               ready ? "ring-primary/15" : "",
             )}
             data-testid="card-ai-match-cooldown"
           >
-            <CardContent className="space-y-3 p-4">
+            <CardContent className="relative space-y-3 overflow-hidden p-4">
               <div
                 className="pointer-events-none absolute inset-0"
                 aria-hidden
@@ -198,7 +202,7 @@ export default function AIMatchmaker() {
                   <Clock className="h-5 w-5 text-primary" aria-hidden strokeWidth={1.75} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Next AI match
                   </p>
                   <motion.div
@@ -209,9 +213,9 @@ export default function AIMatchmaker() {
                   >
                     {ready ? "Ready" : formatCountdown(msLeft)}
                   </motion.div>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {ready
-                      ? "Your match appears automatically in Discover — AI Matching."
+                      ? "Your match appears automatically in People — AI Matching."
                       : "Time remaining until your next pick."}
                   </p>
                 </div>
@@ -221,7 +225,7 @@ export default function AIMatchmaker() {
                 <Progress
                   value={cooldownProgress}
                   className={cn(
-                    "h-2 rounded-full bg-slate-200/70",
+                    "h-2 rounded-full bg-muted",
                     "[&>div]:rounded-full",
                     "[&>div]:bg-gradient-to-r [&>div]:from-[#722F37] [&>div]:to-[#B85A74]",
                   )}
@@ -232,22 +236,22 @@ export default function AIMatchmaker() {
                   "h-11 w-full rounded-full font-semibold",
                   ready
                     ? "shadow-sm"
-                    : "border border-[#F0F0F0] bg-transparent text-slate-700 shadow-none hover:bg-white/70",
+                    : "border border-border bg-transparent text-muted-foreground shadow-none hover:bg-muted/50",
                 )}
                 variant={ready ? "default" : "ghost"}
                 disabled={false}
-                onClick={() => setLocation("/directory?tab=curated")}
+                onClick={() => setLocation("/directory")}
                 data-testid="button-ai-reveal-matches"
               >
                 <Users className="mr-2 h-4 w-4" />
-                {ready ? "Open AI match in Discover" : `Wait ${formatCountdown(msLeft)}`}
+                {ready ? "Open People — AI Matching tab" : `Wait ${formatCountdown(msLeft)}`}
               </Button>
 
               {!ready ? (
-                <div className="flex items-center justify-between gap-3 rounded-[20px] border border-[#F0F0F0] bg-white/60 px-3 py-2 shadow-sm backdrop-blur-md">
+                <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border bg-muted/40 px-3 py-2 shadow-sm backdrop-blur-md">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-900">Notify me when ready</p>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600">
+                    <p className="text-xs font-semibold text-foreground">Notify me when ready</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
                       We’ll surface a reminder in-app (demo toggle).
                     </p>
                   </div>
@@ -260,7 +264,7 @@ export default function AIMatchmaker() {
                 className="w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
                 onClick={() => setLocation("/directory")}
               >
-                Browse Discover
+                Browse People
               </button>
             </CardContent>
           </Card>
@@ -269,8 +273,8 @@ export default function AIMatchmaker() {
         {/* Single action card */}
         <Card
           className={cn(
-            "mb-4 overflow-hidden rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]",
-            hasBlueprint ? "ring-1 ring-emerald-500/10 shadow-[0_14px_46px_-18px_rgba(16,185,129,0.18)]" : "",
+            "mb-4 overflow-hidden rounded-[24px] border border-border bg-card shadow-md dark:shadow-[0_14px_46px_-18px_rgba(0,0,0,0.4)]",
+            hasBlueprint ? "ring-1 ring-emerald-500/10 shadow-[0_14px_46px_-18px_rgba(16,185,129,0.18)] dark:shadow-[0_14px_46px_-18px_rgba(16,185,129,0.12)]" : "",
           )}
           data-testid="card-flow-combined"
         >
@@ -291,21 +295,21 @@ export default function AIMatchmaker() {
               </>
             ) : (
               <>
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 ring-1 ring-black/[0.04]">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                       Status
                     </p>
-                    <p className="font-display text-[16px] font-bold leading-tight text-slate-900">
+                    <p className="font-display text-[16px] font-bold leading-tight text-foreground">
                       Questionnaire saved
                     </p>
                   </div>
                 </div>
 
-                <p className="rounded-2xl border border-[#F0F0F0] bg-slate-50/80 px-4 py-3 text-sm leading-relaxed text-slate-600">
+                <p className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
                   To change your answers after submission, please{" "}
                   <button
                     type="button"
@@ -321,7 +325,7 @@ export default function AIMatchmaker() {
           </CardContent>
         </Card>
 
-        <p className="px-2 pb-4 text-center text-[12px] leading-[1.6] text-slate-500">
+        <p className="px-2 pb-4 text-center text-[12px] leading-[1.6] text-muted-foreground">
           AI uses only what you share. Answers are kept on file; use Support if you need them updated.
         </p>
       </PageWrapper>

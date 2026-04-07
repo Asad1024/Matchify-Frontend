@@ -24,8 +24,8 @@ export function LunaFab({ className }: { className?: string }) {
           whileTap={{ scale: 0.94 }}
           transition={{ type: "spring", stiffness: 420, damping: 32 }}
           className={cn(
-            "pointer-events-auto grid place-items-center h-12 w-12 rounded-full border-2 border-stone-200/80 bg-white text-stone-900",
-            "shadow-[0_14px_46px_-18px_rgba(15,23,42,0.45)] hover:glow-primary",
+            "pointer-events-auto grid place-items-center h-12 w-12 rounded-full border-2 border-border bg-card text-foreground",
+            "shadow-[0_14px_46px_-18px_rgba(15,23,42,0.45)] dark:shadow-[0_14px_46px_-12px_rgba(0,0,0,0.55)] hover:glow-primary",
           )}
           onClick={() => {
             try {

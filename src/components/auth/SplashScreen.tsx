@@ -19,6 +19,7 @@ import {
   Check,
 } from "lucide-react";
 import { BrandLogo } from "@/components/common/BrandLogo";
+import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
 import SubscriptionTier from "@/components/common/SubscriptionTier";
 import { SUBSCRIPTION_TIER_DEFINITIONS } from "@/lib/subscriptionPlans";
 import {
@@ -54,7 +55,7 @@ const WHY_ROWS = [
 
 const STEPS = [
   { n: "01", title: "Create your profile", desc: "Share values, lifestyle, and what you’re looking for." },
-  { n: "02", title: "Discover & connect", desc: "Explore, get matched, chat, and join groups when you’re ready." },
+  { n: "02", title: "Connect & explore", desc: "Explore, get matched, chat, and join groups when you’re ready." },
   { n: "03", title: "Meet IRL & grow", desc: "RSVP to events, book coaches, and use Luna for the long run." },
 ];
 
@@ -172,7 +173,7 @@ function PhoneMockup() {
               </div>
               <div className="flex min-h-0 flex-1 flex-col bg-gradient-to-b from-rose-50/90 via-white to-violet-50/50 px-2.5 pb-2.5 pt-0.5 sm:px-3 sm:pb-3 sm:pt-1">
                 <div className="mb-2 flex items-center justify-between sm:mb-2.5">
-                  <span className="text-[10px] font-bold tracking-wide text-zinc-800 sm:text-[11px]">Discover</span>
+                  <span className="text-[10px] font-bold tracking-wide text-zinc-800 sm:text-[11px]">Activity</span>
                   <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[8px] font-semibold text-primary shadow-sm ring-1 ring-zinc-100 sm:px-2 sm:text-[9px]">
                     For you
                   </span>
@@ -238,10 +239,10 @@ interface SplashScreenProps {
 
 export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: SplashScreenProps) {
   return (
-    <div className="min-h-screen bg-white flex flex-col overflow-x-hidden">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground">
       {/* ═══ HERO — premium split + glass nav ═══ */}
-      <section className="relative flex min-h-[min(100dvh,960px)] flex-col overflow-hidden bg-white text-primary">
-        <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/75">
+      <section className="relative flex min-h-[min(100dvh,960px)] flex-col overflow-hidden bg-background text-primary">
+        <header className="sticky top-0 z-50 border-b border-border bg-card/85 backdrop-blur-xl supports-[backdrop-filter]:bg-card/75">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-5 py-1 sm:px-8 sm:py-1 lg:px-12 xl:px-16">
             <a
               href="#"
@@ -286,10 +287,11 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
               >
                 Get Started
               </button>
+              <ThemeToggleButton className="hidden sm:inline-flex" />
             </div>
           </div>
           <nav
-            className="flex flex-wrap justify-center gap-x-3 gap-y-1 border-t border-zinc-100 bg-zinc-50/80 px-4 py-1.5 sm:px-8 lg:hidden"
+            className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-border bg-muted/35 px-4 py-1.5 sm:px-8 lg:hidden"
             aria-label="Page sections"
           >
             {HERO_NAV_LINKS.map(({ href, label }) => (
@@ -302,6 +304,7 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
                 Log in
               </button>
             )}
+            <ThemeToggleButton className="sm:hidden" />
           </nav>
         </header>
 
@@ -361,7 +364,7 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
                       height={40}
                       loading="lazy"
                       decoding="async"
-                      className="h-10 w-10 rounded-full border-2 border-white object-cover ring-2 ring-primary/20 shadow-sm"
+                      className="h-10 w-10 rounded-full border-2 border-background object-cover shadow-sm ring-2 ring-primary/20"
                       style={{ zIndex: HERO_SOCIAL_AVATARS.length - i }}
                     />
                   ))}
@@ -392,18 +395,20 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
       </section>
 
       {/* ═══ STATS STRIP — full-width bar like Muzz trust row ═══ */}
-      <section id="stats" className="scroll-mt-28 border-y border-zinc-100 bg-zinc-50/80">
-        <div className="max-w-6xl mx-auto px-5 py-8 sm:py-10">
-          <div className="grid grid-cols-3 gap-4 sm:gap-8 divide-x divide-zinc-200/80">
+      <section id="stats" className="scroll-mt-28 border-y border-border bg-muted/35">
+        <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
+          <div className="grid grid-cols-3 gap-4 divide-x divide-border/80 sm:gap-8">
             {STATS.map(({ value, label, star }) => (
-              <div key={label} className="text-center px-2 first:pl-0 last:pr-0">
+              <div key={label} className="px-2 text-center first:pl-0 last:pr-0">
                 <div className="flex items-center justify-center gap-1">
-                  {star && <Star className="w-5 h-5 fill-amber-400 text-amber-400 hidden sm:block" />}
-                  <p className="font-display font-bold text-2xl sm:text-3xl md:text-4xl text-zinc-900 tracking-tight">
+                  {star && <Star className="hidden h-5 w-5 fill-amber-400 text-amber-400 sm:block" />}
+                  <p className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
                     {value}
                   </p>
                 </div>
-                <p className="text-[10px] sm:text-xs font-semibold text-zinc-500 uppercase tracking-wide mt-1">{label}</p>
+                <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-xs">
+                  {label}
+                </p>
               </div>
             ))}
           </div>
@@ -411,7 +416,7 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
       </section>
 
       {/* ═══ PRICING — same tier cards as in-app subscriptions ═══ */}
-      <section id="pricing" className="scroll-mt-28 border-y border-zinc-100 bg-white py-14 sm:py-20">
+      <section id="pricing" className="scroll-mt-28 border-y border-border bg-background py-14 sm:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -419,10 +424,10 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
             viewport={{ once: true }}
             className="mx-auto mb-10 max-w-2xl text-center sm:mb-12"
           >
-            <h2 className="font-display text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+            <h2 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Simple pricing
             </h2>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-600 sm:text-base">
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
               Honest limits for Luna and AI Matchmaker — upgrade when you are ready. Full checkout after you create an
               account.
             </p>
@@ -446,7 +451,7 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
             ))}
           </div>
           {onViewPlans ? (
-            <p className="mt-8 text-center text-sm text-zinc-600">
+            <p className="mt-8 text-center text-sm text-muted-foreground">
               <button
                 type="button"
                 onClick={onViewPlans}
@@ -465,15 +470,15 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center max-w-2xl mx-auto mb-14 sm:mb-16"
+          className="mx-auto mb-14 max-w-2xl text-center sm:mb-16"
         >
-          <h2 className="font-display font-bold text-3xl sm:text-4xl md:text-[2.5rem] text-zinc-900 tracking-tight leading-tight">
+          <h2 className="font-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-[2.5rem]">
             Built for something real.
           </h2>
-          <p className="mt-3 text-zinc-500 text-sm sm:text-base">Not another endless swipe — a full journey in one app.</p>
+          <p className="mt-3 text-sm text-muted-foreground sm:text-base">Not another endless swipe — a full journey in one app.</p>
         </motion.div>
 
-        <div className="space-y-0 divide-y divide-zinc-100 border-y border-zinc-100">
+        <div className="space-y-0 divide-y divide-border border-y border-border">
           {WHY_ROWS.map(({ icon: Icon, title, line }, i) => (
             <motion.div
               key={title}
@@ -487,8 +492,8 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
                 <Icon className="w-7 h-7 text-primary" strokeWidth={2} />
               </div>
               <div className="text-center sm:text-left">
-                <h3 className="font-display font-bold text-xl sm:text-2xl text-zinc-900 tracking-tight">{title}</h3>
-                <p className="mt-2 text-sm sm:text-base text-zinc-600 leading-relaxed max-w-xl sm:max-w-none mx-auto sm:mx-0">
+                <h3 className="font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl">{title}</h3>
+                <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground sm:mx-0 sm:max-w-none sm:text-base">
                   {line}
                 </p>
               </div>
@@ -498,9 +503,9 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
       </section>
 
       {/* ═══ HOW IT WORKS — numbered steps (Muzz rhythm) ═══ */}
-      <section id="how-it-works" className="scroll-mt-28 border-y border-zinc-100 bg-zinc-50 py-16 sm:py-20">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8">
-          <h2 className="font-display font-bold text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-12 sm:mb-14">
+      <section id="how-it-works" className="scroll-mt-28 border-y border-border bg-muted/30 py-16 sm:py-20">
+        <div className="mx-auto max-w-6xl px-5 sm:px-8">
+          <h2 className="mb-12 text-center font-display text-3xl font-bold tracking-tight text-foreground sm:mb-14 sm:text-4xl">
             How it works
           </h2>
           <div className="grid md:grid-cols-3 gap-8 md:gap-6">
@@ -511,11 +516,13 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
-                className="relative bg-white rounded-3xl p-8 shadow-sm border border-zinc-100 text-center md:text-left"
+                className="relative rounded-3xl border border-border bg-card p-8 text-center shadow-sm md:text-left"
               >
-                <span className="font-display font-bold text-5xl text-primary/20 leading-none">{n}</span>
-                <h3 className="font-display font-bold text-lg sm:text-xl text-zinc-900 mt-4 tracking-tight">{title}</h3>
-                <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{desc}</p>
+                <span className="font-display text-5xl font-bold leading-none text-primary/30 dark:text-muted-foreground">
+                  {n}
+                </span>
+                <h3 className="mt-4 font-display text-lg font-bold tracking-tight text-foreground sm:text-xl">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{desc}</p>
               </motion.div>
             ))}
           </div>
@@ -605,12 +612,12 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
       </section>
 
       {/* ═══ STORIES ═══ */}
-      <section className="bg-zinc-50 border-t border-zinc-100 py-16 sm:py-20">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8">
-          <h2 className="font-display font-bold text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-3">
+      <section className="border-t border-border bg-muted/30 py-16 sm:py-20">
+        <div className="mx-auto max-w-6xl px-5 sm:px-8">
+          <h2 className="mb-3 text-center font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Real stories
           </h2>
-          <p className="text-center text-zinc-500 text-sm mb-12">From members who wanted more than a casual chat</p>
+          <p className="mb-12 text-center text-sm text-muted-foreground">From members who wanted more than a casual chat</p>
           <div className="grid md:grid-cols-3 gap-6">
             {TESTIMONIALS.map(({ name, quote, avatar }, i) => (
               <motion.div
@@ -619,19 +626,19 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.06 }}
-                className="bg-white rounded-3xl p-6 sm:p-8 border border-zinc-100 shadow-sm"
+                className="rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8"
               >
-                <div className="flex gap-1 mb-4">
+                <div className="mb-4 flex gap-1">
                   {[1, 2, 3, 4, 5].map((j) => (
-                    <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <Star key={j} className="h-4 w-4 fill-amber-400 text-amber-400" />
                   ))}
                 </div>
-                <p className="text-zinc-800 text-sm sm:text-base leading-relaxed font-medium">&ldquo;{quote}&rdquo;</p>
+                <p className="text-sm font-medium leading-relaxed text-foreground sm:text-base">&ldquo;{quote}&rdquo;</p>
                 <div className="mt-6 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center font-bold text-primary text-xs">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
                     {avatar}
                   </div>
-                  <span className="font-bold text-zinc-900 text-sm">{name}</span>
+                  <span className="text-sm font-bold text-foreground">{name}</span>
                 </div>
               </motion.div>
             ))}
@@ -640,18 +647,18 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
       </section>
 
       {/* ═══ FAQ — Muzz-style accordion ═══ */}
-      <section className="max-w-2xl mx-auto px-5 sm:px-8 py-16 sm:py-20">
-        <h2 className="font-display font-bold text-3xl sm:text-4xl text-zinc-900 text-center tracking-tight mb-2">
+      <section className="mx-auto w-full max-w-2xl overflow-x-hidden px-5 py-16 sm:px-8 sm:py-20">
+        <h2 className="mb-2 text-center font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
           Questions
         </h2>
-        <p className="text-center text-zinc-500 text-sm mb-8">Quick answers before you join</p>
-        <Accordion type="single" collapsible className="w-full">
+        <p className="mb-8 text-center text-sm text-muted-foreground">Quick answers before you join</p>
+        <Accordion type="single" collapsible className="w-full min-w-0">
           {FAQ_ITEMS.map(({ q, a }, i) => (
-            <AccordionItem key={q} value={`item-${i}`} className="border-zinc-200">
-              <AccordionTrigger className="text-left font-bold text-zinc-900 text-sm sm:text-base hover:no-underline py-5">
-                {q}
+            <AccordionItem key={q} value={`item-${i}`} className="w-full min-w-0 border-border">
+              <AccordionTrigger className="items-start gap-3 py-5 text-left text-sm font-bold text-foreground hover:no-underline sm:text-base [&>svg]:mt-1">
+                <span className="min-w-0 flex-1 break-words pr-1">{q}</span>
               </AccordionTrigger>
-              <AccordionContent className="text-zinc-600 text-sm leading-relaxed pb-5">{a}</AccordionContent>
+              <AccordionContent className="pb-5 text-sm leading-relaxed text-muted-foreground">{a}</AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
@@ -668,7 +675,7 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
           viewport={{ once: true }}
           className="max-w-lg mx-auto space-y-4"
         >
-          <div className="inline-flex items-center bg-white/95 rounded-2xl px-5 py-2.5 shadow-md mx-auto">
+          <div className="mx-auto inline-flex items-center rounded-2xl bg-card/95 px-5 py-2.5 shadow-md ring-1 ring-border/50">
             <BrandLogo
               className="h-14 w-auto max-w-[min(85vw,15rem)] object-contain sm:h-16 sm:max-w-[18rem] md:h-[4.25rem] md:max-w-[22rem]"
               alt="Matchify"
@@ -680,7 +687,7 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
           <p className="text-white/75 text-sm sm:text-base">No credit card to create your account.</p>
           <Button
             size="lg"
-            className="h-14 rounded-2xl bg-white text-primary font-bold text-base px-10 shadow-xl hover:bg-zinc-50"
+            className="h-14 rounded-2xl bg-primary-foreground px-10 text-base font-bold text-primary shadow-xl hover:bg-primary-foreground/90"
             onClick={onGetStarted}
           >
             Create free account

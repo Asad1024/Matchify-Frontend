@@ -77,7 +77,7 @@ export default function SwipeableEventCard({
     >
       <Card
         className={cn(
-          "flex max-h-[min(82vh,640px)] flex-col overflow-hidden rounded-[28px] border border-[#F0F0F0] bg-white shadow-[0_18px_60px_-28px_rgba(15,23,42,0.35)]",
+          "flex max-h-[min(82vh,640px)] flex-col overflow-hidden rounded-[28px] border border-border bg-card shadow-[0_18px_60px_-28px_rgba(15,23,42,0.35)] dark:shadow-[0_18px_60px_-28px_rgba(0,0,0,0.55)]",
         )}
       >
         <div className="relative isolate min-h-[220px] shrink-0 basis-[min(42vh,300px)] overflow-hidden sm:min-h-[260px] sm:basis-[min(44vh,320px)]">

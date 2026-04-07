@@ -343,18 +343,18 @@ export default function SocialUserProfile() {
               type="button"
               variant="ghost"
               size="icon"
-              className="h-11 w-11 shrink-0 rounded-full text-stone-800 hover:bg-stone-100/90"
+              className="h-11 w-11 shrink-0 rounded-full text-foreground hover:bg-muted/60"
               onClick={goBack}
               aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="truncate font-display text-[15px] font-bold text-stone-900">Profile</h1>
+            <h1 className="truncate font-display text-[15px] font-bold text-foreground">Profile</h1>
           </div>
         </div>
         <div className="mx-auto max-w-lg px-3 pt-6">
           <div className="matchify-surface p-8 text-center">
-            <p className="font-display text-lg font-semibold text-stone-900">You&apos;ve blocked this account</p>
+            <p className="font-display text-lg font-semibold text-foreground">You&apos;ve blocked this account</p>
             <p className="mt-2 text-sm text-muted-foreground">
               Their profile stays hidden until you unblock them in Settings → Feed preferences.
             </p>
@@ -387,20 +387,20 @@ export default function SocialUserProfile() {
             type="button"
             variant="ghost"
             size="icon"
-            className="h-11 w-11 shrink-0 rounded-full text-stone-800 hover:bg-stone-100/90"
+            className="h-11 w-11 shrink-0 rounded-full text-foreground hover:bg-muted/60"
             onClick={goBack}
             aria-label="Back"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="truncate font-display text-[15px] font-bold text-stone-900">{user.name}</h1>
+          <h1 className="truncate font-display text-[15px] font-bold text-foreground">{user.name}</h1>
         </div>
       </div>
 
       <div className="mx-auto w-full max-w-lg px-3 pt-2">
         <div className="matchify-surface p-5">
           <div className="flex items-start gap-4">
-            <Avatar className="h-20 w-20 shrink-0 border-[3px] border-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.28)] ring-1 ring-black/[0.04]">
+            <Avatar className="h-20 w-20 shrink-0 border-[3px] border-background shadow-[0_10px_30px_-18px_rgba(15,23,42,0.28)] ring-1 ring-black/[0.04]">
               <AvatarImage src={user.avatar || undefined} alt="" className="object-cover" />
               <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-xl font-semibold text-primary">
                 {user.name?.slice(0, 2).toUpperCase() || "?"}
@@ -410,44 +410,44 @@ export default function SocialUserProfile() {
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate font-display text-[18px] font-bold leading-tight text-stone-900">
+                  <p className="truncate font-display text-[18px] font-bold leading-tight text-foreground">
                     {user.name}
                   </p>
-                  <p className="mt-1 truncate text-[13px] font-medium text-slate-500">@{user.username}</p>
+                  <p className="mt-1 truncate text-[13px] font-medium text-muted-foreground">@{user.username}</p>
                 </div>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div className="rounded-[18px] border border-border/70 bg-card/60 px-3 py-2 text-center shadow-2xs">
-                  <p className="text-[15px] font-bold tabular-nums leading-none text-slate-900">
+                  <p className="text-[15px] font-bold tabular-nums leading-none text-foreground">
                     {String(followerCount)}
                   </p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Followers
                   </p>
                 </div>
                 <div className="rounded-[18px] border border-border/70 bg-card/60 px-3 py-2 text-center shadow-2xs">
-                  <p className="text-[15px] font-bold tabular-nums leading-none text-slate-900">
+                  <p className="text-[15px] font-bold tabular-nums leading-none text-foreground">
                     {String(followingCount)}
                   </p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Following
                   </p>
                 </div>
               </div>
 
               {country ? (
-                <p className="mt-3 flex items-start gap-1.5 text-sm font-medium text-slate-600">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.75} aria-hidden />
+                <p className="mt-3 flex items-start gap-1.5 text-sm font-medium text-muted-foreground">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/70" strokeWidth={1.75} aria-hidden />
                   <span className="leading-snug">{country}</span>
                 </p>
               ) : null}
-              <p className="mt-1 flex items-start gap-1.5 text-xs text-slate-500">
+              <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.75} aria-hidden />
                 <span className="leading-snug">{joinedLabel}</span>
               </p>
 
-              <p className="mt-3 text-[14px] leading-relaxed text-slate-700">
+              <p className="mt-3 text-[14px] leading-relaxed text-foreground/90">
                 {user.bio?.trim() || "No bio yet."}
               </p>
 
@@ -471,7 +471,7 @@ export default function SocialUserProfile() {
                       chatPair?.outgoingStatus === "accepted" &&
                         "border-transparent bg-primary text-primary-foreground hover:bg-primary/90",
                       (chatPair?.outgoingStatus === "none" || chatPair?.outgoingStatus === "declined") &&
-                        "border-stone-200 bg-white text-stone-900",
+                        "border-border bg-background text-foreground",
                     )}
                     disabled={chatPair?.outgoingStatus === "pending"}
                     onClick={() => {
@@ -513,17 +513,17 @@ export default function SocialUserProfile() {
 
         <div className="mt-4">
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
-            <TabsList className="flex h-auto w-full gap-1 overflow-x-auto rounded-full bg-stone-200/40 p-1.5 shadow-[inset_0_1px_4px_rgba(15,23,42,0.05)] scrollbar-hide">
-              <TabsTrigger value="posts" className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-stone-500 data-[state=active]:bg-white data-[state=active]:text-stone-900">
+            <TabsList className="flex h-auto w-full gap-1 overflow-x-auto rounded-full border border-border/60 bg-muted/50 p-1.5 shadow-inner scrollbar-hide dark:bg-muted/35">
+              <TabsTrigger value="posts" className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-muted-foreground transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground">
                 Posts
               </TabsTrigger>
-              <TabsTrigger value="comments" className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-stone-500 data-[state=active]:bg-white data-[state=active]:text-stone-900">
+              <TabsTrigger value="comments" className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-muted-foreground transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground">
                 Comments
               </TabsTrigger>
-              <TabsTrigger value="likes" className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-stone-500 data-[state=active]:bg-white data-[state=active]:text-stone-900">
+              <TabsTrigger value="likes" className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-muted-foreground transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground">
                 Likes
               </TabsTrigger>
-              <TabsTrigger value="groups" className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-stone-500 data-[state=active]:bg-white data-[state=active]:text-stone-900">
+              <TabsTrigger value="groups" className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-muted-foreground transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground">
                 Groups
               </TabsTrigger>
             </TabsList>
@@ -532,10 +532,10 @@ export default function SocialUserProfile() {
               {postsLoading ? (
                 <LoadingState message="Loading posts…" showMascot />
               ) : userPosts.length === 0 ? (
-                <div className="rounded-3xl border border-stone-100/90 bg-white px-6 py-14 text-center shadow-sm">
+                <div className="rounded-3xl border border-border bg-card px-6 py-14 text-center shadow-sm">
                   <Users className="mx-auto h-7 w-7 text-primary/60" strokeWidth={1.75} />
-                  <p className="mt-3 font-display text-base font-bold text-stone-900">No posts yet</p>
-                  <p className="mt-2 text-sm text-stone-500">When they post, it’ll show up here.</p>
+                  <p className="mt-3 font-display text-base font-bold text-foreground">No posts yet</p>
+                  <p className="mt-2 text-sm text-muted-foreground">When they post, it’ll show up here.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -577,10 +577,10 @@ export default function SocialUserProfile() {
 
             <TabsContent value="comments" className="mt-5 px-1 data-[state=inactive]:hidden">
               {commentActivity.length === 0 ? (
-                <div className="rounded-3xl border border-stone-100/90 bg-white px-6 py-14 text-center shadow-sm">
+                <div className="rounded-3xl border border-border bg-card px-6 py-14 text-center shadow-sm">
                   <MessageCircle className="mx-auto h-7 w-7 text-primary/60" strokeWidth={1.75} />
-                  <p className="mt-3 font-display text-base font-bold text-stone-900">No comments yet</p>
-                  <p className="mt-2 text-sm text-stone-500">No recent public comments found.</p>
+                  <p className="mt-3 font-display text-base font-bold text-foreground">No comments yet</p>
+                  <p className="mt-2 text-sm text-muted-foreground">No recent public comments found.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -589,11 +589,11 @@ export default function SocialUserProfile() {
                       key={`${post.id}-${comment.id}`}
                       type="button"
                       onClick={() => setLocation(`/community/post/${encodeURIComponent(post.id)}`)}
-                      className="w-full rounded-[24px] border border-stone-200 bg-white p-4 text-left shadow-sm"
+                      className="w-full rounded-[24px] border border-border bg-card p-4 text-left shadow-sm"
                     >
-                      <p className="text-xs font-semibold text-slate-500">Comment</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{comment.content}</p>
-                      <p className="mt-2 text-xs text-slate-500 line-clamp-2">{post.content}</p>
+                      <p className="text-xs font-semibold text-muted-foreground">Comment</p>
+                      <p className="mt-1 text-sm font-medium text-foreground">{comment.content}</p>
+                      <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{post.content}</p>
                     </button>
                   ))}
                 </div>
@@ -602,10 +602,10 @@ export default function SocialUserProfile() {
 
             <TabsContent value="likes" className="mt-5 px-1 data-[state=inactive]:hidden">
               {likedPostsDisplay.length === 0 ? (
-                <div className="rounded-3xl border border-stone-100/90 bg-white px-6 py-14 text-center shadow-sm">
+                <div className="rounded-3xl border border-border bg-card px-6 py-14 text-center shadow-sm">
                   <Heart className="mx-auto h-7 w-7 text-primary/60" strokeWidth={1.75} />
-                  <p className="mt-3 font-display text-base font-bold text-stone-900">No likes to show</p>
-                  <p className="mt-2 text-sm text-stone-500">Liked posts will appear here.</p>
+                  <p className="mt-3 font-display text-base font-bold text-foreground">No likes to show</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Liked posts will appear here.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -647,10 +647,10 @@ export default function SocialUserProfile() {
 
             <TabsContent value="groups" className="mt-5 px-1 data-[state=inactive]:hidden">
               {memberGroups.length === 0 ? (
-                <div className="rounded-3xl border border-stone-100/90 bg-white px-6 py-14 text-center shadow-sm">
+                <div className="rounded-3xl border border-border bg-card px-6 py-14 text-center shadow-sm">
                   <Users className="mx-auto h-7 w-7 text-primary/60" strokeWidth={1.75} />
-                  <p className="mt-3 font-display text-base font-bold text-stone-900">No groups yet</p>
-                  <p className="mt-2 text-sm text-stone-500">Groups they join will show here.</p>
+                  <p className="mt-3 font-display text-base font-bold text-foreground">No groups yet</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Groups they join will show here.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -660,12 +660,12 @@ export default function SocialUserProfile() {
                       type="button"
                       onClick={() => setLocation(`/group/${g.id}`)}
                       className={cn(
-                        "w-full rounded-[24px] border border-stone-200 bg-white p-4 text-left shadow-sm",
-                        "hover:bg-stone-50",
+                        "w-full rounded-[24px] border border-border bg-card p-4 text-left shadow-sm",
+                        "hover:bg-muted/50",
                       )}
                     >
-                      <p className="font-semibold text-slate-900">{g.name}</p>
-                      <p className="mt-1 text-xs text-slate-500 line-clamp-2">{g.description}</p>
+                      <p className="font-semibold text-foreground">{g.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{g.description}</p>
                     </button>
                   ))}
                 </div>

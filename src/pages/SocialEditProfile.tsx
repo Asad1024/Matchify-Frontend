@@ -263,9 +263,9 @@ export default function SocialEditProfile() {
     return (
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
           {locked ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
               <Lock className="h-3.5 w-3.5" strokeWidth={1.75} />
               Locked
             </span>
@@ -274,7 +274,7 @@ export default function SocialEditProfile() {
         <div className="rounded-[18px] border border-border/70 bg-card/60 px-3 py-2.5 shadow-2xs focus-within:bg-primary/[0.04]">
           {children}
         </div>
-        {helper ? <p className="text-[11px] leading-relaxed text-slate-500">{helper}</p> : null}
+        {helper ? <p className="text-[11px] leading-relaxed text-muted-foreground">{helper}</p> : null}
       </div>
     );
   }
@@ -296,7 +296,7 @@ export default function SocialEditProfile() {
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <h1 className="flex-1 text-center font-display text-[15px] font-bold text-stone-900">Edit Profile</h1>
+          <h1 className="flex-1 text-center font-display text-[15px] font-bold text-foreground">Edit Profile</h1>
           <div className="w-10 shrink-0" aria-hidden />
         </div>
       </div>
@@ -310,7 +310,7 @@ export default function SocialEditProfile() {
             Onboarding is locked here — open{" "}
             <button
               type="button"
-              className="font-semibold text-[#722F37] underline decoration-[#722F37] decoration-2 underline-offset-[3px] hover:opacity-90"
+              className="font-semibold text-primary underline decoration-primary decoration-2 underline-offset-[3px] hover:text-primary/90"
               onClick={() => setLocation("/support")}
             >
               Help &amp; support
@@ -323,9 +323,9 @@ export default function SocialEditProfile() {
         <ProfilePreviewCard
           icon={Camera}
           title="Photos"
-          description="Main photo plus up to four gallery shots — same layout as your marriage profile preview. Photos save as soon as you add or change them."
+          description="Main photo plus up to four gallery shots — same layout as your Matches profile preview. Photos save as soon as you add or change them."
         >
-          <div className="flex justify-center rounded-2xl bg-stone-50/80 py-4">
+          <div className="flex justify-center rounded-2xl bg-muted/40 py-4">
             <PhotoUpload
               suppressSuccessToast
               currentPhoto={user.avatar || null}
@@ -338,7 +338,7 @@ export default function SocialEditProfile() {
               label="Change main photo"
             />
           </div>
-          <div className="mt-4 rounded-2xl border border-stone-100 bg-stone-50/50 p-3">
+          <div className="mt-4 rounded-2xl border border-border bg-muted/30 p-3">
             <PhotoUpload
               photos={gallery}
               onPhotosChange={(next) => persistGallery(next)}
@@ -347,7 +347,7 @@ export default function SocialEditProfile() {
               suppressSuccessToast
               multiAddLabel="Upload"
             />
-            <div className="mt-3 flex justify-center border-t border-stone-200/80 pt-3">
+            <div className="mt-3 flex justify-center border-t border-border pt-3">
               <Button
                 type="button"
                 variant="ghost"
@@ -364,7 +364,7 @@ export default function SocialEditProfile() {
 
         {/* Public info */}
         <div className="matchify-surface border-white/0 bg-card/70 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Public info</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Public info</p>
           <div className="mt-3 space-y-4">
             <FloatingField
               label="Name"
@@ -375,7 +375,7 @@ export default function SocialEditProfile() {
                 value={form.name}
                 disabled={nameLocked}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="h-11 rounded-2xl border-0 bg-transparent px-3 py-2 text-[15px] font-medium text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-80"
+                className="h-11 rounded-2xl border-0 bg-transparent px-3 py-2 text-[15px] font-medium text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-80"
               />
             </FloatingField>
 
@@ -388,7 +388,7 @@ export default function SocialEditProfile() {
                 value={form.username}
                 disabled={usernameLocked}
                 onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                className="h-11 rounded-2xl border-0 bg-transparent px-3 py-2 text-[15px] font-medium text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-80"
+                className="h-11 rounded-2xl border-0 bg-transparent px-3 py-2 text-[15px] font-medium text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-80"
               />
             </FloatingField>
 
@@ -397,7 +397,7 @@ export default function SocialEditProfile() {
                 value={form.bio}
                 onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
                 rows={4}
-                className="min-h-[120px] resize-y rounded-2xl border-0 bg-transparent px-3.5 py-2.5 text-[15px] leading-relaxed text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="min-h-[120px] resize-y rounded-2xl border-0 bg-transparent px-3.5 py-2.5 text-[15px] leading-relaxed text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 maxLength={500}
               />
             </FloatingField>
@@ -466,7 +466,7 @@ export default function SocialEditProfile() {
                 />
               </div>
             </div>
-            <p className="text-[11px] leading-relaxed text-slate-500">
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
               Tip: use a direct image link ending with <span className="font-semibold">.jpg</span> or{" "}
               <span className="font-semibold">.png</span>.
             </p>

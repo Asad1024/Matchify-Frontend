@@ -9,7 +9,7 @@ interface FeedFilterPillsProps {
   onChange: (id: string) => void;
   groups?: FeedGroupChip[];
   className?: string;
-  /** When set with no `groups`, pills split the row evenly (e.g. Discover → My history). */
+  /** When set with no `groups`, pills split the row evenly (e.g. Activity → My history). */
   variant?: "default" | "equalWidth";
 }
 
@@ -46,7 +46,7 @@ export default function FeedFilterPills({
               onClick={() => onChange(f.id)}
               className={cn(
                 "items-center justify-center rounded-full px-2 py-1.5 text-xs font-medium tracking-[0.2px] transition sm:px-3",
-                "border border-[#F0F0F0] bg-white text-slate-600 hover:bg-slate-900/[0.03]",
+                "border border-border bg-muted/40 text-muted-foreground hover:bg-muted/60",
                 active &&
                   "border-transparent bg-primary text-primary-foreground shadow-[0_10px_30px_-18px_rgba(114,47,55,0.35)]",
                 equalWidth
@@ -61,7 +61,7 @@ export default function FeedFilterPills({
 
         {groups.length > 0 ? (
           <div className="flex shrink-0 items-center px-1" aria-hidden>
-            <div className="h-6 w-px bg-[#F0F0F0]" />
+            <div className="h-6 w-px bg-border" />
           </div>
         ) : null}
 
@@ -72,7 +72,7 @@ export default function FeedFilterPills({
             onClick={g.onClick}
             className={cn(
               "max-w-[10rem] flex-shrink-0 truncate rounded-full px-4 py-1.5 text-xs font-medium tracking-[0.2px] transition",
-              "border border-[#F0F0F0] bg-white text-slate-600 hover:bg-slate-900/[0.03] hover:border-slate-200 hover:text-slate-900",
+              "border border-border bg-muted/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             )}
           >
             {g.name}

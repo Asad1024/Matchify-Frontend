@@ -63,14 +63,16 @@ export default function Subscriptions() {
       />
 
       <div className="mx-auto max-w-lg px-3 pt-2">
-        <div className="mb-3 matchify-surface bg-primary/5 px-4 py-3">
+        <div className="mb-3 matchify-surface bg-primary/5 px-4 py-3 dark:bg-primary/10">
           <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-primary/10">
+            <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-card shadow-sm ring-1 ring-border">
               <Info className="h-4 w-4 text-primary" />
             </span>
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-slate-900">7-day money-back guarantee</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-slate-600">Cancel anytime. Your plan stays active until the end of the billing period.</p>
+              <p className="text-[13px] font-semibold text-foreground">7-day money-back guarantee</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                Cancel anytime. Your plan stays active until the end of the billing period.
+              </p>
             </div>
           </div>
         </div>
@@ -150,26 +152,26 @@ export default function Subscriptions() {
         </div>
 
         <div className="mt-8 matchify-surface p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">FAQ</p>
-          <h2 className="mt-2 font-display text-xl font-bold tracking-tight text-slate-900">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">FAQ</p>
+          <h2 className="mt-2 font-display text-xl font-bold tracking-tight text-foreground">
             Frequently Asked Questions
           </h2>
           <div className="mt-4 space-y-4">
-            <div className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
-              <h3 className="text-sm font-semibold text-slate-900">Can I cancel anytime?</h3>
-              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+            <div className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3 dark:bg-card/80">
+              <h3 className="text-sm font-semibold text-foreground">Can I cancel anytime?</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 Yes. You’ll keep access to premium features until the end of your billing period.
               </p>
             </div>
-            <div className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
-              <h3 className="text-sm font-semibold text-slate-900">What payment methods do you accept?</h3>
-              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+            <div className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3 dark:bg-card/80">
+              <h3 className="text-sm font-semibold text-foreground">What payment methods do you accept?</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 Major credit/debit cards and supported digital payment methods (via Stripe when enabled).
               </p>
             </div>
-            <div className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
-              <h3 className="text-sm font-semibold text-slate-900">Can I upgrade or downgrade?</h3>
-              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+            <div className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3 dark:bg-card/80">
+              <h3 className="text-sm font-semibold text-foreground">Can I upgrade or downgrade?</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 Yes. Upgrades apply immediately; downgrades apply at the end of the current cycle.
               </p>
             </div>

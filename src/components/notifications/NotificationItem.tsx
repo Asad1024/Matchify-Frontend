@@ -58,9 +58,12 @@ const COLOR_MAP: Record<NotificationType, string> = {
   match: "bg-primary/10 text-primary",
   curated_match: "bg-primary/10 text-primary",
   message: "bg-primary/10 text-primary",
-  event: "bg-amber-100 text-amber-500",
-  ai_event_invite: "bg-violet-100 text-violet-600",
-  system: "bg-gray-100 text-gray-500",
+  event:
+    "bg-amber-100 text-amber-600 dark:bg-amber-950/55 dark:text-amber-300",
+  ai_event_invite:
+    "bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300",
+  system:
+    "bg-muted text-muted-foreground dark:bg-muted/80 dark:text-muted-foreground",
   marriage_chat_request: "bg-primary/10 text-primary",
   marriage_chat_accepted: "bg-primary/10 text-primary",
   chat_request: "bg-primary/10 text-primary",
@@ -92,8 +95,8 @@ export default function NotificationItem({
   return (
     <div
       className={cn(
-        "flex items-start gap-1 border-b border-border/70 last:border-b-0 px-2 sm:px-3 py-3.5 transition-colors",
-        !read && "bg-primary/5",
+        "flex items-start gap-1 border-b border-border/70 last:border-b-0 px-2 py-3.5 transition-colors sm:px-3",
+        !read && "bg-primary/[0.07] dark:bg-primary/10",
       )}
       data-testid={`notification-${id}`}
     >
@@ -102,7 +105,8 @@ export default function NotificationItem({
         animate={{ opacity: 1, x: 0 }}
         className={cn(
           "flex min-w-0 flex-1 items-start gap-3",
-          onClick && "cursor-pointer rounded-xl px-2 py-0.5 -mx-2 hover:bg-gray-50 active:bg-gray-100",
+          onClick &&
+            "cursor-pointer rounded-xl px-2 py-0.5 -mx-2 hover:bg-muted/70 active:bg-muted",
         )}
         onClick={onClick ? () => onClick(id) : undefined}
         role={onClick ? "button" : undefined}
@@ -126,15 +130,20 @@ export default function NotificationItem({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className={cn("text-sm leading-snug", !read ? "font-semibold text-gray-900" : "font-medium text-gray-700")}>
+          <p
+            className={cn(
+              "text-sm leading-snug",
+              !read ? "font-semibold text-foreground" : "font-medium text-foreground/80",
+            )}
+          >
             {title}
           </p>
           {!read && (
             <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
           )}
         </div>
-        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{message}</p>
-        <p className="text-[10px] text-gray-400 mt-1">{timestamp}</p>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{message}</p>
+        <p className="mt-1 text-[10px] text-muted-foreground/80">{timestamp}</p>
 
         {showActions ? (
           <div

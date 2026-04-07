@@ -449,10 +449,10 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
   });
 
   return (
-    <div className="min-h-[100svh] bg-[#F8F9FB]">
+    <div className="min-h-[100svh] bg-[hsl(var(--surface-2))]">
       <div className="mx-auto w-full max-w-lg space-y-4 px-3 pb-28 pt-3">
       {/* Section tabs — Chat is always available (assistant until a partner space exists) */}
-      <div className="rounded-full bg-[#F1F2F4] p-1 shadow-[inset_0_1px_4px_rgba(15,23,42,0.06)]">
+      <div className="rounded-full bg-muted/55 p-1 shadow-inner ring-1 ring-border/50 dark:bg-muted/25">
         <div className="grid grid-cols-2 gap-1">
           {(["chat", "journey"] as const).map((section) => {
             const disabled = section === "journey" && !activeSpace?.id;
@@ -465,12 +465,12 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                 onClick={() => setActiveSection(section)}
                 className={cn(
                   "relative h-10 rounded-full text-[12px] font-semibold transition",
-                  active ? "text-slate-900" : "text-slate-500 hover:text-slate-700",
-                  disabled && "cursor-not-allowed opacity-50 hover:text-slate-500",
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                  disabled && "cursor-not-allowed opacity-50 hover:text-muted-foreground",
                 )}
               >
                 {active ? (
-                  <span className="absolute inset-0 rounded-full bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]" />
+                  <span className="absolute inset-0 rounded-full bg-card shadow-md ring-1 ring-border/60" />
                 ) : null}
                 <span className="relative">{section === "chat" ? "Luna" : "Journey"}</span>
               </button>
@@ -480,13 +480,13 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
       </div>
 
       {activeSection === "chat" && activeSpace?.id ? (
-        <div className="rounded-2xl border border-primary/15 bg-white p-1 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.18)]">
+        <div className="rounded-2xl border border-primary/20 bg-card/95 p-1 shadow-lg ring-1 ring-border/40">
           <div className="grid grid-cols-2 gap-1">
             <button
               type="button"
               className={cn(
                 "rounded-xl py-2.5 text-[12px] font-semibold transition",
-                generalLuna ? "bg-primary text-primary-foreground shadow-sm" : "text-slate-600 hover:bg-slate-100",
+                generalLuna ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/70",
               )}
               onClick={() => setGeneralLuna(true)}
             >
@@ -496,7 +496,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
               type="button"
               className={cn(
                 "rounded-xl py-2.5 text-[12px] font-semibold transition",
-                !generalLuna ? "bg-primary text-primary-foreground shadow-sm" : "text-slate-600 hover:bg-slate-100",
+                !generalLuna ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/70",
               )}
               onClick={() => setGeneralLuna(false)}
             >
@@ -508,11 +508,11 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
 
       {/* Chat with coach */}
       {activeSection === "chat" && (
-        <Card className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-[0_10px_30px_-22px_rgba(15,23,42,0.14)]">
-          <CardHeader className="pb-2 pt-4 px-4 space-y-2">
+        <Card className="rounded-[24px] border-border bg-card shadow-lg">
+          <CardHeader className="space-y-2 px-4 pb-2 pt-4">
             <div className="flex items-center justify-between gap-3">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-primary" />
+              <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
+                <Sparkles className="h-4 w-4 text-primary" aria-hidden />
                 {showPartnerCoaching
                   ? "Luna · partner coaching"
                   : activeSpace?.id
@@ -524,7 +524,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                 variant="ghost"
                 size="sm"
                 disabled={!showPartnerCoaching || resetChat.isPending}
-                className="h-9 rounded-full font-semibold text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900"
+                className="h-9 rounded-full font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                 onClick={() => setResetOpen(true)}
               >
                 Reset chat
@@ -540,7 +540,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
             {showGeneralAssistant && (
-              <div className="h-[min(52svh,440px)] min-h-[300px] overflow-hidden rounded-[18px] border border-stone-200 bg-stone-50/40">
+              <div className="h-[min(52svh,440px)] min-h-[300px] overflow-hidden rounded-[18px] border border-border bg-muted/20 dark:bg-muted/10">
                 <LunaChatPanel
                   key={lunaAssistantStorageKey ?? "luna-assistant"}
                   assistantPathname="/relationship-coaching"
@@ -551,7 +551,8 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
             )}
 
             {/* Chat history */}
-            {showPartnerCoaching && <div className="min-h-[280px] max-h-[46svh] overflow-y-auto space-y-3 rounded-[18px] border border-stone-200 bg-stone-50/70 p-3">
+            {showPartnerCoaching && (
+              <div className="max-h-[46svh] min-h-[280px] space-y-3 overflow-y-auto rounded-[18px] border border-border bg-muted/25 p-3 dark:bg-muted/15">
               {messages.length === 0 ? (
                 <div className="text-center py-8 text-xs text-muted-foreground">
                   <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -566,8 +567,8 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                     <div
                       className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
                         msg.senderRole === "user"
-                          ? "bg-primary text-white rounded-tr-sm"
-                          : "bg-white text-foreground border border-border rounded-tl-sm shadow-sm"
+                          ? "rounded-tr-sm bg-primary text-primary-foreground"
+                          : "rounded-tl-sm border border-border bg-card text-foreground shadow-sm"
                       }`}
                     >
                       {msg.content}
@@ -577,13 +578,14 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
               )}
               {sendMessage.isPending && (
                 <div className="flex justify-start">
-                  <div className="bg-white border border-border rounded-2xl rounded-tl-sm px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5 shadow-sm">
+                  <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm border border-border bg-card px-3 py-2 text-xs text-muted-foreground shadow-sm">
                     <Loader2 className="w-3 h-3 animate-spin" />
                     {firstReplyPendingLabel}
                   </div>
                 </div>
               )}
-            </div>}
+            </div>
+            )}
 
             {/* Input */}
             {showPartnerCoaching && <div className="flex gap-2">
@@ -592,7 +594,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="Ask about communication, conflict, intimacy..."
                 rows={2}
-                className="text-[13px] resize-none rounded-[18px] border-stone-200 bg-white shadow-sm"
+                className="resize-none rounded-[18px] border-border bg-background text-[13px] text-foreground shadow-sm placeholder:text-muted-foreground"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -667,7 +669,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
       </AlertDialog>
 
       {/* Partner space — optional; switches Luna from assistant to relationship coaching */}
-      <Card className={cn("rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm", activeSpace ? "border-primary/15" : "")}>
+      <Card className={cn("rounded-[24px] border-border bg-card shadow-sm", activeSpace ? "border-primary/25" : "")}>
         <CardContent className="p-4 space-y-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             Partner for coaching (optional)
@@ -726,9 +728,9 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
             </div>
           ) : null}
           {selectedPartnerId && !activeSpace?.id ? (
-            <div className="rounded-2xl border border-dashed border-primary/20 bg-primary/[0.03] px-4 py-3">
-              <p className="text-xs font-semibold text-slate-900">Next step</p>
-              <p className="mt-1 text-xs text-slate-600">
+            <div className="rounded-2xl border border-dashed border-primary/25 bg-primary/[0.06] px-4 py-3 dark:bg-primary/10">
+              <p className="text-xs font-semibold text-foreground">Next step</p>
+              <p className="mt-1 text-xs text-muted-foreground">
                 Tap <span className="font-semibold">Add to Luna</span> to open partner coaching for this match.
               </p>
             </div>
@@ -737,7 +739,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
       </Card>
 
       {activeSpace?.partner ? (
-        <Card className="rounded-[24px] border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-white to-white shadow-sm">
+        <Card className="rounded-[24px] border border-primary/25 bg-gradient-to-br from-primary/[0.12] via-card to-card shadow-sm">
           <CardContent
             className="p-4 flex items-center gap-3 cursor-pointer"
             onClick={() => {
@@ -754,10 +756,10 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
             }}
           >
             <div className="flex -space-x-2">
-              <Avatar className="w-10 h-10 border-2 border-white">
-                <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">You</AvatarFallback>
+              <Avatar className="h-10 w-10 border-2 border-card">
+                <AvatarFallback className="bg-primary/20 text-xs font-bold text-primary">You</AvatarFallback>
               </Avatar>
-              <Avatar className="w-10 h-10 border-2 border-white">
+              <Avatar className="h-10 w-10 border-2 border-card">
                 <AvatarImage src={activeSpace.partner.avatar || undefined} alt={activeSpace.partner.name} />
                 <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
                   {activeSpace.partner.name.slice(0, 2).toUpperCase()}
@@ -792,39 +794,39 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
             <>
               {/* Upcoming (simple + clear) */}
               {upcomingPlan ? (
-                <Card className="overflow-hidden rounded-[24px] border border-primary/15 bg-gradient-to-br from-primary/[0.10] via-white to-white shadow-[0_12px_40px_-28px_rgba(15,23,42,0.22)]">
-                  <CardHeader className="pb-2 pt-4 px-4">
+                <Card className="overflow-hidden rounded-[24px] border border-primary/20 bg-gradient-to-br from-primary/[0.12] via-card to-card shadow-lg">
+                  <CardHeader className="px-4 pb-2 pt-4">
                     <CardTitle className="text-sm font-semibold text-foreground">Upcoming date</CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
-                    <p className="text-sm font-semibold text-slate-900">{upcomingPlan.title}</p>
-                    <p className="mt-1 text-xs text-slate-700">
+                    <p className="text-sm font-semibold text-foreground">{upcomingPlan.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {upcomingPlan.planDate} {upcomingPlan.planTime}
                       {upcomingPlan.venue ? ` • ${upcomingPlan.venue}` : ""}
                     </p>
                     {upcomingPlan.notes ? (
-                      <p className="mt-2 text-xs text-slate-600 leading-relaxed">{upcomingPlan.notes}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{upcomingPlan.notes}</p>
                     ) : null}
-                    <p className="mt-3 text-[11px] text-slate-600">
+                    <p className="mt-3 text-[11px] text-muted-foreground">
                       Reminders: 24h + 2h before (or soon if it’s close).
                     </p>
                   </CardContent>
                 </Card>
               ) : (
-                <Card className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm">
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-bold">Upcoming date</CardTitle>
+                <Card className="rounded-[24px] border-border bg-card shadow-sm">
+                  <CardHeader className="px-4 pb-2 pt-4">
+                    <CardTitle className="text-sm font-bold text-foreground">Upcoming date</CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
-                    <p className="text-sm text-slate-700">
-                      No scheduled date yet. Pick a plan below and tap <span className="font-semibold">Schedule</span>.
+                    <p className="text-sm text-muted-foreground">
+                      No scheduled date yet. Pick a plan below and tap <span className="font-semibold text-foreground">Schedule</span>.
                     </p>
                   </CardContent>
                 </Card>
               )}
 
               {/* Plans */}
-              <Card className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm">
+              <Card className="rounded-[24px] border-border bg-card shadow-sm">
                 <CardHeader className="pb-2 pt-4 px-4">
                   <CardTitle className="text-sm font-semibold text-foreground">Date plans</CardTitle>
                 </CardHeader>
@@ -834,15 +836,15 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                       const isScheduling = schedulePlanId === p.id;
                       const hasSchedule = Boolean(p.planDate) && Boolean(p.planTime);
                       return (
-                        <div key={p.id} className="rounded-[18px] border border-stone-200 bg-white p-3 shadow-sm">
+                        <div key={p.id} className="rounded-[18px] border border-border bg-muted/20 p-3 shadow-sm dark:bg-muted/10">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-sm font-semibold text-slate-900">{p.title}</p>
-                              <p className="mt-0.5 text-xs text-slate-600">
+                              <p className="text-sm font-semibold text-foreground">{p.title}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
                                 {p.venue ? p.venue : "Venue TBD"}
                                 {p.notes ? ` • ${p.notes}` : ""}
                               </p>
-                              <p className="mt-1 text-xs text-slate-700">
+                              <p className="mt-1 text-xs text-muted-foreground">
                                 {hasSchedule ? `Scheduled: ${p.planDate} ${p.planTime}` : "Not scheduled yet"}
                               </p>
                             </div>
@@ -867,7 +869,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                                   <Label className="text-xs">Date</Label>
                                   <input
                                     type="date"
-                                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
                                     value={scheduleDate}
                                     onChange={(e) => setScheduleDate(e.target.value)}
                                   />
@@ -876,7 +878,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                                   <Label className="text-xs">Time</Label>
                                   <input
                                     type="time"
-                                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
                                     value={scheduleTime}
                                     onChange={(e) => setScheduleTime(e.target.value)}
                                   />
@@ -915,24 +917,24 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                       );
                     })
                   ) : (
-                    <div className="rounded-[18px] border border-dashed border-stone-200 bg-stone-50/60 p-4">
-                      <p className="text-sm font-semibold text-slate-900">No date plans yet</p>
-                      <p className="mt-1 text-sm text-slate-600">Use “Add to journey” on a date suggestion to create one.</p>
+                    <div className="rounded-[18px] border border-dashed border-border bg-muted/30 p-4 dark:bg-muted/15">
+                      <p className="text-sm font-semibold text-foreground">No date plans yet</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Use “Add to journey” on a date suggestion to create one.</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
 
               {/* Notes */}
-              <Card className="rounded-[24px] border border-[#F0F0F0] bg-white shadow-sm">
-                <CardHeader className="pb-2 pt-4 px-4">
+              <Card className="rounded-[24px] border-border bg-card shadow-sm">
+                <CardHeader className="px-4 pb-2 pt-4">
                   <CardTitle className="text-sm font-semibold text-foreground">Notes (milestones)</CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-3">
+                <CardContent className="space-y-3 px-4 pb-4">
                   <div>
                     <Label className="text-xs">Title</Label>
                     <input
-                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
                       value={milestoneTitle}
                       onChange={(e) => setMilestoneTitle(e.target.value)}
                       placeholder="e.g. We agreed on a first date"
@@ -941,7 +943,7 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                   <div>
                     <Label className="text-xs">Notes (optional)</Label>
                     <Textarea
-                      className="mt-1 text-xs min-h-[72px]"
+                      className="mt-1 min-h-[72px] border-border bg-background text-xs text-foreground placeholder:text-muted-foreground"
                       value={milestoneBody}
                       onChange={(e) => setMilestoneBody(e.target.value)}
                       placeholder="What did you learn? What’s the next step?"
@@ -958,14 +960,14 @@ export default function RelationshipCoach({ userId, partnerId }: RelationshipCoa
                   {journey && journey.milestones.length > 0 ? (
                     <div className="pt-1 space-y-2">
                       {journey.milestones.map((ms) => (
-                        <div key={ms.id} className="rounded-[18px] border border-stone-200 bg-white p-3 shadow-sm">
-                          <p className="text-sm font-semibold text-slate-900">{ms.title}</p>
-                          {ms.body ? <p className="mt-1 text-xs text-slate-600">{ms.body}</p> : null}
+                        <div key={ms.id} className="rounded-[18px] border border-border bg-muted/20 p-3 shadow-sm dark:bg-muted/10">
+                          <p className="text-sm font-semibold text-foreground">{ms.title}</p>
+                          {ms.body ? <p className="mt-1 text-xs text-muted-foreground">{ms.body}</p> : null}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-600">Saved notes help you remember decisions and progress.</p>
+                    <p className="text-xs text-muted-foreground">Saved notes help you remember decisions and progress.</p>
                   )}
                 </CardContent>
               </Card>

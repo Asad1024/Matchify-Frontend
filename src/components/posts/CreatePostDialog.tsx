@@ -188,18 +188,18 @@ export default function CreatePostDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-2xl bg-white/90 backdrop-blur-xl">
-        <DialogHeader>
-          <DialogTitle className="font-display">Create post</DialogTitle>
-          {effectiveGroupName ? (
-            <p className="text-xs text-muted-foreground font-medium pt-1">
-              Posting to group: {effectiveGroupName}
-            </p>
-          ) : null}
-        </DialogHeader>
-        <div className="space-y-3">
+      <DialogContent className="flex max-h-[min(90dvh,calc(100dvh-1.5rem))] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-popover p-0 text-popover-foreground shadow-xl backdrop-blur-xl sm:max-w-md">
+        <div className="shrink-0 px-6 pb-2 pt-6 pr-14">
+          <DialogHeader className="space-y-1.5 text-left">
+            <DialogTitle className="font-display">Create post</DialogTitle>
+            {effectiveGroupName ? (
+              <p className="pt-1 text-xs font-medium text-muted-foreground">Posting to group: {effectiveGroupName}</p>
+            ) : null}
+          </DialogHeader>
+        </div>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-6 pb-2">
           <div className="flex items-center gap-2">
-            <Avatar className="h-9 w-9 shrink-0 border border-stone-200 bg-white">
+            <Avatar className="h-9 w-9 shrink-0 border border-border bg-muted">
               <AvatarImage src={me?.avatar || undefined} alt="" className="object-cover" />
               <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
                 {myInitials}
@@ -212,7 +212,7 @@ export default function CreatePostDialog({
                   value={effectiveGroupId ? effectiveGroupId : undefined}
                   onValueChange={setSelectedGroupId}
                 >
-                  <SelectTrigger className="h-9 w-[72%] rounded-full bg-[#F4F4F7] px-3 text-[12px] font-semibold text-slate-800">
+                  <SelectTrigger className="h-9 w-[72%] rounded-full border-border bg-muted/60 px-3 text-[12px] font-semibold text-foreground focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:ring-0">
                     <SelectValue placeholder="Choose a group" />
                   </SelectTrigger>
                   <SelectContent>
@@ -224,12 +224,12 @@ export default function CreatePostDialog({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="w-full rounded-full bg-[#F4F4F7] px-3 py-2 text-[12px] font-semibold text-slate-500">
+                <div className="w-full rounded-full border border-border bg-muted/50 px-3 py-2 text-[12px] font-semibold text-muted-foreground">
                   Join a group to post
                 </div>
               )
             ) : (
-              <div className="w-full rounded-full bg-[#F4F4F7] px-3 py-2 text-[12px] font-semibold text-slate-700">
+              <div className="w-full rounded-full border border-border bg-muted/50 px-3 py-2 text-[12px] font-semibold text-foreground">
                 {effectiveGroupName ?? "Group"}
               </div>
             )}
@@ -240,7 +240,7 @@ export default function CreatePostDialog({
               null
             ) : (
               <div className="rounded-xl border border-border bg-muted/30 px-3 py-2">
-                <p className="text-sm font-medium text-slate-700">Join a group first</p>
+                <p className="text-sm font-medium text-foreground">Join a group first</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   You can only post inside groups you’ve joined.
                 </p>
@@ -342,17 +342,21 @@ export default function CreatePostDialog({
           </div>
 
           {previewSrc ? (
-            <div className="rounded-xl border border-border overflow-hidden bg-muted/30">
+            <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
               <img
                 src={previewSrc}
                 alt=""
-                className="w-full max-h-48 object-contain bg-black/5"
+                className="max-h-40 w-full bg-black/5 object-contain sm:max-h-48"
               />
             </div>
           ) : null}
         </div>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
+        <DialogFooter className="shrink-0 gap-2 border-t border-border/60 bg-popover px-6 py-4 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="rounded-full border-border bg-transparent text-foreground hover:bg-muted/60"
+          >
             Cancel
           </Button>
           <Button

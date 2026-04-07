@@ -213,7 +213,7 @@ export default function SettingsSocial() {
             {listsLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : !lists?.followers?.length ? (
-              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-2xl border border-dashed border-border/70 bg-muted/35 px-4 py-8 text-center text-sm text-muted-foreground">
                 No followers yet.
               </p>
             ) : (
@@ -223,7 +223,7 @@ export default function SettingsSocial() {
                   className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
+                    <Avatar className="h-10 w-10 shrink-0 border border-border/70">
                       <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                         {u.name?.slice(0, 2).toUpperCase() || "?"}
@@ -235,7 +235,7 @@ export default function SettingsSocial() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="shrink-0 rounded-full text-muted-foreground hover:bg-slate-900/[0.03]"
+                    className="shrink-0 rounded-full text-muted-foreground hover:bg-muted/70"
                     onClick={() => setLocation(`/profile/${encodeURIComponent(u.userId)}`)}
                   >
                     View
@@ -276,7 +276,7 @@ export default function SettingsSocial() {
             {listsLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : !lists?.following?.length ? (
-              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-2xl border border-dashed border-border/70 bg-muted/35 px-4 py-8 text-center text-sm text-muted-foreground">
                 You’re not following anyone yet.
               </p>
             ) : (
@@ -286,7 +286,7 @@ export default function SettingsSocial() {
                   className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
+                    <Avatar className="h-10 w-10 shrink-0 border border-border/70">
                       <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                         {u.name?.slice(0, 2).toUpperCase() || "?"}
@@ -299,7 +299,7 @@ export default function SettingsSocial() {
                     size="sm"
                     variant="outline"
                     disabled={unfollowMutation.isPending}
-                    className="rounded-full border-stone-200"
+                    className="rounded-full border-border/70"
                     onClick={() => unfollowMutation.mutate(u.userId)}
                   >
                     Unfollow
@@ -325,7 +325,7 @@ export default function SettingsSocial() {
             {listsLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : !lists?.muted?.length ? (
-              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-2xl border border-dashed border-border/70 bg-muted/35 px-4 py-8 text-center text-sm text-muted-foreground">
                 No muted authors.
               </p>
             ) : (
@@ -335,7 +335,7 @@ export default function SettingsSocial() {
                   className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
+                    <Avatar className="h-10 w-10 shrink-0 border border-border/70">
                       <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                         {(u.name?.trim() || u.authorId).slice(0, 2).toUpperCase()}
@@ -379,7 +379,7 @@ export default function SettingsSocial() {
             {listsLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : !(lists?.reportedPosts && lists.reportedPosts.length > 0) ? (
-              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-2xl border border-dashed border-border/70 bg-muted/35 px-4 py-8 text-center text-sm text-muted-foreground">
                 No reported posts.
               </p>
             ) : (
@@ -402,7 +402,7 @@ export default function SettingsSocial() {
                   className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex min-w-0 flex-1 gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
+                    <Avatar className="h-10 w-10 shrink-0 border border-border/70">
                       <AvatarImage src={row.authorAvatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-amber-100 text-xs font-bold text-amber-800">
                         {avatarInitials}
@@ -425,7 +425,7 @@ export default function SettingsSocial() {
                     size="sm"
                     variant="outline"
                     disabled={unreportPostMutation.isPending}
-                    className="shrink-0 rounded-full border-stone-200"
+                    className="shrink-0 rounded-full border-border/70"
                     onClick={() => unreportPostMutation.mutate(row.postId)}
                   >
                     Show in feed
@@ -452,7 +452,7 @@ export default function SettingsSocial() {
             {listsLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : !lists?.blocked?.length ? (
-              <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-2xl border border-dashed border-border/70 bg-muted/35 px-4 py-8 text-center text-sm text-muted-foreground">
                 No blocked users.
               </p>
             ) : (
@@ -462,7 +462,7 @@ export default function SettingsSocial() {
                   className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-2xs"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0 border border-stone-200">
+                    <Avatar className="h-10 w-10 shrink-0 border border-border/70">
                       <AvatarImage src={u.avatar?.trim() || undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                         {u.name?.slice(0, 2).toUpperCase() || "?"}
@@ -475,7 +475,7 @@ export default function SettingsSocial() {
                     size="sm"
                     variant="outline"
                     disabled={unblockMutation.isPending}
-                    className="rounded-full border-stone-200"
+                    className="rounded-full border-border/70"
                     onClick={() => unblockMutation.mutate(u.userId)}
                   >
                     Unblock

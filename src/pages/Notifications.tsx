@@ -400,7 +400,7 @@ export default function Notifications() {
                       className={`flex-shrink-0 rounded-full px-3.5 py-2 text-[11px] font-medium transition-colors ${
                         notificationTab === tab.value
                           ? "bg-primary text-primary-foreground shadow-2xs"
-                          : "bg-muted/60 text-slate-600 hover:text-slate-900"
+                          : "bg-muted/60 text-muted-foreground hover:text-foreground"
                       }`}
                       data-testid={`tab-${tab.value}`}
                     >

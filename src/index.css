@@ -160,13 +160,15 @@
   --popover-border: 220 12% 22%;
 
   --primary: 348 48% 55%;
-  --primary-foreground: 350 25% 8%;
+  /* Light text on merlot/champagne primary in dark mode (was near-black, poor on pill buttons). */
+  --primary-foreground: 40 33% 98%;
 
   --secondary: 350 14% 20%;
   --secondary-foreground: 350 30% 88%;
 
   --muted: 220 12% 18%;
-  --muted-foreground: 220 8% 58%;
+  /* Slightly brighter than light-theme gray-500 so body text on dark cards stays readable */
+  --muted-foreground: 220 10% 70%;
 
   --accent: 350 16% 22%;
   --accent-foreground: 350 35% 88%;
@@ -243,6 +245,11 @@
     @apply border-border;
   }
 
+  /* Avoid layout jump when scrollbars appear (e.g. FAQ accordion opens on landing). */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
@@ -279,14 +286,27 @@
 @layer utilities {
 
   /* Matchify shared surfaces / pills to keep UI consistent */
+  /* Theme-aware surfaces (light: soft card; dark: elevated card — no hardcoded white). */
   .matchify-surface {
-    @apply rounded-[24px] border bg-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md;
-    border-color: hsl(var(--surface-border));
+    @apply rounded-[24px] border shadow-sm backdrop-blur-md;
+    border-color: hsl(var(--border));
+    background-color: hsl(var(--card) / 0.94);
+    box-shadow: 0 4px 22px hsl(var(--foreground) / 0.05);
+  }
+
+  .dark .matchify-surface {
+    box-shadow: 0 4px 26px hsl(0 0% 0% / 0.45);
   }
 
   .matchify-surface-strong {
-    @apply rounded-[24px] border bg-white shadow-[0_10px_30px_-22px_rgba(15,23,42,0.14)];
-    border-color: hsl(var(--surface-border));
+    @apply rounded-[24px] border shadow-md backdrop-blur-md;
+    border-color: hsl(var(--border));
+    background-color: hsl(var(--card));
+    box-shadow: 0 12px 34px -18px hsl(var(--foreground) / 0.12);
+  }
+
+  .dark .matchify-surface-strong {
+    box-shadow: 0 14px 40px -16px hsl(0 0% 0% / 0.55);
   }
 
   .matchify-pill {
@@ -311,8 +331,9 @@
   }
 
   .matchify-icon-btn {
-    @apply inline-flex h-10 w-10 items-center justify-center rounded-full border bg-white/80 shadow-sm backdrop-blur-md transition hover:bg-white;
-    border-color: hsl(var(--surface-border));
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition-colors hover:bg-muted;
+    border-color: hsl(var(--border));
+    background-color: hsl(var(--card) / 0.95);
     color: hsl(var(--foreground) / 0.78);
   }
 
@@ -645,6 +666,32 @@
     height: 10px;
     border-radius: 9999px;
     background: rgba(114, 47, 55, 0.55);
+  }
+
+  .dark .matchify-range {
+    background: hsl(var(--primary) / 0.22);
+  }
+  .dark .matchify-range:focus {
+    box-shadow: 0 0 0 6px hsl(var(--primary) / 0.12);
+  }
+  .dark .matchify-range::-webkit-slider-runnable-track {
+    background: hsl(var(--primary) / 0.28);
+  }
+  .dark .matchify-range::-webkit-slider-thumb {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+  .dark .matchify-range::-moz-range-track {
+    background: hsl(var(--primary) / 0.28);
+  }
+  .dark .matchify-range::-moz-range-thumb {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+  .dark .matchify-range::-moz-range-progress {
+    background: hsl(var(--primary) / 0.55);
   }
 
   /* Safe area utilities for mobile devices (notches, home indicators) */

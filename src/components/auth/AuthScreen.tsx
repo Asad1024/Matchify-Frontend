@@ -11,6 +11,7 @@ import { notifyHeaderUserUpdated } from "@/components/common/Header";
 import { queryClient } from "@/lib/queryClient";
 import { readJwtSub } from "@/lib/authUserIdReconcile";
 import { resolveUserDisplayAvatarUrl } from "@/lib/userDisplayAvatar";
+import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
 
 export type GoogleSignupPrefill = {
   code: string;
@@ -55,9 +56,9 @@ function GoogleLogoMark({ className }: { className?: string }) {
   );
 }
 
-/** Inputs aligned with splash hero: white fields, wine focus ring */
+/** Theme-aware fields with wine focus ring */
 const AUTH_INPUT_CLASS =
-  "h-12 rounded-2xl border border-zinc-200 bg-white pl-11 pr-3 text-[15px] text-zinc-900 shadow-sm transition-[box-shadow,border-color] placeholder:text-primary/45 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-0 md:text-[15px]";
+  "h-12 rounded-2xl border border-border bg-background pl-11 pr-3 text-[15px] text-foreground shadow-sm transition-[box-shadow,border-color] placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-0 md:text-[15px]";
 
 export default function AuthScreen({
   onAuth,
@@ -188,7 +189,10 @@ export default function AuthScreen({
   };
 
   return (
-    <div className="relative flex min-h-[100dvh] justify-center overflow-hidden bg-white text-primary">
+    <div className="relative flex min-h-[100dvh] justify-center overflow-hidden bg-background text-primary">
+      <div className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20 sm:right-4 sm:top-[max(1rem,env(safe-area-inset-top))]">
+        <ThemeToggleButton />
+      </div>
       {/* Soft wine-tinted glows (same language as splash hero phone area) */}
       <div
         className="pointer-events-none absolute right-0 top-[18%] h-[min(72vw,280px)] w-[min(72vw,280px)] translate-x-1/4 rounded-full bg-primary/10 blur-[100px]"
@@ -238,7 +242,7 @@ export default function AuthScreen({
                 onClick={() => {
                   startGoogleOAuth(buildApiUrl("/api/auth/google/start"));
                 }}
-                className="mb-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-[0.98]"
+                className="mb-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all hover:bg-muted/60 active:scale-[0.98]"
                 data-testid="button-auth-google"
               >
                 <GoogleLogoMark className="h-[18px] w-[18px] shrink-0" />
@@ -250,10 +254,10 @@ export default function AuthScreen({
             {!googleSignupPrefill ? (
               <div className="relative mb-5">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-zinc-200" />
+                  <span className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center">
-                  <span className="bg-white px-3 text-xs font-semibold uppercase tracking-widest text-primary/70">
+                  <span className="bg-background px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     OR WITH EMAIL
                   </span>
                 </div>

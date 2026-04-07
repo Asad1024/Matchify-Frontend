@@ -189,7 +189,7 @@ export function NotificationCenter() {
         <Button
           size="icon"
           variant="ghost"
-          className="relative h-10 w-10 shrink-0 rounded-full text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary"
+          className="relative h-10 w-10 shrink-0 rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
           data-testid="button-notifications"
         >
           <Bell className="h-5 w-5" strokeWidth={2} aria-hidden />
@@ -210,15 +210,15 @@ export function NotificationCenter() {
       </PopoverTrigger>
 
       <PopoverContent
-        className="w-80 p-0 shadow-xl rounded-2xl overflow-hidden"
+        className="w-80 p-0 shadow-xl rounded-2xl overflow-hidden border-border bg-popover text-popover-foreground"
         align="end"
         sideOffset={8}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-bold text-gray-900">Notifications</h3>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h3 className="text-sm font-bold text-popover-foreground">Notifications</h3>
           {unreadCount > 0 && (
-            <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary dark:bg-primary/25 dark:text-primary-foreground/95">
               {unreadCount} new
             </span>
           )}
@@ -228,8 +228,8 @@ export function NotificationCenter() {
         <div className="max-h-80 overflow-y-auto">
           {mergedForBell.length === 0 ? (
             <div className="py-8 text-center">
-              <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">No notifications yet</p>
+              <Bell className="mx-auto mb-2 h-8 w-8 text-muted-foreground/45" />
+              <p className="text-sm text-muted-foreground">No notifications yet</p>
             </div>
           ) : (
             mergedForBell.slice(0, 10).map((n) => (
@@ -354,9 +354,9 @@ export function NotificationCenter() {
         </div>
 
         {mergedForBell.length > 0 && (
-          <div className="border-t border-gray-100 px-4 py-2.5">
+          <div className="border-t border-border px-4 py-2.5">
             <button
-              className="text-xs text-primary font-semibold w-full text-center hover:underline"
+              className="w-full text-center text-xs font-semibold text-primary hover:underline"
               onClick={() => {
                 setOpen(false);
                 setLocation("/notifications");

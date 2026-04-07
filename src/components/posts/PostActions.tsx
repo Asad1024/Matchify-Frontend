@@ -29,7 +29,7 @@ export function PostActions({
       <motion.div whileTap={{ scale: 0.9 }}>
         <Button
           variant="ghost"
-          className={`group gap-1.5 h-9 px-3 rounded-full bg-transparent text-slate-700/70 hover:text-slate-900 hover:bg-slate-900/[0.04] transition ${isLiked ? "text-primary hover:text-primary" : ""}`}
+          className={`group h-9 gap-1.5 rounded-full bg-transparent text-muted-foreground transition hover:bg-muted/60 hover:text-foreground ${isLiked ? "text-primary hover:bg-primary/10 hover:text-primary" : ""}`}
           onClick={onLike}
         >
           <motion.div animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }} transition={{ duration: 0.3 }}>
@@ -47,7 +47,7 @@ export function PostActions({
       <motion.div whileTap={{ scale: 0.9 }}>
         <Button
           variant="ghost"
-          className="group gap-1.5 h-9 px-3 rounded-full bg-transparent text-slate-700/70 hover:text-slate-900 hover:bg-slate-900/[0.04] transition"
+          className="group h-9 gap-1.5 rounded-full bg-transparent text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
           onClick={onComment}
         >
           <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={1.75} />
@@ -58,7 +58,7 @@ export function PostActions({
       <motion.div whileTap={{ scale: 0.9 }}>
         <Button
           variant="ghost"
-          className="group gap-1.5 h-9 px-3 rounded-full bg-transparent text-slate-700/70 hover:text-slate-900 hover:bg-slate-900/[0.04] transition"
+          className="group h-9 gap-1.5 rounded-full bg-transparent text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
           onClick={onShare || (() => {})}
         >
           <Share2 className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={1.75} />

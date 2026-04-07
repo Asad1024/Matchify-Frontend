@@ -162,13 +162,13 @@ export default function Menu() {
                 }}
                 className={cn(
                   "relative h-10 rounded-full text-[13px] font-medium transition-colors",
-                  mode === "marriage" ? "text-slate-900" : "text-slate-500 hover:text-slate-700",
+                  mode === "marriage" ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {mode === "marriage" ? (
                   <span className="absolute inset-0 rounded-full bg-background shadow-2xs" />
                 ) : null}
-                <span className="relative">Marriage</span>
+                <span className="relative">Matches</span>
               </button>
 
               <button
@@ -179,7 +179,7 @@ export default function Menu() {
                 }}
                 className={cn(
                   "relative h-10 rounded-full text-[13px] font-medium transition-colors",
-                  mode === "social" ? "text-slate-900" : "text-slate-500 hover:text-slate-700",
+                  mode === "social" ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {mode === "social" ? (
@@ -210,17 +210,17 @@ export default function Menu() {
             <>
               <div className="matchify-surface rounded-[20px] p-5">
                 <div className="flex flex-col items-center text-center">
-                  <Avatar className="h-28 w-28 border-[3px] border-white shadow-lg ring-1 ring-black/[0.04]">
+                  <Avatar className="h-28 w-28 border-[3px] border-background shadow-lg ring-1 ring-black/[0.04]">
                     <AvatarImage src={menuAvatarSrc || undefined} />
                     <AvatarFallback className="bg-amber-100 text-3xl">😊</AvatarFallback>
                   </Avatar>
                   <div className="mt-4 flex items-center justify-center gap-1.5 flex-wrap">
-                    <p className="text-[22px] font-semibold text-slate-900">{displayName}</p>
+                    <p className="text-[22px] font-semibold text-foreground">{displayName}</p>
                     {me?.verified ? (
                       <VerifiedTick size="lg" />
                     ) : null}
                   </div>
-                  {handle ? <p className="mt-1 text-[13px] font-medium text-slate-500">{handle}</p> : null}
+                  {handle ? <p className="mt-1 text-[13px] font-medium text-muted-foreground">{handle}</p> : null}
                   <Button
                     variant="outline"
                     className="mt-4 h-9 rounded-full px-3 text-[13px]"
@@ -266,20 +266,20 @@ export default function Menu() {
             <>
               <div className="matchify-surface rounded-[20px] border-white/0 bg-card/70 p-5 shadow-2xs">
                 <div className="flex flex-col items-center text-center">
-                  <Avatar className="h-28 w-28 border-[3px] border-white shadow-lg ring-1 ring-black/[0.04]">
+                  <Avatar className="h-28 w-28 border-[3px] border-background shadow-lg ring-1 ring-black/[0.04]">
                     <AvatarImage src={menuAvatarSrc || undefined} />
                     <AvatarFallback className="bg-amber-100 text-3xl">😊</AvatarFallback>
                   </Avatar>
                   <div className="mt-4 flex items-center justify-center gap-1.5 flex-wrap">
-                    <p className="text-[22px] font-semibold text-slate-900">{displayName}</p>
+                    <p className="text-[22px] font-semibold text-foreground">{displayName}</p>
                     {me?.verified ? (
                       <VerifiedTick size="lg" />
                     ) : null}
                   </div>
-                  {handle ? <p className="mt-1 text-[13px] font-medium text-slate-500">{handle}</p> : null}
+                  {handle ? <p className="mt-1 text-[13px] font-medium text-muted-foreground">{handle}</p> : null}
                   <Button
                     variant="outline"
-                    className="mt-4 h-9 rounded-full border-border/70 bg-transparent px-3 text-[13px] font-semibold text-slate-700 shadow-2xs hover:bg-slate-900/[0.03]"
+                    className="mt-4 h-9 rounded-full border-border/70 bg-transparent px-3 text-[13px] font-semibold text-foreground shadow-2xs hover:bg-muted/50"
                     onClick={() => setLocation("/profile/social")}
                   >
                     View profile
@@ -289,7 +289,7 @@ export default function Menu() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-9 w-11 rounded-full border-border/70 bg-card/60 px-0 text-slate-700 shadow-2xs hover:bg-slate-900/[0.03]"
+                      className="h-9 w-11 rounded-full border-border/70 bg-card/60 px-0 text-foreground shadow-2xs hover:bg-muted/50"
                       onClick={() => setLocation("/profile/social/edit")}
                       aria-label="Edit profile"
                       title="Edit profile"
@@ -299,7 +299,7 @@ export default function Menu() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-9 w-11 rounded-full border-border/70 bg-card/60 px-0 text-slate-700 shadow-2xs hover:bg-slate-900/[0.03]"
+                      className="h-9 w-11 rounded-full border-border/70 bg-card/60 px-0 text-foreground shadow-2xs hover:bg-muted/50"
                       onClick={() => setLocation("/settings")}
                       aria-label="Settings"
                       title="Settings"
@@ -332,7 +332,7 @@ export default function Menu() {
           <button
             type="button"
             onClick={logout}
-            className="w-full rounded-[20px] border border-border/70 bg-rose-500/10 px-4 py-3 text-left text-[15px] font-medium text-rose-700 shadow-2xs transition hover:bg-rose-500/15"
+            className="w-full rounded-[20px] border border-border/70 bg-rose-500/10 px-4 py-3 text-left text-[15px] font-medium text-rose-700 dark:text-rose-400 shadow-2xs transition hover:bg-rose-500/15"
           >
             <span className="inline-flex items-center gap-2">
               <LogOut className="h-4 w-4" strokeWidth={1.75} aria-hidden />
@@ -351,7 +351,7 @@ function MenuCard({ title, children }: { title: string; children: React.ReactNod
   return (
     <section className="matchify-surface rounded-[20px] border-white/0 bg-card/70 shadow-2xs">
       <div className="px-4 pt-4 pb-1">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
       </div>
       <div className="divide-y divide-border/70">{children}</div>
     </section>
@@ -392,7 +392,7 @@ function MenuItemRow({
 
       <div className="flex-1 min-w-0 pt-0.5">
         <div className="flex items-center gap-2">
-          <span className="text-[15px] font-medium text-slate-900">{label}</span>
+          <span className="text-[15px] font-medium text-foreground">{label}</span>
           {dot && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
           {premium ? (
             <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
@@ -401,7 +401,7 @@ function MenuItemRow({
             </span>
           ) : null}
         </div>
-        {sub ? <p className="mt-1 text-[12px] font-normal text-slate-500 leading-relaxed">{sub}</p> : null}
+        {sub ? <p className="mt-1 text-[12px] font-normal text-muted-foreground leading-relaxed">{sub}</p> : null}
       </div>
     </button>
   );
@@ -428,12 +428,12 @@ function MenuRow({
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-[15px] font-medium text-slate-900">{label}</span>
+          <span className="text-[15px] font-medium text-foreground">{label}</span>
           {dot && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
         </div>
-        {sub ? <p className="mt-1 text-[12px] font-normal text-slate-500 leading-relaxed">{sub}</p> : null}
+        {sub ? <p className="mt-1 text-[12px] font-normal text-muted-foreground leading-relaxed">{sub}</p> : null}
       </div>
-      <div className="flex-shrink-0 text-gray-400">{icon}</div>
+      <div className="flex-shrink-0 text-muted-foreground">{icon}</div>
     </button>
   );
 }

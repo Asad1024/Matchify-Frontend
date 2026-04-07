@@ -21,7 +21,7 @@ export default function StoryCircles({ rings, onRingClick, onCreateStory }: Stor
             <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={1.75} />
           </div>
         </div>
-        <span className="text-[12px] text-slate-700 font-semibold leading-none">Add</span>
+        <span className="text-[12px] text-foreground font-semibold leading-none">Add</span>
       </button>
 
       {rings.map((ring) => {
@@ -42,16 +42,16 @@ export default function StoryCircles({ rings, onRingClick, onCreateStory }: Stor
                 className={`h-[84px] w-[84px] rounded-full p-[3px] ${
                   ring.hasUnread
                     ? "bg-gradient-to-br from-primary via-[#7C3AED] to-[#06B6D4] shadow-[0_10px_30px_-14px_rgba(15,23,42,0.35)]"
-                    : "bg-[#F0F0F0]"
+                    : "bg-muted"
                 }`}
               >
-                <Avatar className="w-full h-full border-[3px] border-white">
+                <Avatar className="w-full h-full border-[3px] border-background">
                   <AvatarImage src={preview ?? undefined} alt={ring.displayName} />
                   <AvatarFallback className="text-sm font-semibold">{initial}</AvatarFallback>
                 </Avatar>
               </div>
             </div>
-            <span className="text-[12px] text-slate-900 max-w-[84px] truncate font-semibold leading-none">
+            <span className="text-[12px] text-foreground max-w-[84px] truncate font-semibold leading-none">
               {ring.displayName}
             </span>
           </button>

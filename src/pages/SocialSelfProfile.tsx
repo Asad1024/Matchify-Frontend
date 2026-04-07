@@ -103,7 +103,7 @@ function SmoothEmpty({
         <Icon className="h-7 w-7" strokeWidth={1.75} />
       </div>
       <p className="font-display text-base font-medium tracking-tight text-foreground">{title}</p>
-      <p className="mt-2 text-sm leading-relaxed text-stone-500">{subtitle}</p>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
     </motion.div>
   );
 }
@@ -475,7 +475,7 @@ export default function SocialSelfProfile() {
               type="button"
               variant="ghost"
               size="icon"
-              className="shrink-0 -ml-1 h-11 w-11 rounded-full text-stone-800 hover:bg-stone-100/90"
+              className="shrink-0 -ml-1 h-11 w-11 rounded-full text-foreground hover:bg-muted/60"
               onClick={goBack}
               aria-label="Back"
             >
@@ -486,7 +486,7 @@ export default function SocialSelfProfile() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 rounded-full text-stone-700 hover:bg-stone-100/90"
+                className="h-10 w-10 rounded-full text-foreground hover:bg-muted/60"
                 onClick={openGlobalSearch}
                 aria-label="Search"
               >
@@ -496,7 +496,7 @@ export default function SocialSelfProfile() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 rounded-full text-stone-700 hover:bg-stone-100/90"
+                className="h-10 w-10 rounded-full text-foreground hover:bg-muted/60"
                 onClick={() => setShareOpen(true)}
                 aria-label="Share profile"
               >
@@ -511,7 +511,7 @@ export default function SocialSelfProfile() {
         <div className="px-3 pt-2">
           <div className="matchify-surface p-5">
             <div className="flex flex-col items-center text-center">
-              <Avatar className="h-24 w-24 border-[3px] border-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.28)] ring-1 ring-black/[0.04]">
+              <Avatar className="h-24 w-24 border-[3px] border-background shadow-[0_10px_30px_-18px_rgba(15,23,42,0.28)] ring-1 ring-black/[0.04]">
                 <AvatarImage src={user.avatar || undefined} alt="" className="object-cover" />
                 <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-2xl font-semibold text-primary">
                   {user.name?.slice(0, 2).toUpperCase() || "?"}
@@ -593,34 +593,34 @@ export default function SocialSelfProfile() {
 
         <div className="mt-6 px-4 pb-4">
           <Tabs value={profileTab} onValueChange={setProfileTab} className="w-full">
-            <TabsList className="flex h-auto w-full gap-1 overflow-x-auto rounded-full bg-stone-200/40 p-1.5 shadow-[inset_0_1px_4px_rgba(15,23,42,0.05)] scrollbar-hide">
+            <TabsList className="flex h-auto w-full gap-1 overflow-x-auto rounded-full border border-border/60 bg-muted/50 p-1.5 shadow-inner scrollbar-hide dark:bg-muted/35">
               <TabsTrigger
                 value="posts"
-                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-stone-500 shadow-none transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] data-[state=active]:bg-white data-[state=active]:text-stone-900 data-[state=active]:shadow-[0_8px_28px_-8px_rgba(15,23,42,0.2)] data-[state=inactive]:hover:bg-white/60 sm:px-3.5 sm:text-xs"
+                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-muted-foreground shadow-none transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground sm:px-3.5 sm:text-xs"
               >
                 Posts
               </TabsTrigger>
               <TabsTrigger
                 value="saved"
-                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-stone-500 shadow-none transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] data-[state=active]:bg-white data-[state=active]:text-stone-900 data-[state=active]:shadow-[0_8px_28px_-8px_rgba(15,23,42,0.2)] data-[state=inactive]:hover:bg-white/60 sm:px-3.5 sm:text-xs"
+                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-muted-foreground shadow-none transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground sm:px-3.5 sm:text-xs"
               >
                 Saved
               </TabsTrigger>
               <TabsTrigger
                 value="comments"
-                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-stone-500 shadow-none transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] data-[state=active]:bg-white data-[state=active]:text-stone-900 data-[state=active]:shadow-[0_8px_28px_-8px_rgba(15,23,42,0.2)] data-[state=inactive]:hover:bg-white/60 sm:px-3.5 sm:text-xs"
+                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-muted-foreground shadow-none transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground sm:px-3.5 sm:text-xs"
               >
                 Comments
               </TabsTrigger>
               <TabsTrigger
                 value="likes"
-                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-stone-500 shadow-none transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] data-[state=active]:bg-white data-[state=active]:text-stone-900 data-[state=active]:shadow-[0_8px_28px_-8px_rgba(15,23,42,0.2)] data-[state=inactive]:hover:bg-white/60 sm:px-3.5 sm:text-xs"
+                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-muted-foreground shadow-none transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground sm:px-3.5 sm:text-xs"
               >
                 Likes
               </TabsTrigger>
               <TabsTrigger
                 value="groups"
-                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-stone-500 shadow-none transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] data-[state=active]:bg-white data-[state=active]:text-stone-900 data-[state=active]:shadow-[0_8px_28px_-8px_rgba(15,23,42,0.2)] data-[state=inactive]:hover:bg-white/60 sm:px-3.5 sm:text-xs"
+                className="shrink-0 rounded-full px-3 py-2.5 text-[11px] font-semibold text-muted-foreground shadow-none transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground sm:px-3.5 sm:text-xs"
               >
                 Groups
               </TabsTrigger>
@@ -637,7 +637,7 @@ export default function SocialSelfProfile() {
                 <div className="space-y-5">
                   {myPhotoPosts.length > 0 ? (
                     <div>
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                         Photo posts
                       </p>
                       <div className="grid grid-cols-3 gap-2">
@@ -648,7 +648,7 @@ export default function SocialSelfProfile() {
                               key={p.id}
                               type="button"
                               onClick={() => setLocation(`/community/post/${encodeURIComponent(p.id)}`)}
-                              className="group relative aspect-square overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-black/[0.04]"
+                              className="group relative aspect-square overflow-hidden rounded-2xl bg-muted ring-1 ring-border/60"
                               aria-label="Open post"
                             >
                               {url ? (
@@ -664,7 +664,7 @@ export default function SocialSelfProfile() {
 
                   {myTextPosts.length > 0 ? (
                     <div>
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                         Text posts
                       </p>
                       <div className="space-y-4">
@@ -869,20 +869,20 @@ export default function SocialSelfProfile() {
                           duration: 0.35,
                           ease: [0.22, 1, 0.36, 1],
                         }}
-                        className="overflow-hidden rounded-3xl border border-stone-100/90 bg-white shadow-[0_12px_40px_-28px_rgba(15,23,42,0.22)]"
+                        className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_12px_40px_-28px_rgba(15,23,42,0.22)] dark:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.45)]"
                       >
-                        <div className="border-b border-stone-100 bg-gradient-to-r from-primary/[0.06] to-transparent px-4 py-3">
+                        <div className="border-b border-border bg-gradient-to-r from-primary/[0.06] to-transparent px-4 py-3">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-primary/90">Your comment</p>
-                          <p className="mt-1.5 text-sm font-medium leading-relaxed text-stone-900">{comment.content}</p>
-                          <p className="mt-2 text-xs text-stone-400">
+                          <p className="mt-1.5 text-sm font-medium leading-relaxed text-foreground">{comment.content}</p>
+                          <p className="mt-2 text-xs text-muted-foreground/80">
                             {new Date(comment.createdAt).toLocaleString()}
                           </p>
                         </div>
                         <div className="px-4 py-3">
-                          <p className="text-xs font-medium text-stone-500">
-                            On <span className="text-stone-800">{author?.name || "a post"}</span>&apos;s thread
+                          <p className="text-xs font-medium text-muted-foreground">
+                            On <span className="text-foreground">{author?.name || "a post"}</span>&apos;s thread
                           </p>
-                          <p className="mt-1 line-clamp-3 text-sm leading-relaxed text-stone-600">{post.content}</p>
+                          <p className="mt-1 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{post.content}</p>
                           <Button
                             type="button"
                             variant="ghost"
@@ -1012,13 +1012,13 @@ export default function SocialSelfProfile() {
                         ease: [0.22, 1, 0.36, 1],
                       }}
                       className={cn(
-                        "flex w-full items-stretch gap-3 overflow-hidden rounded-3xl border border-stone-100/90 bg-white p-3 shadow-[0_10px_36px_-22px_rgba(15,23,42,0.15)] transition-shadow duration-300",
+                        "flex w-full items-stretch gap-3 overflow-hidden rounded-3xl border border-border bg-card p-3 shadow-[0_10px_36px_-22px_rgba(15,23,42,0.15)] transition-shadow duration-300 dark:shadow-[0_10px_36px_-22px_rgba(0,0,0,0.4)]",
                         "hover:shadow-[0_16px_44px_-22px_rgba(15,23,42,0.2)]",
                       )}
                     >
                       <div className="flex min-w-0 flex-[4] flex-col justify-center gap-2 py-0.5 pr-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-display font-bold text-stone-900">{g.name}</p>
+                          <p className="truncate font-display font-bold text-foreground">{g.name}</p>
                           {isMember ? (
                             <span className="shrink-0 rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
                               Joined
@@ -1026,16 +1026,16 @@ export default function SocialSelfProfile() {
                           ) : null}
                         </div>
                         {g.description ? (
-                          <p className="line-clamp-2 text-xs leading-relaxed text-stone-500">{g.description}</p>
+                          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{g.description}</p>
                         ) : (
-                          <p className="text-xs text-stone-400">Tap view to open this group.</p>
+                          <p className="text-xs text-muted-foreground/80">Tap view to open this group.</p>
                         )}
                         <div className="flex flex-wrap gap-2 pt-0.5">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-9 rounded-full border-stone-200 px-4 text-xs font-semibold"
+                            className="h-9 rounded-full border-border px-4 text-xs font-semibold"
                             onClick={() => setLocation(`/group/${g.id}`)}
                           >
                             View group
@@ -1064,7 +1064,7 @@ export default function SocialSelfProfile() {
                         </div>
                       </div>
                       <div className="relative flex-[1] shrink-0 self-stretch">
-                        <div className="relative h-full min-h-[7.5rem] overflow-hidden rounded-2xl bg-gradient-to-br from-primary/25 via-stone-100 to-stone-200/80 ring-1 ring-stone-200/60">
+                        <div className="relative h-full min-h-[7.5rem] overflow-hidden rounded-2xl bg-gradient-to-br from-primary/25 via-muted/50 to-muted ring-1 ring-border/70">
                           <span className="absolute left-1.5 right-1.5 top-1.5 z-10 truncate rounded-full bg-black/55 px-2 py-0.5 text-center text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
                             {badge}
                           </span>

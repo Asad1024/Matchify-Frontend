@@ -36,6 +36,7 @@ import { ProfileMarriageIntentBar } from "@/components/profile/ProfileMarriageIn
 import { ProfilePreviewCard } from "@/components/profile/ProfilePreviewCard";
 import { useToast } from "@/hooks/use-toast";
 import { pushExploreHistory } from "@/lib/muzzEconomy";
+import { displayImageUrl } from "@/lib/displayImageUrl";
 import { getReligionLabel, MEET_PREFERENCE_OPTIONS } from "@/lib/religionOptions";
 import {
   DropdownMenu,
@@ -252,8 +253,8 @@ export default function ViewProfile() {
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full"
-              onClick={() => setLocation("/explore")}
+              className="rounded-full text-foreground hover:bg-muted/60"
+              onClick={() => setLocation("/community")}
               aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -276,8 +277,8 @@ export default function ViewProfile() {
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full"
-              onClick={() => setLocation("/explore")}
+              className="rounded-full text-foreground hover:bg-muted/60"
+              onClick={() => setLocation("/community")}
               aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -287,9 +288,9 @@ export default function ViewProfile() {
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <p className="text-muted-foreground mb-4">Profile not found</p>
-            <Button onClick={() => setLocation("/explore")}>
+            <Button onClick={() => setLocation("/community")}>
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Explore
+              Back to Explore feed
             </Button>
           </div>
         </div>
@@ -300,7 +301,11 @@ export default function ViewProfile() {
 
   const aboutRows = aboutMeRows(user);
   const { city, country } = splitLocation(user.location);
-  const profileAvatarUrl = user.avatar?.trim() || "";
+  const profileAvatarUrl = (() => {
+    const raw = user.avatar?.trim() || "";
+    if (!raw) return "";
+    return displayImageUrl(raw) || raw;
+  })();
   const isOwnProfile = user.id === currentUserId;
   const outgoingChat = chatPair?.outgoingStatus ?? "none";
 
@@ -311,10 +316,10 @@ export default function ViewProfile() {
           <Button
             variant="ghost"
             size="icon"
-            className="shrink-0 rounded-full hover:bg-foreground/[0.05]"
-            onClick={() => setLocation("/explore")}
+            className="shrink-0 rounded-full text-foreground hover:bg-muted/60"
+            onClick={() => setLocation("/community")}
             data-testid="button-back"
-            aria-label="Back to Explore"
+            aria-label="Back to Explore feed"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -324,7 +329,7 @@ export default function ViewProfile() {
               type="button"
               size="icon"
               variant="ghost"
-              className="rounded-full hover:bg-foreground/[0.05]"
+              className="rounded-full text-foreground hover:bg-muted/60"
               aria-label="Share profile"
               onClick={() => setShareOpen(true)}
             >
@@ -333,7 +338,7 @@ export default function ViewProfile() {
             {!isOwnProfile && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                <Button size="icon" variant="ghost" className="rounded-full hover:bg-foreground/[0.05]" aria-label="More options">
+                <Button size="icon" variant="ghost" className="rounded-full text-foreground hover:bg-muted/60" aria-label="More options">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -378,8 +383,7 @@ export default function ViewProfile() {
                 alt=""
                 loading="eager"
                 decoding="async"
-                className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover [filter:none]"
-                style={{ transform: "translateZ(0)", WebkitBackfaceVisibility: "hidden" }}
+                className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover object-center [filter:none]"
               />
             ) : (
               <div
@@ -392,7 +396,7 @@ export default function ViewProfile() {
               aria-hidden
             />
             <div className="absolute left-3 top-3 z-[3] flex flex-wrap items-center gap-2">
-              <Badge className="rounded-full border-0 bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-gray-900 shadow-2xs sm:text-xs">
+              <Badge className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-[10px] font-semibold text-foreground shadow-2xs sm:text-xs">
                 {membershipBadgeLabel(user.createdAt)}
               </Badge>
               {user.verified ? (
@@ -559,9 +563,9 @@ export default function ViewProfile() {
               return (
                 <div
                   key={row.label}
-                  className="flex items-center gap-3 rounded-2xl border border-stone-100 bg-stone-50/90 px-3 py-2.5"
+                  className="flex items-center gap-3 rounded-2xl border border-border bg-muted/35 px-3 py-2.5"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground">
                     <Icon className="h-4 w-4" strokeWidth={2} />
                   </div>
                   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -595,13 +599,13 @@ export default function ViewProfile() {
           description="Background and community preferences."
         >
           <div className="space-y-3">
-            <div className="rounded-2xl bg-stone-50/90 px-3.5 py-3">
+            <div className="rounded-2xl border border-border bg-muted/35 px-3.5 py-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background</p>
               <p className="mt-1 text-sm font-bold text-foreground">
                 {user.religion ? getReligionLabel(user.religion) : "—"}
               </p>
             </div>
-            <div className="rounded-2xl bg-stone-50/90 px-3.5 py-3">
+            <div className="rounded-2xl border border-border bg-muted/35 px-3.5 py-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Community</p>
               <p className="mt-1 text-sm font-bold text-foreground">
                 {user.meetPreference
@@ -668,7 +672,7 @@ export default function ViewProfile() {
                   {user.lifestyle.map((v) => (
                     <span
                       key={v}
-                      className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                      className="rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-xs font-semibold text-foreground"
                     >
                       {v}
                     </span>
@@ -697,7 +701,7 @@ export default function ViewProfile() {
             ].map((row) => (
               <div
                 key={row.k}
-                className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50/90 px-3.5 py-3"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/35 px-3.5 py-3"
               >
                 <span className="text-xs font-bold text-muted-foreground">{row.k}</span>
                 <span className="max-w-[60%] text-right text-sm font-bold text-foreground">{row.v}</span>
@@ -721,7 +725,7 @@ export default function ViewProfile() {
             ].map((row) => (
               <div
                 key={row.k}
-                className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50/90 px-3.5 py-3"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/35 px-3.5 py-3"
               >
                 <span className="text-xs font-bold text-muted-foreground">{row.k}</span>
                 <span className="max-w-[65%] text-right text-sm font-semibold text-foreground">{row.v}</span>

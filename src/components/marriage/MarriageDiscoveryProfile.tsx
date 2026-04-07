@@ -31,6 +31,7 @@ import { postChatRequestToUser, DEFAULT_CHAT_REQUEST_MESSAGE } from "@/lib/reque
 import { useToast } from "@/hooks/use-toast";
 import { useUpgrade } from "@/contexts/UpgradeContext";
 import { cn } from "@/lib/utils";
+import { displayImageUrl } from "@/lib/displayImageUrl";
 
 export type MarriageDiscoveryUser = {
   id: string;
@@ -195,7 +196,11 @@ export function MarriageDiscoveryProfile({
     return user.interests.filter((x) => mine.has(x));
   }, [me, user]);
 
-  const heroImage = user.profileBanner?.trim() || user.avatar?.trim() || null;
+  const heroImage = (() => {
+    const raw = user.profileBanner?.trim() || user.avatar?.trim() || null;
+    if (!raw) return null;
+    return displayImageUrl(raw) || raw;
+  })();
 
   const sendMessageRequest = async () => {
     if (messageRequestStatus === "pending" || sendingRequest) return;
@@ -256,15 +261,14 @@ export function MarriageDiscoveryProfile({
         <Card className="matchify-surface overflow-hidden border-white/0 bg-card/70 shadow-lg">
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-stretch gap-3">
-              <div className="relative w-[84px] shrink-0 self-stretch overflow-hidden rounded-2xl border border-stone-200 bg-stone-100 shadow-sm">
+              <div className="relative w-[84px] shrink-0 self-stretch overflow-hidden rounded-2xl border border-border bg-muted shadow-sm">
                 {heroImage ? (
                   <img
                     src={heroImage}
                     alt=""
                     loading="eager"
                     decoding="async"
-                    className="absolute inset-0 h-full w-full object-cover [filter:none]"
-                    style={{ transform: "translateZ(0)", WebkitBackfaceVisibility: "hidden" }}
+                    className="absolute inset-0 h-full w-full object-cover object-center [filter:none]"
                   />
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-chart-1/20 to-chart-4/25" />
@@ -273,7 +277,7 @@ export function MarriageDiscoveryProfile({
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="min-w-0 truncate font-display text-[18px] font-bold leading-tight tracking-[0.2px] text-slate-900">
+                  <h1 className="min-w-0 truncate font-display text-[18px] font-bold leading-tight tracking-[0.2px] text-foreground">
                     {user.name}
                     {user.age != null ? `, ${user.age}` : ""}
                   </h1>
@@ -290,25 +294,25 @@ export function MarriageDiscoveryProfile({
                     {compatibilityScore}% match
                   </span>
                   {user.location ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700">
-                      <MapPin className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} aria-hidden />
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold text-foreground/90">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} aria-hidden />
                       <span className="max-w-[16rem] truncate">{user.location}</span>
                     </span>
                   ) : null}
                   {aboutRows.map((row) => (
                     <span
                       key={row.label}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-[11px] font-semibold text-slate-700"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-[11px] font-semibold text-foreground/90"
                       title={row.label}
                     >
-                      <span className="text-slate-500">{row.label}:</span>
-                      <span className="text-slate-900">{row.value}</span>
+                      <span className="text-muted-foreground">{row.label}:</span>
+                      <span className="text-foreground">{row.value}</span>
                     </span>
                   ))}
                 </div>
 
                 {user.bio ? (
-                  <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-slate-700">
+                  <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-muted-foreground">
                     {user.bio}
                   </p>
                 ) : null}
@@ -329,7 +333,7 @@ export function MarriageDiscoveryProfile({
                   return (
                     <span
                       key={interest}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-800 shadow-2xs"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-foreground shadow-2xs"
                       title={interest}
                     >
                       <Icon className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden />
@@ -345,7 +349,7 @@ export function MarriageDiscoveryProfile({
         <Card className="matchify-surface border-white/0 bg-card/70 shadow-2xs">
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-display text-base font-semibold text-slate-900">Marriage intention</h3>
+              <h3 className="font-display text-base font-semibold text-foreground">Marriage intention</h3>
               <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
                 {firstName}
               </span>
@@ -364,18 +368,18 @@ export function MarriageDiscoveryProfile({
 
         <Card className="matchify-surface border-white/0 bg-card/70 shadow-2xs">
           <CardContent className="p-4 sm:p-5">
-            <h3 className="mb-3 font-display text-base font-semibold text-slate-900">Heritage &amp; values</h3>
+            <h3 className="mb-3 font-display text-base font-semibold text-foreground">Heritage &amp; values</h3>
 
             <div className="space-y-4">
               <div>
-                <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Faith &amp; values
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {faithChips.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-800 shadow-2xs"
+                      className="inline-flex rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-foreground shadow-2xs"
                     >
                       {tag}
                     </span>
@@ -384,15 +388,15 @@ export function MarriageDiscoveryProfile({
               </div>
 
               <div>
-                <p className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  <Languages className="h-4 w-4 text-slate-400" strokeWidth={1.75} aria-hidden />
+                <p className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  <Languages className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} aria-hidden />
                   Languages
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {languageList.map((lang) => (
                     <span
                       key={lang}
-                      className="inline-flex rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-700 shadow-2xs"
+                      className="inline-flex rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-foreground/90 shadow-2xs"
                     >
                       {lang}
                     </span>
@@ -401,7 +405,7 @@ export function MarriageDiscoveryProfile({
               </div>
 
               <div>
-                <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Background
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -413,13 +417,13 @@ export function MarriageDiscoveryProfile({
                   ].map((row) => (
                     <span
                       key={row.k}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-800 shadow-2xs"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-foreground shadow-2xs"
                     >
-                      <span className="text-slate-500">{row.k}</span>
-                      <span className="text-slate-300" aria-hidden>
+                      <span className="text-muted-foreground">{row.k}</span>
+                      <span className="text-muted-foreground/30" aria-hidden>
                         •
                       </span>
-                      <span className="text-slate-900">{row.v}</span>
+                      <span className="text-foreground">{row.v}</span>
                     </span>
                   ))}
                 </div>
@@ -431,12 +435,12 @@ export function MarriageDiscoveryProfile({
         {user.interests && user.interests.length > 0 ? (
           <Card className="matchify-surface border-white/0 bg-card/70 shadow-2xs">
             <CardContent className="p-4 sm:p-6">
-              <h2 className="mb-3 font-display text-base font-semibold text-slate-900">Interests</h2>
+              <h2 className="mb-3 font-display text-base font-semibold text-foreground">Interests</h2>
               <div className="flex flex-wrap gap-2">
                 {user.interests.map((interest) => (
                   <span
                     key={interest}
-                    className="inline-flex items-center rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-slate-700 shadow-2xs transition-colors hover:bg-primary/10 hover:text-primary"
+                    className="inline-flex items-center rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-[12px] font-medium text-foreground/90 shadow-2xs transition-colors hover:bg-primary/10 hover:text-primary"
                     title={interest}
                   >
                     {interest}
@@ -456,11 +460,11 @@ export function MarriageDiscoveryProfile({
               <Badge className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white shadow-2xs">
                 Connect
               </Badge>
-              <span className="text-sm font-semibold text-slate-900">Start a conversation</span>
+              <span className="text-sm font-semibold text-foreground">Start a conversation</span>
             </div>
             {pendingRequest ? (
               <div className="space-y-3 rounded-xl border border-amber-200/80 bg-amber-50/50 p-4">
-                <p className="text-sm font-medium text-stone-800">
+                <p className="text-sm font-medium text-foreground">
                   Request sent. {firstName} can accept or decline from their notifications.
                 </p>
               </div>
@@ -477,14 +481,14 @@ export function MarriageDiscoveryProfile({
             ) : (
               <>
                 {rejectedRequest ? (
-                  <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-600">
+                  <p className="rounded-xl border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
                     {firstName} declined your last request. You can send another message request.
                   </p>
                 ) : null}
 
                 {canSendMessageRequest ? (
                   <div className="space-y-3">
-                    <p className="text-sm text-stone-600">
+                    <p className="text-sm text-muted-foreground">
                       Send a message request — they approve in notifications, then you can chat.
                     </p>
                     <Button
@@ -505,7 +509,7 @@ export function MarriageDiscoveryProfile({
               <Button
                 type="button"
                 variant="outline"
-                className="h-11 w-full gap-2 rounded-xl border-stone-200 font-semibold"
+                className="h-11 w-full gap-2 rounded-xl border-border font-semibold"
                 onClick={onShareProfile}
               >
                 <Share2 className="h-4 w-4" />
@@ -514,7 +518,7 @@ export function MarriageDiscoveryProfile({
               <Button
                 type="button"
                 variant="outline"
-                className="h-11 w-full gap-2 rounded-xl border-stone-200 font-semibold"
+                className="h-11 w-full gap-2 rounded-xl border-border font-semibold"
                 onClick={onToggleFavorite}
               >
                 <Star className={cn("h-4 w-4", isFavorite && "fill-current")} strokeWidth={1.75} aria-hidden />
@@ -529,7 +533,7 @@ export function MarriageDiscoveryProfile({
                 title="Block"
                 aria-label="Block"
                 className={cn(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/60 text-slate-700 shadow-2xs transition-colors hover:bg-card",
+                  "inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/60 text-foreground/80 shadow-2xs transition-colors hover:bg-card",
                 )}
               >
                 <Ban className="h-5 w-5" strokeWidth={1.75} aria-hidden />
@@ -539,7 +543,7 @@ export function MarriageDiscoveryProfile({
                 onClick={onReport}
                 title="Report"
                 aria-label="Report"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/60 text-slate-700 shadow-2xs transition-colors hover:bg-card"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/60 text-foreground/80 shadow-2xs transition-colors hover:bg-card"
               >
                 <Flag className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               </button>

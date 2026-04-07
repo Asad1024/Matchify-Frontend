@@ -8,7 +8,20 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
-import { Home, Users, Calendar, MessageCircle, User as UserIcon, Compass, Bell, GraduationCap, Sparkles, Search, Globe } from "lucide-react";
+import {
+  Gem,
+  Users,
+  Calendar,
+  MessageCircle,
+  User as UserIcon,
+  Compass,
+  Bell,
+  GraduationCap,
+  Sparkles,
+  Search,
+  Globe,
+  HeartHandshake,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getMockData } from "@/lib/mockData";
 import { fetchPostsFeedPage } from "@/lib/fetchPostsFeed";
@@ -78,9 +91,10 @@ export function GlobalSearch() {
   );
 
   const navigationItems = [
-    { icon: Home, label: "Home", path: "/" },
+    { icon: Gem, label: "Matches", path: "/" },
+    { icon: HeartHandshake, label: "Activity", path: "/explore" },
     { icon: Compass, label: "People", path: "/directory" },
-    { icon: Globe, label: "Feed", path: "/community" },
+    { icon: Globe, label: "Explore", path: "/community" },
     { icon: Calendar, label: "Events", path: "/events" },
     { icon: MessageCircle, label: "Chat", path: "/chat" },
     { icon: UserIcon, label: "Profile", path: "/profile" },

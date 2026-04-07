@@ -330,7 +330,7 @@ export default function Directory() {
   });
 
   const hasAttractionBlueprint = !!currentUser?.attractionBlueprint;
-  /** AI Matchmaker (30 questions) saves the blueprint — required for AI matches & full Discover list */
+  /** AI Matchmaker (30 questions) saves the blueprint — required for AI matches & full People browse list */
   const aiMatchmakerComplete = hasAttractionBlueprint;
 
   useEffect(() => {
@@ -342,8 +342,17 @@ export default function Directory() {
       if (tabParam === "curated") applyDiscoverTab("browse");
       return;
     }
-    /** Deep links (e.g. notifications) must use the same paywall as tapping the AI Matching tab. */
-    if (tabParam === "curated") applyDiscoverTab("curated");
+    if (tabParam === "curated") {
+      /** Free: stay on Browse and strip `tab` — upgrade modal only when user taps “AI Matching”. */
+      if (tier === "free") {
+        setDiscoverTab("browse");
+        const url = new URL(window.location.href);
+        url.searchParams.delete("tab");
+        window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+        return;
+      }
+      applyDiscoverTab("curated");
+    }
   }, [aiMatchmakerComplete, applyDiscoverTab, search, tier]);
 
   const { data: aiMatches = [] } = useQuery<AIMatch[]>({
@@ -525,19 +534,21 @@ export default function Directory() {
         {/* AI Matchmaker required — no AI matches / full list until 30 questions are finished */}
         {!aiMatchmakerComplete && (
           <div
-            className="mx-4 mt-4 rounded-2xl border border-amber-400/60 bg-amber-50/70 p-4 shadow-2xs"
+            className="mx-4 mt-4 rounded-2xl border border-amber-400/60 bg-amber-50/70 p-4 shadow-2xs dark:border-amber-800/50 dark:bg-amber-950/45"
             role="status"
             data-testid="banner-ai-matchmaker-incomplete"
           >
             <div className="flex gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100">
-                <AlertCircle className="h-5 w-5 text-amber-700" aria-hidden />
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/55">
+                <AlertCircle className="h-5 w-5 text-amber-700 dark:text-amber-300" aria-hidden />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-sm text-amber-950 mb-1">Finish AI Matchmaker to see matches</p>
-                <p className="text-xs text-amber-900/85 leading-relaxed mb-3">
+                <p className="mb-1 text-sm font-bold text-amber-950 dark:text-amber-100">
+                  Finish AI Matchmaker to see matches
+                </p>
+                <p className="mb-3 text-xs leading-relaxed text-amber-900/85 dark:text-amber-200/90">
                   Personalized and AI-ranked matches stay hidden until you complete all{" "}
-                  <span className="font-semibold">30 questions</span>. People in Discover will show here
+                  <span className="font-semibold">30 questions</span>. Everyone you can browse will show here
                   after you finish.
                 </p>
                 <Button
@@ -558,13 +569,13 @@ export default function Directory() {
         {hasAttractionBlueprint && (
           <div className="mx-4 mt-3 matchify-surface bg-primary/5 px-4 py-3">
             <div className="flex items-center gap-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white shadow-2xs ring-1 ring-primary/10">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-card shadow-2xs ring-1 ring-primary/10">
                 <Sparkles className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-800">AI Matchmaker active</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
-                  Your <span className="font-semibold text-slate-800">timed AI match</span> is one person per cycle on the AI
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground">AI Matchmaker active</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  Your <span className="font-semibold text-foreground">timed AI match</span> is one person per cycle on the AI
                   Matchmaker home. Here you can browse everyone; compatibility sort still uses AI scores where available.
                 </p>
               </div>
@@ -586,7 +597,7 @@ export default function Directory() {
                   type="button"
                   onClick={() => applyDiscoverTab(id)}
                   className={`relative flex flex-1 items-center justify-center gap-2 rounded-[20px] py-2.5 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${
-                    discoverTab === id ? "text-slate-900" : "text-slate-500 hover:text-slate-800"
+                    discoverTab === id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" aria-hidden />
@@ -606,7 +617,7 @@ export default function Directory() {
 
         {discoverTab === "curated" && aiMatchmakerComplete ? (
           <div className="px-4 mt-5 space-y-4">
-            <p className="text-center font-display text-[13px] leading-[1.8] text-slate-600">
+            <p className="text-center font-display text-[13px] leading-[1.8] text-muted-foreground">
               Everyone listed here was assigned as your timed AI pick. New names appear automatically after
               each cycle.
             </p>
@@ -655,8 +666,8 @@ export default function Directory() {
                 className={cn(
                   "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors",
                   sortBy === opt.id
-                    ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
-                    : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+                    ? "border-primary/30 bg-primary/10 text-foreground shadow-2xs"
+                    : "border-border/70 bg-card/60 text-muted-foreground hover:bg-card hover:text-foreground",
                 )}
               >
                 {sortBy === opt.id && <Check className="w-3 h-3" />}
@@ -672,8 +683,8 @@ export default function Directory() {
                 className={cn(
                   "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors capitalize",
                   selectedGender === g
-                    ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
-                    : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+                    ? "border-primary/30 bg-primary/10 text-foreground shadow-2xs"
+                    : "border-border/70 bg-card/60 text-muted-foreground hover:bg-card hover:text-foreground",
                 )}
               >
                 {selectedGender === g && <Check className="w-3 h-3" />}
@@ -687,8 +698,8 @@ export default function Directory() {
               className={cn(
                 "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors",
                 verifiedOnly
-                  ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
-                  : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+                  ? "border-primary/30 bg-primary/10 text-foreground shadow-2xs"
+                  : "border-border/70 bg-card/60 text-muted-foreground hover:bg-card hover:text-foreground",
               )}
             >
               {verifiedOnly && <Check className="w-3 h-3" />}
@@ -703,8 +714,8 @@ export default function Directory() {
                 className={cn(
                   "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors",
                   selectedLocation === loc
-                    ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
-                    : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+                    ? "border-primary/30 bg-primary/10 text-foreground shadow-2xs"
+                    : "border-border/70 bg-card/60 text-muted-foreground hover:bg-card hover:text-foreground",
                 )}
               >
                 {selectedLocation === loc && <Check className="w-3 h-3" />}
@@ -720,8 +731,8 @@ export default function Directory() {
                 className={cn(
                   "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-[999px] text-[11px] font-medium uppercase tracking-[0.14em] border transition-colors",
                   selectedEducation === ed
-                    ? "bg-primary/10 text-slate-900 border-primary/30 shadow-2xs"
-                    : "bg-card/60 text-slate-600 border-border/70 hover:bg-card",
+                    ? "border-primary/30 bg-primary/10 text-foreground shadow-2xs"
+                    : "border-border/70 bg-card/60 text-muted-foreground hover:bg-card hover:text-foreground",
                 )}
               >
                 {selectedEducation === ed && <Check className="w-3 h-3" />}
@@ -733,9 +744,9 @@ export default function Directory() {
           {/* Age range */}
           <div className="mt-3 matchify-surface px-4 py-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Age range</span>
-              <span className="font-display text-[14px] font-bold text-slate-900 tabular-nums">
-                {ageRange[0]} <span className="text-slate-400">–</span> {ageRange[1]}
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Age range</span>
+              <span className="font-display text-[14px] font-bold text-foreground tabular-nums">
+                {ageRange[0]} <span className="text-muted-foreground/70">–</span> {ageRange[1]}
               </span>
             </div>
             <div className="flex gap-3 items-center">
@@ -766,7 +777,7 @@ export default function Directory() {
               useMascot={true}
               mascotType="default"
               title="AI Matchmaker not finished"
-              description="Complete all 30 questions to unlock matches and AI compatibility scores in Discover."
+              description="Complete all 30 questions to unlock matches and AI compatibility scores in People."
               actionLabel="Go to AI Matchmaker"
               onAction={() => setLocation("/ai-matchmaker/flow-b")}
               className="max-w-md mx-auto py-12"
@@ -777,7 +788,7 @@ export default function Directory() {
             </div>
           ) : browseProfileRows.length === 0 ? (
             latestCuratedId ? (
-              <p className="py-8 text-center text-xs text-gray-500 leading-relaxed">
+              <p className="py-8 text-center text-xs leading-relaxed text-muted-foreground">
                 No other profiles match your filters right now. Try widening age or location, or open{" "}
                 <button
                   type="button"

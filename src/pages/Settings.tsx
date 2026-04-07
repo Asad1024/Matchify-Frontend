@@ -22,7 +22,11 @@ import {
   HelpCircle,
   UserRound,
   Crown,
+  Moon,
+  Sun,
+  Monitor,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useUpgrade } from "@/contexts/UpgradeContext";
 import type { MembershipTier } from "@/lib/entitlements";
@@ -83,6 +87,7 @@ export default function Settings() {
   const { logout } = useAuth();
   const { toast } = useToast();
   const { tier } = useUpgrade();
+  const { theme, setTheme } = useTheme();
   
   const [privacySettings, setPrivacySettings] = useState({
     profileVisible: true,
@@ -277,7 +282,7 @@ export default function Settings() {
   function SettingsSectionTitle({ children }: { children: string }) {
     return (
       <div className="px-1 pt-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {children}
         </p>
       </div>
@@ -294,7 +299,7 @@ export default function Settings() {
 
   function IconBubble({ children }: { children: React.ReactNode }) {
     return (
-      <div className="grid h-9 w-9 place-items-center rounded-full bg-muted/60 text-slate-600">
+      <div className="grid h-9 w-9 place-items-center rounded-full bg-muted/60 text-muted-foreground">
         {children}
       </div>
     );
@@ -324,14 +329,14 @@ export default function Settings() {
         onClick={onClick}
         className={cn(
           "flex w-full items-center justify-between gap-3 py-3 text-left",
-          onClick ? "hover:bg-slate-900/[0.02] -mx-4 px-4 rounded-2xl transition" : "",
+          onClick ? "hover:bg-muted/50 -mx-4 px-4 rounded-2xl transition" : "",
         )}
       >
         <div className="flex min-w-0 items-center gap-3">
           <IconBubble>{icon}</IconBubble>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className={cn("text-[15px] font-medium", danger ? "text-red-600" : "text-slate-900")}>
+              <p className={cn("text-[15px] font-medium", danger ? "text-red-600" : "text-foreground")}>
                 {label}
               </p>
               {badge ? (
@@ -351,8 +356,8 @@ export default function Settings() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {value ? <span className="text-[12px] font-medium text-slate-500">{value}</span> : null}
-          {right ?? (onClick ? <ChevronRight className="h-5 w-5 text-slate-400" strokeWidth={1.75} /> : null)}
+          {value ? <span className="text-[12px] font-medium text-muted-foreground">{value}</span> : null}
+          {right ?? (onClick ? <ChevronRight className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} /> : null)}
         </div>
       </Comp>
     );
@@ -396,6 +401,40 @@ export default function Settings() {
           />
         ) : null}
 
+        <SettingsSectionTitle>Appearance</SettingsSectionTitle>
+        <SettingsCard>
+          <p className="px-1 pb-2 text-[13px] leading-relaxed text-muted-foreground">
+            Choose light, dark, or match your device.
+          </p>
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {(
+              [
+                { id: "light", label: "Light", icon: Sun },
+                { id: "dark", label: "Dark", icon: Moon },
+                { id: "system", label: "System", icon: Monitor },
+              ] as const
+            ).map(({ id, label, icon: Icon }) => {
+              const active = theme === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setTheme(id)}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 rounded-2xl border py-3 text-[12px] font-semibold transition",
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/70 bg-card/50 text-muted-foreground hover:bg-card hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </SettingsCard>
+
         <SettingsSectionTitle>Account settings</SettingsSectionTitle>
         <SettingsCard>
           <div className="pt-2">
@@ -403,7 +442,7 @@ export default function Settings() {
           </div>
         </SettingsCard>
 
-        <SettingsSectionTitle>Discovery preferences</SettingsSectionTitle>
+        <SettingsSectionTitle>Matching preferences</SettingsSectionTitle>
         <SettingsCard>
           <Row
             icon={<Lock className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
@@ -573,7 +612,7 @@ export default function Settings() {
                   label="Delete account"
                   danger
                   onClick={() => {}}
-                  right={<ChevronRight className="h-5 w-5 text-slate-400" strokeWidth={1.75} aria-hidden />}
+                  right={<ChevronRight className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} aria-hidden />}
                 />
               </button>
             </AlertDialogTrigger>

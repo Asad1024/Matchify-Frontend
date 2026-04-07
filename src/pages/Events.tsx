@@ -29,7 +29,8 @@ export default function Events() {
   const [activePage, setActivePage] = useState('explore');
   const [, setLocation] = useLocation();
   const [searchParams] = useSearchParams();
-  const fromExplore = searchParams.get("from") === "explore";
+  const fromExplore =
+    searchParams.get("from") === "explore" || searchParams.get("from") === "community";
   const fromExploreRef = useRef(false);
   fromExploreRef.current = fromExplore;
   const { toast } = useToast();
@@ -187,7 +188,7 @@ export default function Events() {
         navigationTimeoutRef.current = setTimeout(() => {
           setLocation(
             fromExploreRef.current
-              ? `/event/${variables.eventId}?from=explore`
+              ? `/event/${variables.eventId}?from=community`
               : `/event/${variables.eventId}`,
           );
           navigationTimeoutRef.current = null;
@@ -502,7 +503,9 @@ export default function Events() {
         subtitle="Match-friendly meetups near you"
         onSearch={(query) => console.log('Search events:', query)}
         onNotifications={() => setLocation('/notifications')}
-        onCreate={() => setLocation(fromExplore ? "/events/create?from=explore" : "/events/create")}
+        onCreate={() =>
+          setLocation(fromExplore ? "/events/create?from=community" : "/events/create")
+        }
         onSettings={() => setLocation('/profile')}
         onLogout={logout}
       />
@@ -538,7 +541,7 @@ export default function Events() {
       {invitedEventIdsWithoutRsvp.size > 0 ? (
         <div className="mx-auto max-w-lg px-4 pt-3">
           <div
-            className="flex flex-col gap-3 rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50 to-fuchsia-50/80 p-4 shadow-sm sm:flex-row sm:items-center"
+            className="flex flex-col gap-3 rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50 to-fuchsia-50/80 p-4 shadow-sm dark:border-violet-500/35 dark:from-violet-950/75 dark:to-fuchsia-950/60 dark:shadow-none sm:flex-row sm:items-center"
             data-testid="banner-ai-event-invites"
           >
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-md">
@@ -561,7 +564,7 @@ export default function Events() {
                   onClick={() =>
                     setLocation(
                       fromExplore
-                        ? `/event/${firstPendingInviteEventId}?from=explore`
+                        ? `/event/${firstPendingInviteEventId}?from=community`
                         : `/event/${firstPendingInviteEventId}`,
                     )
                   }
@@ -572,7 +575,7 @@ export default function Events() {
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full rounded-xl border-violet-200 sm:w-auto"
+                className="w-full rounded-xl border-violet-200 bg-background/80 hover:bg-muted/60 dark:border-violet-600/55 dark:bg-transparent dark:hover:bg-muted/50 sm:w-auto"
                 onClick={() => setLocation("/notifications")}
               >
                 Notifications
@@ -591,8 +594,8 @@ export default function Events() {
         {fromExplore ? (
           <Button
             variant="ghost"
-            className="-ml-2 mb-2 h-10 px-2 text-gray-700"
-            onClick={() => setLocation("/explore?tab=events")}
+            className="-ml-2 mb-2 h-10 px-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setLocation("/community")}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Explore
@@ -602,7 +605,7 @@ export default function Events() {
             <div className="flex items-start justify-between gap-3 mb-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Discover meetups, RSVP in one tap, and keep track of what you&apos;re going to.
+                Explore meetups, RSVP in one tap, and keep track of what you&apos;re going to.
               </p>
               <Button
                 variant="ghost"
@@ -615,7 +618,7 @@ export default function Events() {
             </div>
             <Button
               onClick={() =>
-                setLocation(fromExplore ? "/events/create?from=explore" : "/events/create")
+                setLocation(fromExplore ? "/events/create?from=community" : "/events/create")
               }
               className="hidden shrink-0 sm:flex"
               size="sm"
@@ -627,7 +630,7 @@ export default function Events() {
 
             <Button
               onClick={() =>
-                setLocation(fromExplore ? "/events/create?from=explore" : "/events/create")
+                setLocation(fromExplore ? "/events/create?from=community" : "/events/create")
               }
               className="w-full sm:hidden mt-3 rounded-xl font-bold"
               size="sm"
@@ -722,7 +725,7 @@ export default function Events() {
                       }}
                       onClick={(id) =>
                         setLocation(
-                          fromExplore ? `/event/${id}?from=explore` : `/event/${id}`,
+                          fromExplore ? `/event/${id}?from=community` : `/event/${id}`,
                         )
                       }
                     />
@@ -789,7 +792,7 @@ export default function Events() {
 
           <TabsContent value="calendar" className="mt-4 outline-none">
             <div className="min-w-0 space-y-4">
-              <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-3 shadow-sm sm:p-4">
+              <div className="overflow-hidden rounded-2xl border border-border bg-card p-3 shadow-sm sm:p-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <Button
                     type="button"
@@ -819,7 +822,7 @@ export default function Events() {
                     <ChevronRight className="h-5 w-5" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-7 gap-0.5 border-b border-stone-100 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">
+                <div className="grid grid-cols-7 gap-0.5 border-b border-border pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
                     <div key={d} className="py-1">
                       {d}
@@ -847,8 +850,8 @@ export default function Events() {
                             ? "border-primary bg-primary text-primary-foreground shadow-sm"
                             : count > 0
                               ? "border-primary/35 bg-primary/[0.08] text-foreground hover:bg-primary/[0.14]"
-                              : "border-transparent bg-stone-50/80 text-foreground hover:bg-stone-100",
-                          isToday && !isSelected && "ring-2 ring-primary/40 ring-offset-1",
+                              : "border-transparent bg-muted/40 text-foreground hover:bg-muted/70",
+                          isToday && !isSelected && "ring-2 ring-primary/40 ring-offset-1 ring-offset-background",
                         )}
                       >
                         <span>{day}</span>
@@ -892,7 +895,7 @@ export default function Events() {
                     : `Events in ${calendarMonth.toLocaleDateString(undefined, { month: "long" })}`}
                 </h3>
                 {calendarListEvents.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center text-sm text-muted-foreground">
+                  <p className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
                     No events on your filters for this {selectedDateKey ? "day" : "month"}.
                   </p>
                 ) : (
@@ -922,7 +925,7 @@ export default function Events() {
                           }}
                           onClick={(id) =>
                             setLocation(
-                              fromExplore ? `/event/${id}?from=explore` : `/event/${id}`,
+                              fromExplore ? `/event/${id}?from=community` : `/event/${id}`,
                             )
                           }
                         />

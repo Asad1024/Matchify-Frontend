@@ -43,19 +43,19 @@ export default function FeedQuickActions({
             onClick={onClick}
             className={cn(
               "group flex flex-col items-center justify-center gap-1 rounded-2xl p-2 text-center transition",
-              "matchify-surface border-white/0 bg-white/80",
+              "matchify-surface border-white/0",
             )}
           >
             <div
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-2xl",
                 t.wrap,
-                "ring-1 ring-black/[0.04] group-hover:ring-black/[0.06] transition",
+                "ring-1 ring-border/60 group-hover:ring-border transition",
               )}
             >
               <Icon className={cn("h-4 w-4", t.icon, "opacity-90")} strokeWidth={1.75} aria-hidden />
             </div>
-            <span className="text-[11px] font-medium text-slate-900/90 tracking-[0.2px]">{label}</span>
+            <span className="text-[11px] font-medium text-foreground/90 tracking-[0.2px]">{label}</span>
           </button>
         );
       })}

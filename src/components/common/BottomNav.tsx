@@ -17,15 +17,15 @@ interface BottomNavProps {
 
 type NavIcon = LucideIcon;
 
-/** 5-tab bar: Marriage · Explore · Feed · Chat · Menu */
+/** 5-tab bar: Matches · Activity · Explore · Chat · Menu */
 const NAV_ITEMS: {
   id: string;
   icon: NavIcon;
   label: string;
   path: string;
 }[] = [
-  { id: "marriage", icon: Gem, label: "Marriage", path: "/" },
-  { id: "explore", icon: HeartHandshake, label: "Discover", path: "/explore" },
+  { id: "marriage", icon: Gem, label: "Matches", path: "/" },
+  { id: "explore", icon: HeartHandshake, label: "Activity", path: "/explore" },
   { id: "community", icon: Globe, label: "Explore", path: "/community" },
   { id: "chat", icon: MessagesSquare, label: "Chat", path: "/chat" },
   { id: "menu", icon: UserCircle, label: "Menu", path: "/menu" },
@@ -73,13 +73,13 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
   };
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 safe-bottom">
+    <nav className="fixed inset-x-0 bottom-0 z-50 safe-bottom bg-[hsl(var(--surface-2))]">
       <div className="mx-auto max-w-lg px-4 pb-2.5 pt-2">
         <div className="relative">
           {/* Soft gradient “dock” fade so the bar feels embedded */}
           <div
             aria-hidden
-            className="pointer-events-none absolute -inset-x-6 -bottom-8 h-24 bg-gradient-to-t from-background via-background/70 to-transparent"
+            className="pointer-events-none absolute -inset-x-6 -bottom-8 h-24 bg-gradient-to-t from-[hsl(var(--surface-2))] via-[hsl(var(--surface-2))]/80 to-transparent"
           />
 
           <div className="relative rounded-[26px] border border-border/70 bg-card/70 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.35)] ring-1 ring-primary/10 backdrop-blur-xl">
@@ -120,16 +120,14 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
                         "flex items-center gap-2",
                         isActive && !isMenu
                           ? "text-primary-foreground"
-                          : menuActive && !isMenu
-                            ? "text-primary/80"
-                            : "text-primary/75",
+                          : "text-muted-foreground",
                       )}
                     >
                       <span className="relative grid place-items-center">
                         {isMenu ? (
                           <Avatar
                             className={cn(
-                              "h-9 w-9 shrink-0 border-2 bg-white/70 backdrop-blur",
+                              "h-9 w-9 shrink-0 border-2 border-border bg-card/90 backdrop-blur",
                               isActive ? "border-primary/70" : "border-border/70",
                             )}
                           >

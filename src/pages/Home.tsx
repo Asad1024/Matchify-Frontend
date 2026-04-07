@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/common/Header";
+import { OPEN_GLOBAL_SEARCH_EVENT } from "@/components/common/GlobalSearch";
 import PageWrapper from "@/components/common/PageWrapper";
 import BottomNav from "@/components/common/BottomNav";
 import { BlockReportDialog } from "@/components/common/BlockReportDialog";
@@ -12,6 +13,7 @@ import {
   type MarriageDiscoveryUser,
 } from "@/components/marriage/MarriageDiscoveryProfile";
 import { Button } from "@/components/ui/button";
+import { AlertCircle, ArrowRight, Sparkles } from "lucide-react";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/contexts/UserContext";
@@ -164,7 +166,7 @@ export default function Home() {
         addMarriageLiked(targetId);
         toast({
           title: "Liked",
-          description: "Saved under Explore → My history → Liked.",
+          description: "Saved under Activity → My history → Liked.",
         });
         bumpDeck();
       },
@@ -188,7 +190,7 @@ export default function Home() {
   if (!currentUserId) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <LoadingState message="Loading Marriage…" showMascot={true} />
+        <LoadingState message="Loading Matches…" showMascot={true} />
       </div>
     );
   }
@@ -203,23 +205,16 @@ export default function Home() {
   const likedCount = getMarriageLikedIds().size;
   const passedCount = getMarriagePassedIds().size;
 
+  const aiMatchmakerComplete = !!(me as { attractionBlueprint?: unknown } | null | undefined)?.attractionBlueprint;
+  const showAiMatchmakerBanner = !meLoading && !!currentUserId && !aiMatchmakerComplete;
+
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <PageWrapper>
         <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
           <Header
             showSearch={true}
-            onSearch={(query) => {
-              const q = query.trim();
-              if (q) {
-                try {
-                  sessionStorage.setItem("matchify_explore_search", q);
-                } catch {
-                  /* ignore */
-                }
-                setLocation("/explore");
-              }
-            }}
+            onSearch={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
             onNotifications={() => setLocation("/notifications")}
             onCreate={() => {
               try {
@@ -231,9 +226,52 @@ export default function Home() {
             }}
             onSettings={() => setLocation("/profile")}
             onLogout={logout}
-            title="Marriage"
-            subtitle="One profile at a time — your picks sync to Explore"
+            title="Matches"
+            subtitle="One profile at a time — your deck syncs to Activity"
           />
+
+          <div className="mx-auto max-w-lg space-y-3 px-4 pt-3">
+            {showAiMatchmakerBanner ? (
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-400/60 bg-amber-50/70 p-4 shadow-2xs backdrop-blur-md dark:border-amber-800/50 dark:bg-amber-950/45">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/55">
+                  <AlertCircle className="h-5 w-5 text-amber-700 dark:text-amber-300" aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-0.5 text-sm font-semibold text-amber-950 dark:text-amber-100">
+                    Finish AI Matchmaker to see matches
+                  </p>
+                  <p className="mb-2 text-xs leading-relaxed text-amber-900/85 dark:text-amber-200/90">
+                    Complete all 30 questions to unlock full People browse and compatibility scores. Timed AI picks
+                    use the <span className="font-semibold">AI Matching</span> tab (Plus).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setLocation("/ai-matchmaker/flow-b")}
+                    className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-2xs"
+                  >
+                    <Sparkles className="h-3 w-3" aria-hidden />
+                    Continue
+                    <ArrowRight className="h-3 w-3" aria-hidden />
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            <div className="space-y-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-2xl border-border/70 bg-card/70 font-semibold text-foreground shadow-2xs"
+                onClick={() => setLocation("/directory")}
+              >
+                <Sparkles className="mr-2 h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden />
+                Browse People
+              </Button>
+              <p className="text-center text-[11px] leading-snug text-muted-foreground px-1">
+                Timed AI picks: open <span className="font-semibold text-foreground/90">AI Matching</span> in People
+                (Plus).
+              </p>
+            </div>
+          </div>
 
           <div className="mx-auto max-w-lg">
             {usersLoading || meLoading ? (
@@ -248,17 +286,17 @@ export default function Home() {
               <div className="px-4 py-8">
                 <Card className="matchify-surface overflow-hidden border-white/0 bg-card/70">
                   <CardContent className="p-6 text-center">
-                    <p className="font-display text-lg font-bold text-stone-900">You’re all caught up</p>
-                    <p className="mt-2 text-sm text-stone-600">
-                      No new profiles right now. Browse Discover or check back later.
+                    <p className="font-display text-lg font-bold text-foreground">You’re all caught up</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      No new profiles right now. Try AI matches, Activity, or check back later.
                     </p>
 
                     <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                       <span className="rounded-full border border-border/70 bg-card/60 px-3 py-1 text-[12px] font-semibold text-stone-700 tabular-nums">
                         Liked: <span className="font-bold text-primary">{likedCount}</span>
                       </span>
-                      <span className="rounded-full border border-border/70 bg-card/60 px-3 py-1 text-[12px] font-semibold text-stone-700 tabular-nums">
-                        Passed: <span className="font-bold text-stone-900">{passedCount}</span>
+                      <span className="rounded-full border border-border/70 bg-card/60 px-3 py-1 text-[12px] font-semibold text-foreground/90 tabular-nums">
+                        Passed: <span className="font-bold text-foreground">{passedCount}</span>
                       </span>
                     </div>
 
@@ -266,17 +304,17 @@ export default function Home() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-11 rounded-full border-border/70 bg-card/60 font-semibold text-stone-800 shadow-2xs hover:bg-card"
+                        className="h-11 rounded-full border-border/70 bg-card/60 font-semibold text-foreground shadow-2xs hover:bg-card"
                         onClick={() => setLocation("/explore")}
                       >
-                        Open Discover
+                        Open Activity
                       </Button>
                       <Button
                         type="button"
                         className="h-11 rounded-full font-semibold shadow-2xs"
-                        onClick={() => setLocation("/events")}
+                        onClick={() => setLocation("/community")}
                       >
-                        Browse events
+                        Open Explore
                       </Button>
                     </div>
                   </CardContent>
@@ -285,7 +323,7 @@ export default function Home() {
                   <div className="mx-auto mt-4 max-w-lg rounded-[24px] border border-amber-200/60 bg-amber-50/70 px-4 py-4 text-left shadow-2xs">
                     <p className="text-xs font-bold uppercase tracking-wide text-amber-900/80">Testing only</p>
                     <p className="mt-1 text-xs leading-relaxed text-amber-950/80">
-                      Clears pass/like/favorite lists (Marriage deck + Explore → My history) and local marriage chat demo
+                      Clears pass/like/favorite lists (Matches deck + Activity → My history) and local marriage chat demo
                       keys.
                     </p>
                     <Button

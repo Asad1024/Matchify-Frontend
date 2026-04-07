@@ -5,29 +5,15 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import Header from "@/components/common/Header";
 import BottomNav from "@/components/common/BottomNav";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { eventAttendingDenominator } from "@/lib/eventGuestListDisplay";
-import { format } from "date-fns";
-import SwipeableEventCard from "@/components/events/SwipeableEventCard";
 import {
   Compass,
-  Filter,
-  LayoutGrid,
-  Zap,
-  CalendarDays,
   Sparkles,
   MapPin,
   Heart,
   Activity,
   History,
-  Plus,
+  GraduationCap,
 } from "lucide-react";
 import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,14 +25,10 @@ import {
   getMarriagePassed,
   type DeckEntry,
 } from "@/lib/marriageDeckStore";
-import { ExploreEventCard } from "@/components/explore/ExploreEventCard";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import FeedFilterPills from "@/components/feed/FeedFilterPills";
-import { Calendar } from "@/components/ui/calendar";
-import CreatePostDialog from "@/components/posts/CreatePostDialog";
 import { filterToOppositeGender } from "@/lib/oppositeGenderPreference";
 import { buildApiUrl, getAuthHeaders } from "@/services/api";
-import { filterEventsVisibleToViewer } from "@/lib/eventVisibility";
 
 type PublicUser = {
   id: string;
@@ -63,123 +45,6 @@ type PublicUser = {
   career?: string | null;
 };
 
-type ApiEvent = {
-  id: string;
-  title: string;
-  description?: string | null;
-  date: string;
-  time?: string | null;
-  location: string;
-  type?: string | null;
-  image?: string | null;
-  price?: string | null;
-  capacity?: number;
-  attendeesCount?: number;
-  hostId?: string | null;
-  status?: string | null;
-  aiGenerated?: boolean;
-  aiGuestListCount?: number | null;
-};
-
-function eventSortTimeMs(e: ApiEvent): number {
-  const t = new Date(e.date);
-  return Number.isNaN(t.getTime()) ? 0 : t.getTime();
-}
-
-function sameCalendarDay(selected: Date, eventDateStr: string): boolean {
-  const t = new Date(eventDateStr);
-  if (Number.isNaN(t.getTime())) return false;
-  return (
-    selected.getFullYear() === t.getFullYear() &&
-    selected.getMonth() === t.getMonth() &&
-    selected.getDate() === t.getDate()
-  );
-}
-
-function formatDayPill(d: Date): { dow: string; md: string } {
-  const dow = d.toLocaleString(undefined, { weekday: "short" });
-  const md = d.toLocaleString(undefined, { month: "short", day: "numeric" });
-  return { dow, md };
-}
-
-function ExploreEventSwipeStack({
-  events,
-  onOpenEvent,
-  hasNextPage,
-  onNextPage,
-}: {
-  events: ApiEvent[];
-  onOpenEvent: (id: string) => void;
-  /** When the user finishes this page, offer going to the next page. */
-  hasNextPage?: boolean;
-  onNextPage?: () => void;
-}) {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    setI(0);
-  }, [events]);
-
-  const current = events[i];
-  if (!current) {
-    return (
-      <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/90 px-4 py-10 text-center text-sm text-gray-600">
-        {events.length === 0
-          ? "No events on this page."
-          : "You’ve seen every event on this page."}
-        {hasNextPage && onNextPage ? (
-          <div className="mt-3 flex justify-center">
-            <Button type="button" variant="outline" className="rounded-full" onClick={onNextPage}>
-              Next page
-            </Button>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  const attendees = current.attendeesCount ?? 0;
-  const capacity = eventAttendingDenominator({
-    aiGenerated: current.aiGenerated,
-    aiGuestListCount: current.aiGuestListCount ?? null,
-    capacity: current.capacity ?? 50,
-  });
-
-  return (
-    <div className="relative mx-auto flex min-h-[26rem] w-full max-w-sm justify-center pb-2 pt-1">
-      <SwipeableEventCard
-        key={current.id}
-        id={current.id}
-        title={current.title}
-        description={current.description?.trim() || "Tap through to see details and join."}
-        date={current.date}
-        time={current.time?.trim() || "—"}
-        location={current.location}
-        type={(current.type || "offline").toLowerCase() === "online" ? "online" : "offline"}
-        attendees={attendees}
-        capacity={capacity}
-        price={current.price || undefined}
-        image={current.image || undefined}
-        onSwipeLeft={() => setI((n) => n + 1)}
-        onSwipeRight={() => {
-          onOpenEvent(current.id);
-          setI((n) => n + 1);
-        }}
-      />
-    </div>
-  );
-}
-
-function cityCountryFromLocation(location: string | null | undefined): { city: string; country: string } {
-  if (!location?.trim()) return { city: "—", country: "—" };
-  const parts = location
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (parts.length === 0) return { city: "—", country: "—" };
-  if (parts.length === 1) return { city: parts[0], country: "—" };
-  return { city: parts[0], country: parts[parts.length - 1] };
-}
-
 function formatCardTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -190,8 +55,7 @@ function formatCardTime(iso: string | null | undefined): string {
 const exploreSectionTitle = "text-lg font-bold text-foreground sm:text-xl";
 
 /**
- * React Query default `gcTime` is 5m — after that, leaving Explore drops cached JSON and the next visit refetches.
- * Longer retention keeps “For you” / Events / History payloads warm (images still use browser HTTP cache when URLs repeat).
+ * Longer retention keeps Activity (“For you” / Coaching / History) payloads warm between visits.
  */
 const EXPLORE_QUERY_GC_MS = 1000 * 60 * 60;
 
@@ -375,37 +239,19 @@ export default function ExploreMuzz() {
   const [searchParams] = useSearchParams();
   const { logout } = useAuth();
   const { userId } = useCurrentUser();
-  const [createPostOpen, setCreatePostOpen] = useState(false);
-  const effectiveUserId = useMemo(() => {
-    if (userId) return userId;
-    try {
-      const raw = localStorage.getItem("currentUser");
-      if (!raw) return null;
-      const u = JSON.parse(raw) as { id?: string; userId?: string };
-      return (u.id || u.userId || null) as string | null;
-    } catch {
-      return null;
-    }
-  }, [userId]);
   const prefersReducedMotion = useReducedMotion();
-  const [tab, setTab] = useState<"foryou" | "events" | "history">("foryou");
+  const [tab, setTab] = useState<"foryou" | "coaching" | "history">("foryou");
   const [historySub, setHistorySub] = useState<"favorite" | "liked" | "passed">("favorite");
   const [deckEpoch, setDeckEpoch] = useState(0);
-  const [eventsView, setEventsView] = useState<"all" | "swipe" | "calendar">("all");
-  const [eventsAllSub, setEventsAllSub] = useState<"all" | "upcoming" | "mine" | "past">("all");
-  const [eventTypeFilter, setEventTypeFilter] = useState<"all" | "online" | "offline">("all");
-  const [calendarDay, setCalendarDay] = useState<Date | undefined>(undefined);
-  const EVENTS_PAGE_SIZE = 6;
-  const [eventsPageAll, setEventsPageAll] = useState(1);
-  const [eventsPageSwipe, setEventsPageSwipe] = useState(1);
 
   const bumpDeckEpoch = useCallback(() => setDeckEpoch((e) => e + 1), []);
 
   const tabQuery = searchParams.get("tab");
   useEffect(() => {
-    if (tabQuery === "events" || tabQuery === "history" || tabQuery === "foryou") {
+    if (tabQuery === "history" || tabQuery === "foryou") {
       setTab(tabQuery);
     }
+    if (tabQuery === "coaching") setTab("coaching");
   }, [tabQuery]);
 
   useEffect(() => {
@@ -446,7 +292,7 @@ export default function ExploreMuzz() {
 
   const { data: viewerProfile } = useQuery<{ gender?: string | null; isAdmin?: boolean }>({
     queryKey: [`/api/users/${userId}`],
-    enabled: !!userId && (tab === "foryou" || tab === "events"),
+    enabled: !!userId && tab === "foryou",
     gcTime: EXPLORE_QUERY_GC_MS,
   });
 
@@ -456,12 +302,6 @@ export default function ExploreMuzz() {
       (viewerProfile as { profile?: { gender?: string } } | undefined)?.profile?.gender;
     return filterToOppositeGender(recentJoiners, g, false);
   }, [recentJoiners, viewerProfile]);
-
-  const { data: events = [] } = useQuery<ApiEvent[]>({
-    queryKey: ["/api/events"],
-    enabled: tab === "events",
-    gcTime: EXPLORE_QUERY_GC_MS,
-  });
 
   const list = Array.isArray(users) ? users : [];
 
@@ -566,93 +406,6 @@ export default function ExploreMuzz() {
     }
   }, [historySub]);
 
-  const eventsRaw = Array.isArray(events) ? events : [];
-  const exploreViewerIsAdmin = !!viewerProfile?.isAdmin;
-  const safeEvents = useMemo(
-    () => filterEventsVisibleToViewer(eventsRaw, userId, exploreViewerIsAdmin),
-    [eventsRaw, userId, exploreViewerIsAdmin],
-  );
-
-  const filteredEvents = useMemo(() => {
-    let list = [...safeEvents];
-    if (eventTypeFilter === "online") {
-      list = list.filter((e) => (e.type || "").toLowerCase() === "online");
-    } else if (eventTypeFilter === "offline") {
-      list = list.filter((e) => (e.type || "").toLowerCase() !== "online");
-    }
-    // Default ordering (newest first).
-    list.sort((a, b) => eventSortTimeMs(b) - eventSortTimeMs(a));
-    return list;
-  }, [safeEvents, eventTypeFilter]);
-
-  useEffect(() => {
-    setEventsPageAll(1);
-    setEventsPageSwipe(1);
-    setEventsAllSub("all");
-  }, [eventTypeFilter, eventsView]);
-
-  const scopedEvents = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const isPast = (e: ApiEvent) => {
-      const d = new Date(e.date);
-      if (Number.isNaN(d.getTime())) return false;
-      d.setHours(0, 0, 0, 0);
-      return d.getTime() < now.getTime();
-    };
-
-    if (eventsAllSub === "all") return filteredEvents;
-    if (eventsAllSub === "mine") {
-      return filteredEvents.filter((e) => !!userId && String(e.hostId || "") === String(userId));
-    }
-    if (eventsAllSub === "past") {
-      return filteredEvents.filter((e) => isPast(e));
-    }
-    // upcoming (default): include unknown dates so user doesn't lose events to parsing.
-    return filteredEvents.filter((e) => {
-      const d = new Date(e.date);
-      if (Number.isNaN(d.getTime())) return true;
-      d.setHours(0, 0, 0, 0);
-      return d.getTime() >= now.getTime();
-    });
-  }, [filteredEvents, eventsAllSub, userId]);
-
-  const eventsForCalendarDay = useMemo(() => {
-    if (!calendarDay) return [];
-    return scopedEvents.filter((e) => sameCalendarDay(calendarDay, e.date));
-  }, [scopedEvents, calendarDay]);
-
-  const totalPagesAll = Math.max(1, Math.ceil(scopedEvents.length / EVENTS_PAGE_SIZE));
-  const totalPagesSwipe = Math.max(1, Math.ceil(scopedEvents.length / EVENTS_PAGE_SIZE));
-
-  const pagedEventsAll = useMemo(() => {
-    const start = (eventsPageAll - 1) * EVENTS_PAGE_SIZE;
-    return scopedEvents.slice(start, start + EVENTS_PAGE_SIZE);
-  }, [scopedEvents, eventsPageAll]);
-
-  const pagedEventsSwipe = useMemo(() => {
-    const start = (eventsPageSwipe - 1) * EVENTS_PAGE_SIZE;
-    return scopedEvents.slice(start, start + EVENTS_PAGE_SIZE);
-  }, [scopedEvents, eventsPageSwipe]);
-
-  useEffect(() => {
-    if (eventsPageAll > totalPagesAll) setEventsPageAll(totalPagesAll);
-  }, [eventsPageAll, totalPagesAll]);
-
-  useEffect(() => {
-    if (eventsPageSwipe > totalPagesSwipe) setEventsPageSwipe(totalPagesSwipe);
-  }, [eventsPageSwipe, totalPagesSwipe]);
-
-  const eventDaysSet = useMemo(() => {
-    const set = new Set<string>();
-    for (const e of scopedEvents) {
-      const d = new Date(e.date);
-      if (Number.isNaN(d.getTime())) continue;
-      set.add(d.toDateString());
-    }
-    return set;
-  }, [scopedEvents]);
-
   const openProfile = (id: string) => setLocation(`/profile/${id}`);
 
   const tabMotion = prefersReducedMotion
@@ -668,73 +421,53 @@ export default function ExploreMuzz() {
     <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
       <Header
         showSearch={false}
-        title="Discover"
-        subtitle="Likes, visits, and new members — in one place"
+        title="Activity"
+        subtitle="Your updates, coaching, and match history"
         unreadNotifications={0}
         onNotifications={() => setLocation("/notifications")}
-        onCreate={() => {
-          if (!effectiveUserId) {
-            setLocation("/login");
-            return;
-          }
-          setCreatePostOpen(true);
-        }}
         onLogout={logout}
       />
 
       <div className="mx-auto max-w-lg px-3 pt-2">
-        <div className="flex items-stretch gap-2">
-          <LayoutGroup id="explore-tabs">
-            <div className="matchify-surface flex-1 p-1">
-              <div className="flex w-full items-stretch gap-0.5">
-                {(
-                  [
-                    ["foryou", "For you", Compass],
-                    ["events", "Events", CalendarDays],
-                    ["history", "My history", History],
-                  ] as const
-                ).map(([id, label, Icon]) => {
-                  const active = tab === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setTab(id)}
-                      className={cn(
-                        "relative flex-1 rounded-[20px] px-2.5 py-2.5 text-[12px] font-medium transition-colors sm:text-[13px]",
-                        active ? "text-white" : "text-slate-500 hover:text-slate-800",
-                      )}
-                      aria-current={active ? "page" : undefined}
-                    >
-                      <span className="flex items-center justify-center gap-1.5">
-                        <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                        <span className="leading-tight">{label}</span>
-                      </span>
-                      {active ? (
-                        <motion.span
-                          layoutId="explore-tab-bg"
-                          className="absolute inset-0 -z-10 rounded-[20px] bg-primary shadow-sm"
-                          transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                        />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
+        <LayoutGroup id="explore-tabs">
+          <div className="matchify-surface p-1">
+            <div className="flex w-full items-stretch gap-0.5">
+              {(
+                [
+                  ["foryou", "For you", Compass],
+                  ["coaching", "Coaching", GraduationCap],
+                  ["history", "My history", History],
+                ] as const
+              ).map(([id, label, Icon]) => {
+                const active = tab === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setTab(id)}
+                    className={cn(
+                      "relative flex-1 rounded-[20px] px-2 py-2.5 text-[12px] font-medium transition-colors sm:text-[13px]",
+                        active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                    )}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      <span className="leading-tight">{label}</span>
+                    </span>
+                    {active ? (
+                      <motion.span
+                        layoutId="explore-tab-bg"
+                        className="absolute inset-0 -z-10 rounded-[20px] bg-primary shadow-sm"
+                        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                      />
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
-          </LayoutGroup>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="matchify-icon-btn h-[46px] w-[46px] shrink-0 rounded-[18px]"
-            onClick={() => setLocation("/directory")}
-            aria-label="Discover"
-          >
-            <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden />
-          </Button>
-        </div>
+          </div>
+        </LayoutGroup>
 
         <AnimatePresence mode="wait">
           {tab === "foryou" && (
@@ -753,13 +486,13 @@ export default function ExploreMuzz() {
                     {profileLikers.length}
                   </span>
                 </div>
-                <p className="mb-3 text-xs text-gray-500">
+                <p className="mb-3 text-xs text-muted-foreground">
                   People who tapped Like on your profile.
                 </p>
                 {profileLikers.length === 0 ? (
-                  <div className="rounded-[24px] border border-[#F0F0F0] bg-white/80 px-4 py-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
-                    <Activity className="mx-auto h-6 w-6 text-slate-400" strokeWidth={1.75} aria-hidden />
-                    <p className="mt-2 text-sm font-semibold text-slate-500">
+                  <div className="rounded-[24px] border border-border bg-card/90 px-4 py-8 text-center shadow-sm backdrop-blur-md">
+                    <Activity className="mx-auto h-6 w-6 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+                    <p className="mt-2 text-sm font-semibold text-muted-foreground">
                       No profile likes yet.
                     </p>
                   </div>
@@ -784,13 +517,13 @@ export default function ExploreMuzz() {
                     {postLikers.length}
                   </span>
                 </div>
-                <p className="mb-3 text-xs text-gray-500">
+                <p className="mb-3 text-xs text-muted-foreground">
                   Only real activity: people who liked something you posted in the feed.
                 </p>
                 {postLikers.length === 0 ? (
-                  <div className="rounded-[24px] border border-[#F0F0F0] bg-white/80 px-4 py-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
-                    <Activity className="mx-auto h-6 w-6 text-slate-400" strokeWidth={1.75} aria-hidden />
-                    <p className="mt-2 text-sm font-semibold text-slate-500">
+                  <div className="rounded-[24px] border border-border bg-card/90 px-4 py-8 text-center shadow-sm backdrop-blur-md">
+                    <Activity className="mx-auto h-6 w-6 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+                    <p className="mt-2 text-sm font-semibold text-muted-foreground">
                       No likes yet. Keep sharing to get noticed!
                     </p>
                   </div>
@@ -807,13 +540,13 @@ export default function ExploreMuzz() {
 
               <section>
                 <h2 className={`mb-1 ${exploreSectionTitle}`}>Visited your profile</h2>
-                <p className="mb-3 text-xs text-gray-500">
+                <p className="mb-3 text-xs text-muted-foreground">
                   Only people who opened your profile while signed in (not guesses or demos).
                 </p>
                 {visitorsSorted.length === 0 ? (
-                  <div className="rounded-[24px] border border-[#F0F0F0] bg-white/80 px-4 py-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
-                    <Compass className="mx-auto h-6 w-6 text-slate-400" strokeWidth={1.75} aria-hidden />
-                    <p className="mt-2 text-sm font-semibold text-slate-500">No profile visits yet.</p>
+                  <div className="rounded-[24px] border border-border bg-card/90 px-4 py-8 text-center shadow-sm backdrop-blur-md">
+                    <Compass className="mx-auto h-6 w-6 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+                    <p className="mt-2 text-sm font-semibold text-muted-foreground">No profile visits yet.</p>
                   </div>
                 ) : (
                   <ExploreOneRowScroller hint="Scroll sideways for more visitors.">
@@ -833,13 +566,13 @@ export default function ExploreMuzz() {
 
               <section>
                 <h2 className={`mb-1 ${exploreSectionTitle}`}>Just joined</h2>
-                <p className="mb-3 text-xs text-gray-500 sm:text-sm">
-                  Newest members (opposite gender from your profile when your gender is set — same as Marriage).
+                <p className="mb-3 text-xs text-muted-foreground sm:text-sm">
+                  Newest members (opposite gender from your profile when your gender is set — same as Matches).
                 </p>
                 {recentJoinersForYou.length === 0 ? (
-                  <div className="rounded-[24px] border border-[#F0F0F0] bg-white/80 px-4 py-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
-                    <Sparkles className="mx-auto h-6 w-6 text-slate-400" strokeWidth={1.75} aria-hidden />
-                    <p className="mt-2 text-sm font-semibold text-slate-500">No new members to show yet.</p>
+                  <div className="rounded-[24px] border border-border bg-card/90 px-4 py-8 text-center shadow-sm backdrop-blur-md">
+                    <Sparkles className="mx-auto h-6 w-6 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+                    <p className="mt-2 text-sm font-semibold text-muted-foreground">No new members to show yet.</p>
                   </div>
                 ) : (
                   <ExploreTwoRowScroller hint="Two rows · scroll sideways for more new members." itemCount={recentJoinersForYou.length}>
@@ -859,270 +592,29 @@ export default function ExploreMuzz() {
             </motion.div>
           )}
 
-          {tab === "events" && (
-            <motion.div key="events" className="space-y-4 pt-5" {...tabMotion}>
-              <div className="grid grid-cols-3 gap-2">
-                <Select
-                  value={eventTypeFilter}
-                  onValueChange={(v) => setEventTypeFilter(v as "all" | "online" | "offline")}
-                >
-                  <SelectTrigger className="h-11 rounded-2xl border-[#F0F0F0] bg-white/90 text-left font-semibold text-slate-800 shadow-sm">
-                    <Filter className="mr-2 h-4 w-4 shrink-0 text-slate-500" strokeWidth={1.75} />
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All types</SelectItem>
-                    <SelectItem value="online">Online</SelectItem>
-                    <SelectItem value="offline">In person</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={eventsAllSub}
-                  onValueChange={(v) => setEventsAllSub(v as "all" | "upcoming" | "mine" | "past")}
-                >
-                  <SelectTrigger className="h-11 rounded-2xl border-[#F0F0F0] bg-white/90 text-left font-semibold text-slate-800 shadow-sm">
-                    <SelectValue placeholder="All Events" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Events</SelectItem>
-                    <SelectItem value="past">Past Events</SelectItem>
-                    <SelectItem value="mine">My Events</SelectItem>
-                    <SelectItem value="upcoming">Upcoming Events</SelectItem>
-                  </SelectContent>
-                </Select>
+                    {tab === "coaching" && (
+            <motion.div key="coaching" className="space-y-4 pt-5" {...tabMotion}>
+              <div className="matchify-surface rounded-[24px] border-white/0 p-5 shadow-2xs">
+                <h2 className="text-lg font-bold text-foreground">Relationship coaching</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Book a coach and use guided tools. Find meetups under Explore → Events.
+                </p>
                 <Button
                   type="button"
-                  className="h-11 w-full rounded-2xl bg-[#722F37] px-2 text-[12px] font-semibold text-white shadow-[0_10px_30px_-18px_rgba(114,47,55,0.50)] hover:bg-[#652a31]"
-                  onClick={() => setLocation("/events/create?from=explore")}
+                  className="mt-4 h-11 w-full rounded-2xl font-semibold"
+                  onClick={() => setLocation("/relationship-coaching")}
                 >
-                  <span className="inline-flex items-center justify-center gap-2">
-                    <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-                    Host Event
-                  </span>
+                  Open coaching
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 h-11 w-full rounded-2xl border-border/70 font-semibold"
+                  onClick={() => setLocation("/coaches")}
+                >
+                  Browse coaches
                 </Button>
               </div>
-
-              <div className="rounded-[999px] border border-[#F0F0F0] bg-[#F1F2F4] p-1 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
-                <div className="grid grid-cols-3 gap-0.5">
-                  {(
-                    [
-                      ["all", "Events", LayoutGrid],
-                      ["swipe", "Swipe", Zap],
-                      ["calendar", "Calendar", CalendarDays],
-                    ] as const
-                  ).map(([id, label, Icon]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setEventsView(id)}
-                      className={cn(
-                        "flex items-center justify-center gap-2 rounded-full py-2.5 text-[11px] font-bold transition-all",
-                        eventsView === id
-                          ? "bg-white text-slate-900 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.22)]"
-                          : "text-slate-500 hover:text-slate-800",
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                      <span className="leading-tight">{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {eventsView === "swipe" ? (
-                <p className="text-[11px] leading-snug text-gray-500">
-                  <span className="font-semibold text-gray-700">Swipe mode:</span> one event at a time.
-                  Drag the card left to skip, right to open the event (or use Pass / Interested). Same idea as
-                  quick “discovery” apps — fast to scan many events without scrolling a long list.
-                </p>
-              ) : null}
-
-              {eventsView === "all" ? (
-                <>
-                  {scopedEvents.length === 0 ? (
-                    <p className="text-sm text-gray-500">No events match these filters.</p>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        {pagedEventsAll.map((e) => (
-                          <ExploreEventCard
-                            key={e.id}
-                            event={{
-                              id: e.id,
-                              title: e.title,
-                              description: e.description,
-                              date: e.date,
-                              time: e.time ?? undefined,
-                              location: e.location,
-                              type: e.type ?? undefined,
-                              image: e.image ?? undefined,
-                              price: e.price ?? undefined,
-                            }}
-                            onClick={() => setLocation(`/event/${e.id}?from=explore`)}
-                          />
-                        ))}
-                      </div>
-                      {totalPagesAll > 1 ? (
-                        <div className="flex flex-col items-center gap-2 pt-2">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Page {eventsPageAll} of {totalPagesAll} · {scopedEvents.length} events
-                          </p>
-                          <div className="flex flex-wrap items-center justify-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="rounded-full"
-                              disabled={eventsPageAll <= 1}
-                              onClick={() => setEventsPageAll((p) => Math.max(1, p - 1))}
-                            >
-                              Previous
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="rounded-full"
-                              disabled={eventsPageAll >= totalPagesAll}
-                              onClick={() => setEventsPageAll((p) => Math.min(totalPagesAll, p + 1))}
-                            >
-                              Next
-                            </Button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  )}
-                </>
-              ) : scopedEvents.length === 0 ? (
-                <p className="text-sm text-gray-500">No events match these filters.</p>
-              ) : eventsView === "swipe" ? (
-                <>
-                  <ExploreEventSwipeStack
-                    events={pagedEventsSwipe}
-                    onOpenEvent={(id) => setLocation(`/event/${id}?from=explore`)}
-                    hasNextPage={eventsPageSwipe < totalPagesSwipe}
-                    onNextPage={() => setEventsPageSwipe((p) => Math.min(totalPagesSwipe, p + 1))}
-                  />
-                  {totalPagesSwipe > 1 ? (
-                    <div className="flex flex-col items-center gap-2 pt-2">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        Page {eventsPageSwipe} of {totalPagesSwipe} · {EVENTS_PAGE_SIZE} per page
-                      </p>
-                      <div className="flex flex-wrap items-center justify-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-full"
-                          disabled={eventsPageSwipe <= 1}
-                          onClick={() => setEventsPageSwipe((p) => Math.max(1, p - 1))}
-                        >
-                          Previous
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-full"
-                          disabled={eventsPageSwipe >= totalPagesSwipe}
-                          onClick={() => setEventsPageSwipe((p) => Math.min(totalPagesSwipe, p + 1))}
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <div className="space-y-4">
-                  <div className="w-full rounded-[24px] border border-[#F0F0F0] bg-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md">
-                    <Calendar
-                      mode="single"
-                      selected={calendarDay}
-                      onSelect={(d) => setCalendarDay(d ?? undefined)}
-                      className="w-full"
-                      classNames={{
-                        months: "w-full",
-                        month: "w-full space-y-3",
-                        caption: "flex items-center justify-between px-2 pt-1",
-                        caption_label: "text-sm font-semibold text-foreground",
-                        nav: "flex items-center gap-1",
-                        nav_button:
-                          "flex h-8 w-8 items-center justify-center rounded-full border border-[#F0F0F0] bg-white p-0 text-slate-700 shadow-sm hover:bg-stone-50",
-                        nav_button_previous: "static",
-                        nav_button_next: "static",
-                        table: "w-full border-collapse",
-                        head_row: "grid grid-cols-7",
-                        head_cell:
-                          "text-muted-foreground rounded-md font-semibold text-[0.8rem] text-center",
-                        row: "grid grid-cols-7 mt-2",
-                        cell: "p-0 text-center",
-                        day: "h-10 w-full rounded-md font-medium hover:bg-muted",
-                        day_selected:
-                          "bg-[#722F37] text-white hover:bg-[#652a31] hover:text-white focus:bg-[#722F37] focus:text-white",
-                      }}
-                      modifiers={{
-                        hasEvent: (date) => eventDaysSet.has(date.toDateString()),
-                      }}
-                      modifiersClassNames={{
-                        hasEvent: "relative font-bold text-[#722F37]",
-                      }}
-                    />
-                  </div>
-
-                  <p className="text-center text-xs font-medium text-gray-600">
-                    {calendarDay ? format(calendarDay, "PPP") : "Pick a day to see events."}
-                  </p>
-
-                  <div className="space-y-3">
-                    {!calendarDay ? (
-                      <p className="text-center text-sm text-gray-500">Choose a day to see what’s coming up.</p>
-                    ) : eventsForCalendarDay.length === 0 ? (
-                      <p className="text-center text-sm text-gray-500">No events on this date.</p>
-                    ) : (
-                      <div className="relative">
-                        <div className="absolute left-4 top-0 bottom-0 w-px bg-[#E5E7EB]" aria-hidden />
-                        <div className="space-y-3">
-                          {[...eventsForCalendarDay]
-                            .sort((a, b) => (a.time || "").localeCompare(b.time || ""))
-                            .map((e) => (
-                              <button
-                                key={e.id}
-                                type="button"
-                                onClick={() => setLocation(`/event/${e.id}?from=explore`)}
-                                className="group w-full rounded-[24px] border border-[#F0F0F0] bg-white/80 px-4 py-3 text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md hover:bg-white"
-                              >
-                                <div className="flex gap-3">
-                                  <div className="relative pt-1">
-                                    <div className="grid h-8 w-8 place-items-center rounded-full bg-white shadow-sm ring-1 ring-black/[0.04]">
-                                      <span className="h-2.5 w-2.5 rounded-full bg-[#722F37]" />
-                                    </div>
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
-                                      {e.time?.trim() || "Time TBA"}
-                                    </p>
-                                    <p className="mt-1 font-display text-[16px] font-semibold leading-tight text-foreground">
-                                      {e.title}
-                                    </p>
-                                    <p className="mt-1 text-sm text-slate-600">
-                                      <span className="font-medium text-slate-700">{e.location}</span>
-                                      {e.type ? <span className="text-slate-400"> · </span> : null}
-                                      {e.type ? <span className="text-slate-500">{String(e.type).toUpperCase()}</span> : null}
-                                    </p>
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* No footer actions here (kept minimal). */}
             </motion.div>
           )}
 
@@ -1139,8 +631,8 @@ export default function ExploreMuzz() {
                 onChange={(id) => setHistorySub(id as "favorite" | "liked" | "passed")}
               />
               {marriageHistoryEntries.length === 0 ? (
-                <p className="pt-2 text-sm text-gray-500">
-                  No one here yet — use the Marriage tab to favorite, like, or pass.
+                <p className="pt-2 text-sm text-muted-foreground">
+                  No one here yet — use the Matches tab to favorite, like, or pass.
                 </p>
               ) : (
                 <div className="grid grid-cols-2 gap-2 pt-1">
@@ -1179,14 +671,6 @@ export default function ExploreMuzz() {
       </div>
 
       <BottomNav active="explore" onNavigate={() => {}} />
-
-      {effectiveUserId ? (
-        <CreatePostDialog
-          open={createPostOpen}
-          onOpenChange={setCreatePostOpen}
-          userId={effectiveUserId}
-        />
-      ) : null}
     </div>
   );
 }
