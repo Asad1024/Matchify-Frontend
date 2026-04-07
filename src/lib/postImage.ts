@@ -11,6 +11,33 @@ export function filterPostsForGlobalFeed<T extends { groupId?: string | null }>(
   return posts.filter((p) => !postIsGroupScoped(p));
 }
 
+function firstUrlFromImagesValue(imgs: unknown): string | undefined {
+  if (imgs == null) return undefined;
+  const pickFromArr = (arr: unknown): string | undefined => {
+    if (!Array.isArray(arr) || arr.length === 0) return undefined;
+    const x = arr[0];
+    if (typeof x === "string" && x.trim()) return x.trim();
+    if (x && typeof x === "object" && typeof (x as { url?: unknown }).url === "string") {
+      const u = String((x as { url: string }).url).trim();
+      return u || undefined;
+    }
+    return undefined;
+  };
+  if (typeof imgs === "string") {
+    const t = imgs.trim();
+    if (!t) return undefined;
+    if (t.startsWith("[")) {
+      try {
+        return pickFromArr(JSON.parse(t) as unknown);
+      } catch {
+        return /^https?:\/\//i.test(t) ? t : undefined;
+      }
+    }
+    return /^https?:\/\//i.test(t) ? t : undefined;
+  }
+  return pickFromArr(imgs);
+}
+
 /** Resolve the URL to show for a post in the feed (API may send `image`, `imageUrl`, or `images[]`). */
 export function postDisplayImageUrl(post: {
   image?: string | null;
@@ -27,10 +54,7 @@ export function postDisplayImageUrl(post: {
   if (m) return m;
   const p = post.photo?.trim();
   if (p) return p;
-  const imgs = post.images;
-  if (Array.isArray(imgs) && imgs.length > 0) {
-    const first = imgs[0];
-    if (typeof first === "string" && first.trim()) return first.trim();
-  }
+  const fromArr = firstUrlFromImagesValue(post.images);
+  if (fromArr) return fromArr;
   return undefined;
 }

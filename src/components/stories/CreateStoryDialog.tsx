@@ -262,7 +262,7 @@ export default function CreateStoryDialog({
                         src={imageValue.trim()}
                         alt="Story preview"
                         className="max-h-36 w-full object-contain object-center bg-black/5"
-                        referrerPolicy="no-referrer"
+                        referrerPolicy="strict-origin-when-cross-origin"
                       />
                     </div>
                   ) : null}

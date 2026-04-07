@@ -661,7 +661,7 @@ export default function PostCard({
                 alt="Post"
                 className="w-full max-h-72 object-contain bg-black/5"
                 loading="lazy"
-                referrerPolicy="no-referrer"
+                referrerPolicy="strict-origin-when-cross-origin"
               />
             </div>
           ) : null}
@@ -678,7 +678,7 @@ export default function PostCard({
                 alt="Post"
                 className="w-full max-h-72 object-contain bg-black/5"
                 loading="lazy"
-                referrerPolicy="no-referrer"
+                referrerPolicy="strict-origin-when-cross-origin"
               />
             </div>
           ) : null}
