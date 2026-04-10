@@ -24,6 +24,7 @@ import { normalizeNotificationRowFromApi, notificationRequestIdForPatch } from "
 import { notificationCreatedAtMs } from "@/lib/utils";
 import { useUpgrade } from "@/contexts/UpgradeContext";
 import { refreshChatRequestQueries } from "@/lib/chatRequestsApi";
+import { socialNotificationNavigatePath } from "@/lib/notificationNavigation";
 
 const BELL_HIDDEN_NOTIFICATION_TYPES = new Set(["chat_request_sent", "chat_request_outgoing_declined"]);
 
@@ -42,7 +43,14 @@ type Notification = {
     | "chat_request"
     | "chat_request_accepted"
     | "chat_request_declined"
-    | "chat_request_you_accepted";
+    | "chat_request_you_accepted"
+    | "follow"
+    | "follower"
+    | "new_follower"
+    | "post_like"
+    | "post_comment"
+    | "like"
+    | "comment";
   title: string;
   message: string;
   read: boolean | null;
@@ -315,6 +323,12 @@ export function NotificationCenter() {
                   } else {
                     markReadMutation.mutate(id);
                     const row = mergedForBell.find((x) => x.id === id);
+                    const socialPath = row ? socialNotificationNavigatePath(row) : null;
+                    if (socialPath) {
+                      setLocation(socialPath);
+                      setOpen(false);
+                      return;
+                    }
                     if (row?.type === "curated_match") {
                       if (tier === "free") {
                         requireTier({
@@ -337,8 +351,8 @@ export function NotificationCenter() {
                       setLocation(`/chat?user=${encodeURIComponent(row.relatedUserId)}`);
                     } else if (row?.type === "marriage_chat_accepted" && row.relatedUserId) {
                       setLocation(`/chat?user=${encodeURIComponent(row.relatedUserId)}`);
-                    } else if (row?.type === "message" && row.relatedUserId) {
-                      setLocation(`/chat?user=${encodeURIComponent(row.relatedUserId)}`);
+                    } else if (row?.type === "message") {
+                      setLocation("/chat");
                     } else if (
                       (row?.type === "event" || row?.type === "ai_event_invite") &&
                       row.relatedEntityId

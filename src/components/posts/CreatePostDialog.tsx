@@ -14,9 +14,10 @@ import { Label } from "@/components/ui/label";
 import { postsService } from "@/services/posts.service";
 import { uploadPostPhoto } from "@/services/upload.service";
 import { queryClient } from "@/lib/queryClient";
+import { applyCreatedPostToPostFeedCaches } from "@/lib/postsFeedCache";
 import { useToast } from "@/hooks/use-toast";
 import { ImagePlus, Loader2 } from "lucide-react";
-import type { Group } from "@shared/schema";
+import type { Group, Post } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -129,8 +130,8 @@ export default function CreatePostDialog({
         ...(requiresGroup && effectiveGroupId ? { groupId: effectiveGroupId } : {}),
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+    onSuccess: (created) => {
+      applyCreatedPostToPostFeedCaches(queryClient, created as Post, userId);
       toast({ title: "Post published" });
       setContent("");
       setImageUrl("");

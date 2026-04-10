@@ -1,5 +1,14 @@
 import { motion } from "framer-motion";
-import { Bell, Check, Heart, MessageCircle, Calendar, Sparkles, Trash2 } from "lucide-react";
+import {
+  Bell,
+  Check,
+  Heart,
+  MessageCircle,
+  Calendar,
+  Sparkles,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +24,14 @@ type NotificationType =
   | "chat_request"
   | "chat_request_accepted"
   | "chat_request_declined"
-  | "chat_request_you_accepted";
+  | "chat_request_you_accepted"
+  | "follow"
+  | "follower"
+  | "new_follower"
+  | "post_like"
+  | "post_comment"
+  | "like"
+  | "comment";
 
 interface NotificationItemProps {
   id: string;
@@ -52,6 +68,13 @@ const ICON_MAP: Record<NotificationType, React.ElementType> = {
   chat_request_accepted: MessageCircle,
   chat_request_declined: MessageCircle,
   chat_request_you_accepted: MessageCircle,
+  follow: UserPlus,
+  follower: UserPlus,
+  new_follower: UserPlus,
+  post_like: Heart,
+  post_comment: MessageCircle,
+  like: Heart,
+  comment: MessageCircle,
 };
 
 const COLOR_MAP: Record<NotificationType, string> = {
@@ -70,6 +93,13 @@ const COLOR_MAP: Record<NotificationType, string> = {
   chat_request_accepted: "bg-primary/10 text-primary",
   chat_request_declined: "bg-primary/10 text-primary",
   chat_request_you_accepted: "bg-primary/10 text-primary",
+  follow: "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
+  follower: "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
+  new_follower: "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
+  post_like: "bg-rose-100 text-rose-600 dark:bg-rose-950/45 dark:text-rose-300",
+  post_comment: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300",
+  like: "bg-rose-100 text-rose-600 dark:bg-rose-950/45 dark:text-rose-300",
+  comment: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300",
 };
 
 export default function NotificationItem({

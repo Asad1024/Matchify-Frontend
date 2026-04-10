@@ -25,6 +25,7 @@ import { notificationCreatedAtMs } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useUpgrade } from "@/contexts/UpgradeContext";
 import { refreshChatRequestQueries } from "@/lib/chatRequestsApi";
+import { socialNotificationNavigatePath } from "@/lib/notificationNavigation";
 
 /** Shown on Message requests page instead of the main bell list. */
 const BELL_HIDDEN_NOTIFICATION_TYPES = new Set(["chat_request_sent", "chat_request_outgoing_declined"]);
@@ -44,7 +45,14 @@ type Notification = {
     | "chat_request"
     | "chat_request_accepted"
     | "chat_request_declined"
-    | "chat_request_you_accepted";
+    | "chat_request_you_accepted"
+    | "follow"
+    | "follower"
+    | "new_follower"
+    | "post_like"
+    | "post_comment"
+    | "like"
+    | "comment";
   title: string;
   message: string;
   read: boolean | null;
@@ -284,6 +292,11 @@ export default function Notifications() {
       if (!n.read) {
         markReadMutation.mutate(n.id);
       }
+      const socialPath = socialNotificationNavigatePath(n);
+      if (socialPath) {
+        setLocation(socialPath);
+        return;
+      }
       const other = n.relatedUserId;
       const entity = n.relatedEntityId;
 
@@ -325,11 +338,7 @@ export default function Notifications() {
           }
           break;
         case "message":
-          if (other) {
-            setLocation(`/chat?user=${encodeURIComponent(other)}`);
-          } else {
-            setLocation("/chat");
-          }
+          setLocation("/chat");
           break;
         case "event":
         case "ai_event_invite":

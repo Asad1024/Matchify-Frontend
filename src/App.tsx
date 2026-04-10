@@ -127,7 +127,7 @@ function GlobalMessageToaster({ userId, location }: { userId: string | null; loc
 
   useEffect(() => {
     if (!userId) return;
-    if (location.startsWith("/chat")) return;
+    const onChatRoute = location.startsWith("/chat");
     const safeSummaries = Array.isArray(summaries) ? summaries : [];
     const safeUsers = Array.isArray(users) ? users : [];
     for (const conv of safeSummaries) {
@@ -153,10 +153,15 @@ function GlobalMessageToaster({ userId, location }: { userId: string | null; loc
             ? "Voice message"
             : String(last.content || "").slice(0, 120);
 
-      toast({
-        title: other?.name ? `New message from ${other.name}` : "New message",
-        description: preview || "Open Chat to reply.",
-      });
+      // Bell list uses the same cadence as this poll (SSE often has no subscriber). Keep notifications in sync with toasts.
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "notifications"] });
+
+      if (!onChatRoute) {
+        toast({
+          title: other?.name ? `New message from ${other.name}` : "New message",
+          description: preview || "Open Chat to reply.",
+        });
+      }
       seenByConvRef.current[conv.id] = last.id;
     }
   }, [summaries, users, userId, location, toast]);

@@ -416,7 +416,10 @@ export default function SplashScreen({ onGetStarted, onLogin, onViewPlans }: Spl
       </section>
 
       {/* ═══ PRICING — same tier cards as in-app subscriptions ═══ */}
-      <section id="pricing" className="scroll-mt-28 border-y border-border bg-background py-14 sm:py-20">
+      <section
+        id="pricing"
+        className="scroll-mt-28 mt-16 border-y border-border bg-background pt-20 pb-16 sm:mt-24 sm:pt-28 sm:pb-20 lg:mt-32 lg:pt-36"
+      >
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           <motion.div
             initial={{ opacity: 0, y: 12 }}

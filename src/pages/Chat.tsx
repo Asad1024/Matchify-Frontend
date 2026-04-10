@@ -26,6 +26,8 @@ import {
   Pencil,
   UserX,
   Ban,
+  User,
+  Flag,
 } from "lucide-react";
 import EmojiPicker, { Theme, type EmojiClickData } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -53,6 +55,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { BlockReportDialog } from "@/components/common/BlockReportDialog";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -131,10 +134,14 @@ function formatLastSeen(iso: string | null | undefined): string {
 export default function Chat() {
   const [activePage, setActivePage] = useState('chat');
   const [location, setLocation] = useLocation();
+  const locationRef = useRef(location);
+  locationRef.current = location;
   const [searchParams] = useSearchParams();
   const queryUserId = searchParams.get("user");
   const handoffInFlight = useRef(false);
   const handoffDoneKey = useRef<string | null>(null);
+  const [blockReportOpen, setBlockReportOpen] = useState(false);
+  const [blockReportMode, setBlockReportMode] = useState<"block" | "report" | "both">("both");
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -595,7 +602,8 @@ export default function Chat() {
     if (location.startsWith("/chat")) setActivePage("chat");
   }, [location]);
 
-  // Open or create thread from /chat?user=<id> (e.g. after match reveal)
+  // Open or create thread from /chat?user=<id> (e.g. after match reveal).
+  // Abort if the user navigates away before the request finishes so we never force them back to /chat.
   useEffect(() => {
     if (!queryUserId) {
       handoffDoneKey.current = null;
@@ -605,6 +613,7 @@ export default function Chat() {
     const key = `${userId}:${queryUserId}`;
     if (handoffDoneKey.current === key || handoffInFlight.current) return;
     handoffInFlight.current = true;
+    let cancelled = false;
     (async () => {
       try {
         const res = await fetch(buildApiUrl("/api/conversations"), {
@@ -618,6 +627,8 @@ export default function Chat() {
         });
         if (!res.ok) throw new Error("Failed to open conversation");
         const conv = await res.json();
+        if (cancelled) return;
+        if (!locationRef.current.startsWith("/chat")) return;
         await queryClient.invalidateQueries({
           queryKey: [`/api/users/${userId}/conversations`],
         });
@@ -627,20 +638,28 @@ export default function Chat() {
         await queryClient.invalidateQueries({
           queryKey: ["/api/users", userId, "chat-unread-count"],
         });
+        if (cancelled) return;
+        if (!locationRef.current.startsWith("/chat")) return;
         handoffDoneKey.current = key;
         setSelectedChat(conv.id);
         setLocation("/chat");
         toast({ title: "Chat ready", description: "You can start messaging." });
       } catch {
-        toast({
-          title: "Could not open chat",
-          description: "Try again from the person's profile.",
-          variant: "destructive",
-        });
+        if (!cancelled) {
+          toast({
+            title: "Could not open chat",
+            description: "Try again from the person's profile.",
+            variant: "destructive",
+          });
+        }
       } finally {
-        handoffInFlight.current = false;
+        if (!cancelled) handoffInFlight.current = false;
       }
     })();
+    return () => {
+      cancelled = true;
+      handoffInFlight.current = false;
+    };
   }, [userId, queryUserId, setLocation, toast]);
 
   // Do NOT auto-open the first thread when selectedChat is null — that prevented
@@ -925,15 +944,95 @@ export default function Chat() {
                 </p>
               </div>
               <div className="flex items-center gap-1">
-                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-foreground/[0.05] transition-colors hidden sm:flex border border-transparent hover:border-border/70">
+                <button
+                  type="button"
+                  className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-foreground/[0.05] transition-colors hidden sm:flex border border-transparent hover:border-border/70"
+                  aria-label="Voice call (coming soon)"
+                  onClick={() =>
+                    toast({ title: "Voice calls", description: "Calling is coming soon." })
+                  }
+                >
                   <Phone className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
                 </button>
-                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-foreground/[0.05] transition-colors hidden sm:flex border border-transparent hover:border-border/70">
+                <button
+                  type="button"
+                  className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-foreground/[0.05] transition-colors hidden sm:flex border border-transparent hover:border-border/70"
+                  aria-label="Video call (coming soon)"
+                  onClick={() =>
+                    toast({ title: "Video calls", description: "Video chat is coming soon." })
+                  }
+                >
                   <Video className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
                 </button>
-                <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-foreground/[0.05] transition-colors border border-transparent hover:border-border/70">
-                  <MoreVertical className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-foreground/[0.05] transition-colors border border-transparent hover:border-border/70"
+                      aria-label="Conversation options"
+                    >
+                      <MoreVertical className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    {selectedOtherUser?.id ? (
+                      <DropdownMenuItem
+                        className="cursor-pointer gap-2"
+                        onClick={() =>
+                          setLocation(
+                            `/profile/social/user/${encodeURIComponent(selectedOtherUser.id)}`,
+                          )
+                        }
+                      >
+                        <User className="h-4 w-4 opacity-70" strokeWidth={1.75} />
+                        View profile
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem
+                      className="cursor-pointer gap-2"
+                      onClick={() =>
+                        toast({ title: "Voice calls", description: "Calling is coming soon." })
+                      }
+                    >
+                      <Phone className="h-4 w-4 opacity-70" strokeWidth={1.75} />
+                      Voice call
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer gap-2"
+                      onClick={() =>
+                        toast({ title: "Video calls", description: "Video chat is coming soon." })
+                      }
+                    >
+                      <Video className="h-4 w-4 opacity-70" strokeWidth={1.75} />
+                      Video call
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {selectedOtherUser?.id ? (
+                      <>
+                        <DropdownMenuItem
+                          className="cursor-pointer gap-2"
+                          onClick={() => {
+                            setBlockReportMode("report");
+                            setBlockReportOpen(true);
+                          }}
+                        >
+                          <Flag className="h-4 w-4 opacity-70" strokeWidth={1.75} />
+                          Report
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+                          onClick={() => {
+                            setBlockReportMode("block");
+                            setBlockReportOpen(true);
+                          }}
+                        >
+                          <Ban className="h-4 w-4 opacity-70" strokeWidth={1.75} />
+                          Block
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
@@ -1385,6 +1484,20 @@ export default function Chat() {
         )}
         </div>
       </div>
+
+      {selectedOtherUser?.id ? (
+        <BlockReportDialog
+          open={blockReportOpen}
+          onOpenChange={setBlockReportOpen}
+          userId={selectedOtherUser.id}
+          userName={selectedOtherUser.name || "Member"}
+          type={blockReportMode}
+          onBlocked={() => {
+            setSelectedChat(null);
+            setLocation("/chat");
+          }}
+        />
+      ) : null}
 
       <BottomNav active={activePage} onNavigate={setActivePage} />
     </PageWrapper>
