@@ -89,6 +89,7 @@ export default defineConfig(async () => {
     },
     server: {
       port: 5174,
+      strictPort: true,
       host: true, // Listen on all addresses
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',

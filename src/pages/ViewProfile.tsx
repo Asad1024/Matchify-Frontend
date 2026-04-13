@@ -143,7 +143,23 @@ function hashPairScore(a: string, b: string): number {
   return 70 + (h % 30);
 }
 
-export default function ViewProfile() {
+export type ViewProfileProps = {
+  /** When true, render only profile body (no full-page chrome). Use with {@link embedUserId}. */
+  embedded?: boolean;
+  /** Profile to load when not using the `/profile/:id` route (e.g. Menu “Matches” tab). */
+  embedUserId?: string | null;
+};
+
+/** Wouter `<Route component={ViewProfile} />` injects `params` / `match`; Menu passes only embed props. */
+type ViewProfileRouteProps = ViewProfileProps & {
+  params?: { id?: string };
+  match?: unknown;
+};
+
+export default function ViewProfile({
+  embedded = false,
+  embedUserId = null,
+}: ViewProfileRouteProps = {}) {
   const [activePage, setActivePage] = useState('explore');
   const [, params] = useRoute('/profile/:id');
   const [, setLocation] = useLocation();
@@ -155,10 +171,12 @@ export default function ViewProfile() {
   const [blockReportType, setBlockReportType] = useState<'block' | 'report' | 'both'>('both');
   const [hasLikedProfile, setHasLikedProfile] = useState(false);
 
+  const profileId = embedUserId ?? params?.id ?? null;
+
   // Fetch user profile
   const { data: user, isLoading } = useQuery<User>({
-    queryKey: [`/api/users/${params?.id}`],
-    enabled: !!params?.id,
+    queryKey: [`/api/users/${profileId}`],
+    enabled: !!profileId,
   });
 
   const { data: me } = useQuery<User>({
@@ -167,9 +185,9 @@ export default function ViewProfile() {
   });
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (embedded || !user?.id) return;
     pushExploreHistory(user.id);
-  }, [user?.id]);
+  }, [embedded, user?.id]);
 
   useEffect(() => {
     if (!user?.id || !currentUserId || user.id === currentUserId) return;
@@ -187,9 +205,9 @@ export default function ViewProfile() {
     me?.commitmentIntention === user?.commitmentIntention;
 
   const compatibilityScore = useMemo(() => {
-    if (!currentUserId || !params?.id) return 82;
-    return hashPairScore(currentUserId, params.id);
-  }, [currentUserId, params?.id]);
+    if (!currentUserId || !profileId) return 82;
+    return hashPairScore(currentUserId, profileId);
+  }, [currentUserId, profileId]);
 
   const { data: likeState } = useQuery<{ liked: boolean }>({
     queryKey: [`/api/users/${currentUserId}/profile-like/${user?.id || ""}`],
@@ -247,54 +265,60 @@ export default function ViewProfile() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
-        <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 backdrop-blur-md shadow-2xs">
-          <div className="mx-auto flex h-12 max-w-lg items-center px-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-foreground hover:bg-muted/60"
-              onClick={() => setLocation("/community")}
-              aria-label="Back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+      <div className={embedded ? "w-full" : "min-h-screen bg-[hsl(var(--surface-2))] pb-24"}>
+        {!embedded ? (
+          <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 backdrop-blur-md shadow-2xs">
+            <div className="mx-auto flex h-12 max-w-lg items-center px-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full text-foreground hover:bg-muted/60"
+                onClick={() => setLocation("/community")}
+                aria-label="Back"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center justify-center py-20">
+        ) : null}
+        <div className="flex items-center justify-center py-12">
           <LoadingState message="Loading profile..." showMascot={true} />
         </div>
-        <BottomNav active={activePage} onNavigate={setActivePage} />
+        {!embedded ? <BottomNav active={activePage} onNavigate={setActivePage} /> : null}
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
-        <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 backdrop-blur-md shadow-2xs">
-          <div className="mx-auto flex h-12 max-w-lg items-center px-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-foreground hover:bg-muted/60"
-              onClick={() => setLocation("/community")}
-              aria-label="Back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+      <div className={embedded ? "w-full" : "min-h-screen bg-[hsl(var(--surface-2))] pb-24"}>
+        {!embedded ? (
+          <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 backdrop-blur-md shadow-2xs">
+            <div className="mx-auto flex h-12 max-w-lg items-center px-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full text-foreground hover:bg-muted/60"
+                onClick={() => setLocation("/community")}
+                aria-label="Back"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center justify-center py-20">
+        ) : null}
+        <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <p className="text-muted-foreground mb-4">Profile not found</p>
-            <Button onClick={() => setLocation("/community")}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Explore feed
-            </Button>
+            {!embedded ? (
+              <Button onClick={() => setLocation("/community")}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Explore feed
+              </Button>
+            ) : null}
           </div>
         </div>
-        <BottomNav active={activePage} onNavigate={setActivePage} />
+        {!embedded ? <BottomNav active={activePage} onNavigate={setActivePage} /> : null}
       </div>
     );
   }
@@ -310,68 +334,75 @@ export default function ViewProfile() {
   const outgoingChat = chatPair?.outgoingStatus ?? "none";
 
   return (
-    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-24">
-      <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 backdrop-blur-md shadow-2xs supports-[backdrop-filter]:bg-card/70">
-        <div className="mx-auto flex h-12 max-w-lg items-center gap-2 px-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="shrink-0 rounded-full text-foreground hover:bg-muted/60"
-            onClick={() => setLocation("/community")}
-            data-testid="button-back"
-            aria-label="Back to Explore feed"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-foreground">{user.name}</h1>
-          <div className="flex shrink-0 items-center gap-1">
+    <div className={embedded ? "w-full bg-transparent pb-2" : "min-h-screen bg-[hsl(var(--surface-2))] pb-24"}>
+      {!embedded ? (
+        <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 backdrop-blur-md shadow-2xs supports-[backdrop-filter]:bg-card/70">
+          <div className="mx-auto flex h-12 max-w-lg items-center gap-2 px-3">
             <Button
-              type="button"
-              size="icon"
               variant="ghost"
-              className="rounded-full text-foreground hover:bg-muted/60"
-              aria-label="Share profile"
-              onClick={() => setShareOpen(true)}
+              size="icon"
+              className="shrink-0 rounded-full text-foreground hover:bg-muted/60"
+              onClick={() => setLocation("/community")}
+              data-testid="button-back"
+              aria-label="Back to Explore feed"
             >
-              <Share2 className="h-4 w-4" />
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-            {!isOwnProfile && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                <Button size="icon" variant="ghost" className="rounded-full text-foreground hover:bg-muted/60" aria-label="More options">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setBlockReportType("report");
-                      setBlockReportOpen(true);
-                    }}
-                  >
-                    <Flag className="mr-2 h-4 w-4" />
-                    Report User
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setBlockReportType("block");
-                      setBlockReportOpen(true);
-                    }}
-                    className="text-destructive"
-                  >
-                    <Ban className="mr-2 h-4 w-4" />
-                    Block User
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            <h1 className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-foreground">{user.name}</h1>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="rounded-full text-foreground hover:bg-muted/60"
+                aria-label="Share profile"
+                onClick={() => setShareOpen(true)}
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+              {!isOwnProfile && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="rounded-full text-foreground hover:bg-muted/60"
+                      aria-label="More options"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setBlockReportType("report");
+                        setBlockReportOpen(true);
+                      }}
+                    >
+                      <Flag className="mr-2 h-4 w-4" />
+                      Report User
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setBlockReportType("block");
+                        setBlockReportOpen(true);
+                      }}
+                      className="text-destructive"
+                    >
+                      <Ban className="mr-2 h-4 w-4" />
+                      Block User
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <motion.div
-        className="mx-auto max-w-lg space-y-3 px-3 pb-10 pt-2"
+        className={embedded ? "mx-auto max-w-lg space-y-3 px-0 pb-4 pt-0" : "mx-auto max-w-lg space-y-3 px-3 pb-10 pt-2"}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
       >
@@ -441,63 +472,65 @@ export default function ViewProfile() {
           ) : null}
         </div>
 
-        <div className="flex gap-2 sm:gap-3">
-          <Button
-            className={cn(
-              "h-10 flex-1 gap-2 text-sm sm:h-11 sm:text-base",
-              outgoingChat === "pending"
-                ? "border-primary/35 bg-primary/5 text-primary hover:bg-primary/10"
-                : "bg-primary text-primary-foreground hover:bg-primary/90",
-            )}
-            variant={outgoingChat === "pending" ? "outline" : "default"}
-            data-testid="button-message"
-            disabled={isOwnProfile || outgoingChat === "pending"}
-            onClick={() => {
-              if (outgoingChat === "accepted") {
-                setLocation(`/chat?user=${encodeURIComponent(user.id)}`);
-                return;
-              }
-              if (outgoingChat === "pending") return;
-              void requestChatWithUser({
-                fromUserId: currentUserId,
-                toUserId: user.id,
-                setLocation,
-                toast,
-                openUpgrade,
-              });
-            }}
-          >
-            <MessageCircle className="h-4 w-4" />
-            {outgoingChat === "pending"
-              ? "Request sent"
-              : outgoingChat === "accepted"
-                ? "Chat"
-                : "Message"}
-          </Button>
-          <Button
-            variant="outline"
-            className="h-10 flex-1 gap-2 text-sm shadow-2xs sm:h-11 sm:text-base"
-            data-testid="button-like"
-            disabled={!currentUserId || isOwnProfile || likeProfileMutation.isPending}
-            onClick={() => {
-              if (!currentUserId) {
-                toast({
-                  title: "Sign in",
-                  description: "Sign in to like profiles.",
-                  variant: "destructive",
+        {!(embedded && isOwnProfile) ? (
+          <div className="flex gap-2 sm:gap-3">
+            <Button
+              className={cn(
+                "h-10 flex-1 gap-2 text-sm sm:h-11 sm:text-base",
+                outgoingChat === "pending"
+                  ? "border-primary/35 bg-primary/5 text-primary hover:bg-primary/10"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90",
+              )}
+              variant={outgoingChat === "pending" ? "outline" : "default"}
+              data-testid="button-message"
+              disabled={isOwnProfile || outgoingChat === "pending"}
+              onClick={() => {
+                if (outgoingChat === "accepted") {
+                  setLocation(`/chat?user=${encodeURIComponent(user.id)}`);
+                  return;
+                }
+                if (outgoingChat === "pending") return;
+                void requestChatWithUser({
+                  fromUserId: currentUserId,
+                  toUserId: user.id,
+                  setLocation,
+                  toast,
+                  openUpgrade,
                 });
-                return;
-              }
-              likeProfileMutation.mutate();
-            }}
-          >
-            <Heart
-              className={cn("h-4 w-4", hasLikedProfile ? "text-red-600" : "")}
-              fill={hasLikedProfile ? "currentColor" : "none"}
-            />
-            {hasLikedProfile ? "Liked" : "Like"}
-          </Button>
-        </div>
+              }}
+            >
+              <MessageCircle className="h-4 w-4" />
+              {outgoingChat === "pending"
+                ? "Request sent"
+                : outgoingChat === "accepted"
+                  ? "Chat"
+                  : "Message"}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-10 flex-1 gap-2 text-sm shadow-2xs sm:h-11 sm:text-base"
+              data-testid="button-like"
+              disabled={!currentUserId || isOwnProfile || likeProfileMutation.isPending}
+              onClick={() => {
+                if (!currentUserId) {
+                  toast({
+                    title: "Sign in",
+                    description: "Sign in to like profiles.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                likeProfileMutation.mutate();
+              }}
+            >
+              <Heart
+                className={cn("h-4 w-4", hasLikedProfile ? "text-red-600" : "")}
+                fill={hasLikedProfile ? "currentColor" : "none"}
+              />
+              {hasLikedProfile ? "Liked" : "Like"}
+            </Button>
+          </div>
+        ) : null}
 
         {!isOwnProfile && currentUserId && (
           <ProfilePreviewCard
@@ -741,7 +774,7 @@ export default function ViewProfile() {
         ) : null}
       </motion.div>
 
-      <BottomNav active={activePage} onNavigate={setActivePage} />
+      {!embedded ? <BottomNav active={activePage} onNavigate={setActivePage} /> : null}
 
       <ShareProfileDialog
         open={shareOpen}

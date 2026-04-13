@@ -5,6 +5,13 @@ import BottomNav from "@/components/common/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Pencil,
   Settings,
   Shield,
@@ -14,6 +21,9 @@ import {
   LogOut,
   MessageCircle,
 } from "lucide-react";
+import ViewProfile from "@/pages/ViewProfile";
+import SocialSelfProfile from "@/pages/SocialSelfProfile";
+import { ShareProfileDialog } from "@/components/profile/ShareProfileDialog";
 import { VerifiedTick } from "@/components/common/VerifiedTick";
 import { VerificationRequestBanner } from "@/components/profile/VerificationRequestBanner";
 import { useCurrentUser } from "@/contexts/UserContext";
@@ -33,6 +43,7 @@ export default function Menu() {
   const { logout } = useAuth();
   const { toast } = useToast();
   const [mode, setMode] = useState<"marriage" | "social">("marriage");
+  const [socialShareOpen, setSocialShareOpen] = useState(false);
 
   const buildInviteLink = () => {
     const base = window.location.origin;
@@ -90,15 +101,28 @@ export default function Menu() {
   const displayName = me?.name || "Member";
   const handle = me?.username ? `@${me.username}` : "";
 
+  const shareMyPublicProfile = async () => {
+    if (!userId) return;
+    const name = me?.name?.trim() || "Matchify";
+    const url = `${window.location.origin}/profile/${userId}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `${name} · Matchify`, url });
+        return;
+      }
+    } catch {
+      /* user cancelled share */
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link copied", description: "Share your public profile with this link." });
+    } catch {
+      toast({ title: "Copy this link", description: url });
+    }
+  };
+
   const marriageItems = useMemo(
     () => [
-      {
-        id: "edit",
-        label: "Edit profile",
-        sub: "Name, username, bio, and photos (onboarding changes go through support).",
-        icon: Pencil,
-        onClick: () => setLocation("/profile/social/edit"),
-      },
       {
         id: "message-requests",
         label: "Message requests",
@@ -106,36 +130,8 @@ export default function Menu() {
         icon: MessageCircle,
         onClick: () => setLocation("/chat-requests"),
       },
-      {
-        id: "settings",
-        label: "Settings",
-        sub: "Privacy, notifications, and account.",
-        icon: Settings,
-        dot: true,
-        onClick: () => setLocation("/settings"),
-      },
     ],
     [setLocation],
-  );
-
-  const marriageMoreItems = useMemo(
-    () => [
-      {
-        id: "support",
-        label: "Help & support",
-        sub: "Get answers and report issues.",
-        icon: Shield,
-        onClick: () => setLocation("/support"),
-      },
-      {
-        id: "invite",
-        label: "Invite friends",
-        sub: "Bring friends into your community.",
-        icon: Share2,
-        onClick: inviteFriends,
-      },
-    ],
-    [inviteFriends, setLocation],
   );
 
   return (
@@ -206,140 +202,130 @@ export default function Menu() {
         ) : null}
 
         <div className="mt-3 space-y-3">
-          {mode === "marriage" && (
+          {userId ? (
             <>
-              <div className="matchify-surface rounded-[20px] p-5">
-                <div className="flex flex-col items-center text-center">
-                  <Avatar className="h-28 w-28 border-[3px] border-background shadow-lg ring-1 ring-black/[0.04]">
-                    <AvatarImage src={menuAvatarSrc || undefined} />
-                    <AvatarFallback className="bg-amber-100 text-3xl">😊</AvatarFallback>
-                  </Avatar>
-                  <div className="mt-4 flex items-center justify-center gap-1.5 flex-wrap">
-                    <p className="text-[22px] font-semibold text-foreground">{displayName}</p>
-                    {me?.verified ? (
-                      <VerifiedTick size="lg" />
-                    ) : null}
+              <div className="matchify-surface flex items-center gap-3 rounded-[20px] border-white/0 bg-card/70 p-4 shadow-2xs">
+                <Avatar className="h-14 w-14 shrink-0 border-2 border-background ring-1 ring-black/[0.04]">
+                  <AvatarImage src={menuAvatarSrc || undefined} />
+                  <AvatarFallback className="bg-amber-100 text-lg">😊</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-[17px] font-semibold text-foreground">{displayName}</p>
+                    {me?.verified ? <VerifiedTick size="md" /> : null}
                   </div>
-                  {handle ? <p className="mt-1 text-[13px] font-medium text-muted-foreground">{handle}</p> : null}
+                  {handle ? (
+                    <p className="truncate text-[12px] font-medium text-muted-foreground">{handle}</p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-0.5">
                   <Button
-                    variant="outline"
-                    className="mt-4 h-9 rounded-full px-3 text-[13px]"
-                    onClick={() => setLocation("/profile")}
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-full text-foreground hover:bg-muted/60"
+                    onClick={() => setLocation("/profile/social/edit")}
+                    aria-label="Edit profile"
                   >
-                    View profile
+                    <Pencil className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                   </Button>
-
-                  <div className="mt-3 flex items-center justify-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 w-11 rounded-full px-0"
-                      onClick={() => setLocation("/profile/social/edit")}
-                      aria-label="Edit profile"
-                      title="Edit profile"
-                    >
-                      <Pencil className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 w-11 rounded-full px-0"
-                      onClick={() => setLocation("/settings")}
-                      aria-label="Settings"
-                      title="Settings"
-                    >
-                      <Settings className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-full text-foreground hover:bg-muted/60"
+                    aria-label="Share profile"
+                    onClick={() => {
+                      if (mode === "social") {
+                        setSocialShareOpen(true);
+                        return;
+                      }
+                      void shareMyPublicProfile();
+                    }}
+                  >
+                    <Share2 className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 rounded-full text-foreground hover:bg-muted/60"
+                        aria-label="Settings menu"
+                      >
+                        <Settings className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[min(100vw-2rem,17rem)]">
+                      <DropdownMenuItem onClick={() => setLocation("/settings")}>
+                        <Settings className="mr-2 h-4 w-4" strokeWidth={1.75} aria-hidden />
+                        Account &amp; privacy
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setLocation("/support")}>
+                        <Shield className="mr-2 h-4 w-4" strokeWidth={1.75} aria-hidden />
+                        Help &amp; support
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          void inviteFriends();
+                        }}
+                      >
+                        <Share2 className="mr-2 h-4 w-4" strokeWidth={1.75} aria-hidden />
+                        Invite friends
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => logout()}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" strokeWidth={1.75} aria-hidden />
+                        Logout
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
-              <MenuCard title="More">
-                {marriageMoreItems.map((item) => (
-                  <MenuItemRow key={item.id} {...item} />
-                ))}
-              </MenuCard>
+              {mode === "marriage" ? (
+                <>
+                  <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    How others see you
+                  </p>
+                  <ViewProfile embedded embedUserId={userId} />
+                </>
+              ) : null}
+              {mode === "social" ? <SocialSelfProfile menuEmbed /> : null}
+
+              {mode === "marriage" ? (
+                <MenuCard title="Account">
+                  {marriageItems.map((item) => (
+                    <MenuItemRow key={item.id} {...item} />
+                  ))}
+                </MenuCard>
+              ) : (
+                <MenuCard title="Social">
+                  <MenuItemRow
+                    label="Connections & privacy"
+                    sub="Followers, muted accounts, and blocked users."
+                    icon={SlidersHorizontal}
+                    onClick={() => setLocation("/settings/social")}
+                  />
+                </MenuCard>
+              )}
             </>
-          )}
-
-          {mode === "social" && (
-            <>
-              <div className="matchify-surface rounded-[20px] border-white/0 bg-card/70 p-5 shadow-2xs">
-                <div className="flex flex-col items-center text-center">
-                  <Avatar className="h-28 w-28 border-[3px] border-background shadow-lg ring-1 ring-black/[0.04]">
-                    <AvatarImage src={menuAvatarSrc || undefined} />
-                    <AvatarFallback className="bg-amber-100 text-3xl">😊</AvatarFallback>
-                  </Avatar>
-                  <div className="mt-4 flex items-center justify-center gap-1.5 flex-wrap">
-                    <p className="text-[22px] font-semibold text-foreground">{displayName}</p>
-                    {me?.verified ? (
-                      <VerifiedTick size="lg" />
-                    ) : null}
-                  </div>
-                  {handle ? <p className="mt-1 text-[13px] font-medium text-muted-foreground">{handle}</p> : null}
-                  <Button
-                    variant="outline"
-                    className="mt-4 h-9 rounded-full border-border/70 bg-transparent px-3 text-[13px] font-semibold text-foreground shadow-2xs hover:bg-muted/50"
-                    onClick={() => setLocation("/profile/social")}
-                  >
-                    View profile
-                  </Button>
-
-                  <div className="mt-3 flex items-center justify-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 w-11 rounded-full border-border/70 bg-card/60 px-0 text-foreground shadow-2xs hover:bg-muted/50"
-                      onClick={() => setLocation("/profile/social/edit")}
-                      aria-label="Edit profile"
-                      title="Edit profile"
-                    >
-                      <Pencil className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 w-11 rounded-full border-border/70 bg-card/60 px-0 text-foreground shadow-2xs hover:bg-muted/50"
-                      onClick={() => setLocation("/settings")}
-                      aria-label="Settings"
-                      title="Settings"
-                    >
-                      <Settings className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <MenuCard title="Social">
-                <MenuItemRow
-                  label="Connections & privacy"
-                  sub="Followers, muted accounts, and blocked users."
-                  icon={SlidersHorizontal}
-                  onClick={() => setLocation("/settings/social")}
-                />
-              </MenuCard>
-
-              <MenuCard title="More">
-                {marriageMoreItems.map((item) => (
-                  <MenuItemRow key={item.id} {...item} />
-                ))}
-              </MenuCard>
-            </>
-          )}
+          ) : null}
         </div>
 
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={logout}
-            className="w-full rounded-[20px] border border-border/70 bg-rose-500/10 px-4 py-3 text-left text-[15px] font-medium text-rose-700 dark:text-rose-400 shadow-2xs transition hover:bg-rose-500/15"
-          >
-            <span className="inline-flex items-center gap-2">
-              <LogOut className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Logout
-            </span>
-          </button>
-        </div>
+        {userId ? (
+          <ShareProfileDialog
+            open={socialShareOpen}
+            onOpenChange={setSocialShareOpen}
+            profileId={userId}
+            displayName={displayName}
+          />
+        ) : null}
       </div>
 
       <BottomNav active="menu" onNavigate={() => {}} />
@@ -407,33 +393,3 @@ function MenuItemRow({
   );
 }
 
-function MenuRow({
-  icon,
-  label,
-  sub,
-  dot,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  sub?: string;
-  dot?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-foreground/[0.03]"
-    >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[15px] font-medium text-foreground">{label}</span>
-          {dot && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-        </div>
-        {sub ? <p className="mt-1 text-[12px] font-normal text-muted-foreground leading-relaxed">{sub}</p> : null}
-      </div>
-      <div className="flex-shrink-0 text-muted-foreground">{icon}</div>
-    </button>
-  );
-}

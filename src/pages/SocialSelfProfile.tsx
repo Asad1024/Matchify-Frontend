@@ -124,18 +124,26 @@ function openGlobalSearch() {
   window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT));
 }
 
-export default function SocialSelfProfile() {
+/** Wouter `<Route />` may inject `params` / `match`; Menu passes `menuEmbed`. */
+type SocialSelfProfileProps = {
+  menuEmbed?: boolean;
+  params?: Record<string, string | undefined> | { [param: number]: string | undefined };
+  match?: unknown;
+};
+
+export default function SocialSelfProfile({ menuEmbed = false }: SocialSelfProfileProps = {}) {
   const [, setLocation] = useLocation();
   const { userId } = useCurrentUser();
   const { toast } = useToast();
   const [shareOpen, setShareOpen] = useState(false);
-  const [profileTab, setProfileTab] = useState("posts");
+  const [profileTab, setProfileTab] = useState(() => (menuEmbed ? "likes" : "posts"));
   const [socialGallery, setSocialGallery] = useState<string[]>([]);
 
   useEffect(() => {
+    if (menuEmbed) return;
     const t = consumeSocialProfileTab();
     if (t) setProfileTab(t);
-  }, []);
+  }, [menuEmbed]);
 
   const { data: user, isLoading } = useQuery<MeUser>({
     queryKey: [`/api/users/${userId}`],
@@ -457,141 +465,157 @@ export default function SocialSelfProfile() {
 
   if (!userId || isLoading || !user) {
     return (
-      <div className="min-h-screen bg-[hsl(var(--surface-2))] flex flex-col items-center justify-center pb-24">
+      <div
+        className={
+          menuEmbed
+            ? "flex min-h-[12rem] w-full flex-col items-center justify-center py-8"
+            : "flex min-h-screen flex-col items-center justify-center bg-[hsl(var(--surface-2))] pb-24"
+        }
+      >
         <LoadingState message="Loading profile…" showMascot />
-        <BottomNav active="menu" onNavigate={() => {}} />
+        {!menuEmbed ? <BottomNav active="menu" onNavigate={() => {}} /> : null}
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[hsl(var(--surface-2))] pb-28">
+    <div className={menuEmbed ? "w-full pb-2" : "min-h-screen bg-[hsl(var(--surface-2))] pb-28"}>
       <GlobalSearch />
 
-      <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 shadow-2xs backdrop-blur-xl">
-        <div className="mx-auto w-full max-w-lg px-3 py-2 pt-[max(0.35rem,env(safe-area-inset-top))]">
-          <div className="flex items-center justify-between gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="shrink-0 -ml-1 h-11 w-11 rounded-full text-foreground hover:bg-muted/60"
-              onClick={goBack}
-              aria-label="Back"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <div className="flex shrink-0 items-center gap-1">
+      {!menuEmbed ? (
+        <div className="sticky top-0 z-40 border-b border-border/70 bg-card/80 shadow-2xs backdrop-blur-xl">
+          <div className="mx-auto w-full max-w-lg px-3 py-2 pt-[max(0.35rem,env(safe-area-inset-top))]">
+            <div className="flex items-center justify-between gap-2">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 rounded-full text-foreground hover:bg-muted/60"
-                onClick={openGlobalSearch}
-                aria-label="Search"
+                className="shrink-0 -ml-1 h-11 w-11 rounded-full text-foreground hover:bg-muted/60"
+                onClick={goBack}
+                aria-label="Back"
               >
-                <Search className="h-5 w-5" />
+                <ArrowLeft className="h-6 w-6" />
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 rounded-full text-foreground hover:bg-muted/60"
-                onClick={() => setShareOpen(true)}
-                aria-label="Share profile"
-              >
-                <Share2 className="h-5 w-5" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full text-foreground hover:bg-muted/60"
+                  onClick={openGlobalSearch}
+                  aria-label="Search"
+                >
+                  <Search className="h-5 w-5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full text-foreground hover:bg-muted/60"
+                  onClick={() => setShareOpen(true)}
+                  aria-label="Share profile"
+                >
+                  <Share2 className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="mx-auto w-full max-w-lg">
-        <div className="px-3 pt-2">
-          <div className="matchify-surface p-5">
-            <div className="flex flex-col items-center text-center">
-              <Avatar className="h-24 w-24 border-[3px] border-background shadow-[0_10px_30px_-18px_rgba(15,23,42,0.28)] ring-1 ring-black/[0.04]">
-                <AvatarImage src={user.avatar || undefined} alt="" className="object-cover" />
-                <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-2xl font-semibold text-primary">
-                  {user.name?.slice(0, 2).toUpperCase() || "?"}
-                </AvatarFallback>
-              </Avatar>
+        {!menuEmbed ? (
+          <>
+            <div className="px-3 pt-2">
+              <div className="matchify-surface p-5">
+                <div className="flex flex-col items-center text-center">
+                  <Avatar className="h-24 w-24 border-[3px] border-background shadow-[0_10px_30px_-18px_rgba(15,23,42,0.28)] ring-1 ring-black/[0.04]">
+                    <AvatarImage src={user.avatar || undefined} alt="" className="object-cover" />
+                    <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-2xl font-semibold text-primary">
+                      {user.name?.slice(0, 2).toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
 
-              <h1 className="mt-4 truncate font-display text-[22px] font-bold leading-tight text-foreground">
-                {user.name}
-              </h1>
-              <p className="mt-1 truncate text-[13px] font-medium text-muted-foreground">@{user.username}</p>
+                  <h1 className="mt-4 truncate font-display text-[22px] font-bold leading-tight text-foreground">
+                    {user.name}
+                  </h1>
+                  <p className="mt-1 truncate text-[13px] font-medium text-muted-foreground">@{user.username}</p>
 
-              <div className="mt-4 grid w-full grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => openConnections("followers")}
-                  className="rounded-[18px] border border-border/70 bg-card/60 p-3 text-center shadow-2xs"
-                >
-                  <p className="text-[16px] font-semibold tabular-nums leading-none text-foreground">
-                    {statDisplay(followerCount)}
+                  <div className="mt-4 grid w-full grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openConnections("followers")}
+                      className="rounded-[18px] border border-border/70 bg-card/60 p-3 text-center shadow-2xs"
+                    >
+                      <p className="text-[16px] font-semibold tabular-nums leading-none text-foreground">
+                        {statDisplay(followerCount)}
+                      </p>
+                      <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        Followers
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openConnections("following")}
+                      className="rounded-[18px] border border-border/70 bg-card/60 p-3 text-center shadow-2xs"
+                    >
+                      <p className="text-[16px] font-semibold tabular-nums leading-none text-foreground">
+                        {statDisplay(followingCount)}
+                      </p>
+                      <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        Following
+                      </p>
+                    </button>
+                    <div className="rounded-[18px] border border-border/70 bg-card/60 p-3 text-center shadow-2xs">
+                      <p className="text-[16px] font-semibold tabular-nums leading-none text-foreground">
+                        {socialSummaryLoading ? "–" : String(myPosts.length)}
+                      </p>
+                      <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        Posts
+                      </p>
+                    </div>
+                  </div>
+
+                  {placeLine ? (
+                    <p className="mt-4 flex items-start gap-1.5 text-sm font-medium text-muted-foreground">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/70" strokeWidth={1.75} />
+                      <span className="leading-snug">{placeLine}</span>
+                    </p>
+                  ) : null}
+                  <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.75} />
+                    <span className="leading-snug">{joinedLabel}</span>
                   </p>
-                  <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Followers
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openConnections("following")}
-                  className="rounded-[18px] border border-border/70 bg-card/60 p-3 text-center shadow-2xs"
-                >
-                  <p className="text-[16px] font-semibold tabular-nums leading-none text-foreground">
-                    {statDisplay(followingCount)}
-                  </p>
-                  <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Following
-                  </p>
-                </button>
-                <div className="rounded-[18px] border border-border/70 bg-card/60 p-3 text-center shadow-2xs">
-                  <p className="text-[16px] font-semibold tabular-nums leading-none text-foreground">
-                    {socialSummaryLoading ? "–" : String(myPosts.length)}
-                  </p>
-                  <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Posts
-                  </p>
+
+                  <Button
+                    type="button"
+                    className="mt-5 h-11 w-full rounded-full text-[13px] font-semibold"
+                    onClick={() => setLocation("/profile/social/edit")}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Edit profile
+                  </Button>
                 </div>
               </div>
-
-              {placeLine ? (
-                <p className="mt-4 flex items-start gap-1.5 text-sm font-medium text-muted-foreground">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/70" strokeWidth={1.75} />
-                  <span className="leading-snug">{placeLine}</span>
-                </p>
-              ) : null}
-              <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-                <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.75} />
-                <span className="leading-snug">{joinedLabel}</span>
-              </p>
-
-              <Button
-                type="button"
-                className="mt-5 h-11 w-full rounded-full text-[13px] font-semibold"
-                onClick={() => setLocation("/profile/social/edit")}
-              >
-                <Pencil className="mr-2 h-4 w-4" strokeWidth={1.75} aria-hidden />
-                Edit profile
-              </Button>
             </div>
-          </div>
-        </div>
 
-        <div className="mt-4 space-y-3 px-3">
-          <div className="matchify-surface px-4 py-4 shadow-2xs">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">About</p>
-            <p className="mt-2 text-[15px] leading-[1.7] text-foreground/90">
-              {user.bio?.trim() || "Tell the community what you’re about — add a short bio from Edit."}
+            <div className="mt-4 space-y-3 px-3">
+              <div className="matchify-surface px-4 py-4 shadow-2xs">
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">About</p>
+                <p className="mt-2 text-[15px] leading-[1.7] text-foreground/90">
+                  {user.bio?.trim() || "Tell the community what you’re about — add a short bio from Edit."}
+                </p>
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        <div className={menuEmbed ? "mt-1 px-0 pb-2" : "mt-6 px-4 pb-4"}>
+          {menuEmbed ? (
+            <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Your activity
             </p>
-          </div>
-
-        </div>
-
-        <div className="mt-6 px-4 pb-4">
+          ) : null}
           <Tabs value={profileTab} onValueChange={setProfileTab} className="w-full">
             <TabsList className="flex h-auto w-full gap-1 overflow-x-auto rounded-full border border-border/60 bg-muted/50 p-1.5 shadow-inner scrollbar-hide dark:bg-muted/35">
               <TabsTrigger
@@ -1086,14 +1110,16 @@ export default function SocialSelfProfile() {
         </div>
       </div>
 
-      <ShareProfileDialog
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        profileId={user.id}
-        displayName={user.name}
-      />
+      {!menuEmbed ? (
+        <ShareProfileDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          profileId={user.id}
+          displayName={user.name}
+        />
+      ) : null}
 
-      <BottomNav active="menu" onNavigate={() => {}} />
+      {!menuEmbed ? <BottomNav active="menu" onNavigate={() => {}} /> : null}
     </div>
   );
 }
